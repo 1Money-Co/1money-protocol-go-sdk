@@ -1,1 +1,21 @@
 .idea
+# Go specific ignores
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+/bin/
+/pkg/
+/debug/
+/dist/
+
+# Go workspace file
+go.work
+
+# Debug files
+__debug_bin
+.DS_Store
