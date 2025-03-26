@@ -104,6 +104,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Data = &payload
+	//TODO more structures here
 	default:
 		t.Data = temp.Data
 	}
@@ -132,6 +133,46 @@ func GetTransactionByHash(hash string) (*Transaction, error) {
 	}
 
 	var result Transaction
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+type TransactionReceipt struct {
+	CheckpointHash   string `json:"checkpoint_hash"`
+	CheckpointNumber int    `json:"checkpoint_number"`
+	FeeUsed          int    `json:"fee_used"`
+	From             string `json:"from"`
+	Success          bool   `json:"success"`
+	To               string `json:"to"`
+	TokenAddress     string `json:"token_address"`
+	TransactionHash  string `json:"transaction_hash"`
+	TransactionIndex int    `json:"transaction_index"`
+}
+
+func GetTransactionReceipt(hash string) (*TransactionReceipt, error) {
+	gin.SetMode(gin.ReleaseMode)
+	client := &http.Client{}
+
+	url := fmt.Sprintf("https://api.testnet.1money.network/v1/transactions/receipt/by_hash?hash=%s", hash)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result TransactionReceipt
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
