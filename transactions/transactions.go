@@ -179,3 +179,35 @@ func GetTransactionReceipt(hash string) (*TransactionReceipt, error) {
 
 	return &result, nil
 }
+
+type EstimateFee struct {
+	Fee string `json:"fee"`
+}
+
+func GetEstimateFee(from, token, value string) (*EstimateFee, error) {
+	gin.SetMode(gin.ReleaseMode)
+	client := &http.Client{}
+
+	url := fmt.Sprintf("https://api.testnet.1money.network/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get estimate fee: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result EstimateFee
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}

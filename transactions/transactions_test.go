@@ -2,6 +2,7 @@ package transactions
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 )
 
@@ -109,4 +110,34 @@ func TestGetTransactionReceipt(t *testing.T) {
 	t.Logf("To: %s", result.To)
 	t.Logf("Success: %v", result.Success)
 	t.Logf("Fee Used: %d", result.FeeUsed)
+}
+
+func TestGetEstimateFee(t *testing.T) {
+	from := "0x29b0fbe6aa3174ed8cc5900e2f3d81c765c116c6"
+	token := "0x3c21b53619fdf08fbbe0615871a55fea79a9353b"
+	value := "1500000" // 1 token with 18 decimals
+
+	result, err := GetEstimateFee(from, token, value)
+	if err != nil {
+		t.Fatalf("GetEstimateFee failed: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Expected result to not be nil")
+	}
+
+	if result.Fee == "" {
+		t.Error("Expected Fee to be present")
+	}
+
+	fee := new(big.Int)
+	if _, ok := fee.SetString(result.Fee, 10); !ok {
+		t.Error("Expected Fee to be a valid number")
+	}
+
+	if fee.Cmp(big.NewInt(0)) <= 0 {
+		t.Error("Expected Fee to be positive")
+	}
+
+	t.Logf("Successfully estimated fee: %s", result.Fee)
 }
