@@ -1,0 +1,24 @@
+package utils
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+)
+
+// method to create a ethereum private key / public key pair
+// return private key and public key
+func TestCreateKeyPair(t *testing.T) {
+	privateKey, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKey := crypto.FromECDSAPub(&privateKey.PublicKey)
+	address := crypto.PubkeyToAddress(privateKey.PublicKey)
+	// print private key and public key
+	fmt.Println("Private Key:", common.BytesToHash(crypto.FromECDSA(privateKey)).Hex())
+	fmt.Println("Public Key:", common.BytesToHash(publicKey).Hex())
+	fmt.Println("Address:", address.Hex())
+}

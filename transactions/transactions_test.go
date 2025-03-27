@@ -141,3 +141,37 @@ func TestGetEstimateFee(t *testing.T) {
 
 	t.Logf("Successfully estimated fee: %s", result.Fee)
 }
+
+func TestSendPayment(t *testing.T) {
+	req := &PaymentRequest{
+		ChainID:   1,
+		Nonce:     1,
+		Recipient: "0x9E1E9688A44D058fF181Ed64ddFAFbBE5CC742Ab",
+		Token:     "0x9E1E9688A44D058fF181Ed64ddFAFbBE5CC742Ab",
+		Value:     "1500000000",
+		Signature: Signature{
+			R: "72956732934625920503481762689501378577921804342307439094906376029324416116949",
+			S: "29902520081700531224291681396692026253288382272435451874524203378285409371412",
+			V: 1,
+		},
+	}
+
+	result, err := SendPayment(req)
+	if err != nil {
+		t.Fatalf("SendPayment failed: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Expected result to not be nil")
+	}
+
+	if result.Hash == "" {
+		t.Error("Expected Hash to be present")
+	}
+
+	if result.Hash[:2] != "0x" {
+		t.Error("Expected Hash to start with 0x")
+	}
+
+	t.Logf("Successfully sent payment transaction: %s", result.Hash)
+}
