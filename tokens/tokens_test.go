@@ -13,7 +13,7 @@ import (
 
 func TestIssueToken(t *testing.T) {
 
-	var nonce uint64 = 2
+	var nonce uint64 = 1
 
 	payload := TokenIssuePayload{
 		ChainID:         1212101,
@@ -154,14 +154,14 @@ func TestUpdateTokenMetadata(t *testing.T) {
 
 func TestGrantMasterMintAuthority(t *testing.T) {
 
-	var nonce uint64 = 1
+	var nonce uint64 = 0
 
 	payload := TokenAuthorityPayload{
 		ChainID:          1212101,
 		Nonce:            nonce,
 		Action:           AuthorityActionGrant,
 		AuthorityType:    AuthorityTypeMintTokens,
-		AuthorityAddress: common.HexToAddress(config.MasterMintAuthorityAddress),
+		AuthorityAddress: common.HexToAddress(config.MintAuthorityAddress),
 		Token:            common.HexToAddress("0x14fbf92b1c0ca82900baeeb1483446a24281ab87"),
 		Value:            big.NewInt(1500000),
 	}
@@ -191,4 +191,44 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 	t.Log("\nGrant Authority Result:")
 	t.Log("=====================")
 	t.Logf("Transaction Hash:  %s", result.Hash)
+}
+
+func TestMintToken(t *testing.T) {
+	// Get the current nonce
+	var nonce uint64 = 0
+	// Create mint payload
+	payload := TokenMintPayload{
+		ChainID:   1212101,
+		Nonce:     nonce,
+		Recipient: common.HexToAddress(config.BurnAuthorityAddress),
+		Value:     big.NewInt(150000),
+		Token:     common.HexToAddress("0x14fbf92b1c0ca82900baeeb1483446a24281ab87"),
+	}
+
+	// Sign the payload
+	privateKey := strings.TrimPrefix(config.MintAuthorityPrivateKey, "0x")
+	signature, err := sign.Message(payload, privateKey)
+	if err != nil {
+		t.Fatalf("Failed to generate signature: %v", err)
+	}
+
+	// Create mint request
+	req := &MintTokenRequest{
+		TokenMintPayload: payload,
+		Signature: Signature{
+			R: signature.R,
+			S: signature.S,
+			V: int(signature.V),
+		},
+	}
+
+	// Send mint request
+	result, err := MintToken(req)
+	if err != nil {
+		t.Fatalf("MintToken failed: %v", err)
+	}
+
+	t.Log("\nMint Token Result:")
+	t.Log("=================")
+	t.Logf("Transaction Hash: %s", result.Hash)
 }

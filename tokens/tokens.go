@@ -121,6 +121,23 @@ type GrantAuthorityResponse struct {
 	Hash string `json:"hash"`
 }
 
+type TokenMintPayload struct {
+	ChainID   uint64         `json:"chain_id"`
+	Nonce     uint64         `json:"nonce"`
+	Recipient common.Address `json:"recipient"`
+	Value     *big.Int       `json:"value"`
+	Token     common.Address `json:"token"`
+}
+
+type MintTokenRequest struct {
+	TokenMintPayload
+	Signature Signature `json:"signature"`
+}
+
+type MintTokenResponse struct {
+	Hash string `json:"hash"`
+}
+
 func IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
 	gin.SetMode(gin.ReleaseMode)
 	client := &http.Client{}
@@ -248,6 +265,41 @@ func GrantAuthority(req *TokenAuthorityRequest) (*GrantAuthorityResponse, error)
 	}
 
 	var result GrantAuthorityResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+func MintToken(req *MintTokenRequest) (*MintTokenResponse, error) {
+	gin.SetMode(gin.ReleaseMode)
+	client := &http.Client{}
+
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	url := config.BaseAPIURL + "/v1/tokens/mint"
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mint token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var result MintTokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}

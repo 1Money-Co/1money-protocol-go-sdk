@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 
 	"go-1money/config"
@@ -215,12 +217,16 @@ func GetEstimateFee(from, token, value string) (*EstimateFee, error) {
 	return &result, nil
 }
 
+type PaymentPayload struct {
+	ChainID   uint64         `json:"chain_id"`
+	Nonce     uint64         `json:"nonce"`
+	Recipient common.Address `json:"recipient"`
+	Value     *big.Int       `json:"value"`
+	Token     common.Address `json:"token"`
+}
+
 type PaymentRequest struct {
-	ChainID   int       `json:"chain_id"`
-	Nonce     int       `json:"nonce"`
-	Recipient string    `json:"recipient"`
-	Token     string    `json:"token"`
-	Value     string    `json:"value"`
+	PaymentPayload
 	Signature Signature `json:"signature"`
 }
 

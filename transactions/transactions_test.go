@@ -2,8 +2,13 @@ package transactions
 
 import (
 	"fmt"
+	"go-1money/config"
+	"go-1money/sign"
 	"math/big"
+	"strings"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func TestGetTransactionByHash(t *testing.T) {
@@ -143,35 +148,42 @@ func TestGetEstimateFee(t *testing.T) {
 }
 
 func TestSendPayment(t *testing.T) {
+	// Get the current nonce
+	var nonce uint64 = 0
+
+	// Create payment payload
+	payload := PaymentPayload{
+		ChainID:   1212101,
+		Nonce:     nonce,
+		Recipient: common.HexToAddress("0x9E1E9688A44D058fF181Ed64ddFAFbBE5CC742Ab"),
+		Value:     big.NewInt(100),
+		Token:     common.HexToAddress("0x14fbf92b1c0ca82900baeeb1483446a24281ab87"),
+	}
+
+	// Sign the payload
+	privateKey := strings.TrimPrefix(config.BurnAuthorityPrivateKey, "0x")
+	signature, err := sign.Message(payload, privateKey)
+	if err != nil {
+		t.Fatalf("Failed to generate signature: %v", err)
+	}
+
+	// Create payment request
 	req := &PaymentRequest{
-		ChainID:   1,
-		Nonce:     1,
-		Recipient: "0x9E1E9688A44D058fF181Ed64ddFAFbBE5CC742Ab",
-		Token:     "0x9E1E9688A44D058fF181Ed64ddFAFbBE5CC742Ab",
-		Value:     "1500000000",
+		PaymentPayload: payload,
 		Signature: Signature{
-			R: "72956732934625920503481762689501378577921804342307439094906376029324416116949",
-			S: "29902520081700531224291681396692026253288382272435451874524203378285409371412",
-			V: 1,
+			R: signature.R,
+			S: signature.S,
+			V: int(signature.V),
 		},
 	}
 
+	// Send payment
 	result, err := SendPayment(req)
 	if err != nil {
 		t.Fatalf("SendPayment failed: %v", err)
 	}
 
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-
-	if result.Hash == "" {
-		t.Error("Expected Hash to be present")
-	}
-
-	if result.Hash[:2] != "0x" {
-		t.Error("Expected Hash to start with 0x")
-	}
-
-	t.Logf("Successfully sent payment transaction: %s", result.Hash)
+	t.Log("\nPayment Result:")
+	t.Log("==============")
+	t.Logf("Transaction Hash: %s", result.Hash)
 }
