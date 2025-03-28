@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"go-1money/config"
 )
 
 type CheckpointNumber struct {
@@ -55,7 +57,7 @@ func GetCheckpointNumber() (*CheckpointNumber, error) {
 	gin.SetMode(gin.ReleaseMode)
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", "https://api.testnet.1money.network/v1/checkpoints/number", nil)
+	req, err := http.NewRequest("GET", config.BaseAPIURL+"/v1/checkpoints/number", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -82,7 +84,7 @@ func GetCheckpointByNumber(number int, full bool) (*CheckpointDetail, error) {
 	gin.SetMode(gin.ReleaseMode)
 	client := &http.Client{}
 
-	url := fmt.Sprintf("https://api.testnet.1money.network/v1/checkpoints/by_number?number=%d&full=%v", number, full)
+	url := fmt.Sprintf(config.BaseAPIURL+"/v1/checkpoints/by_number?number=%d&full=%v", number, full)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

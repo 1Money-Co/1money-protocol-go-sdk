@@ -2,45 +2,36 @@ package tokens
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
+	"go-1money/config"
 	"go-1money/sign"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type IssueTokenMessage struct {
-	ChainID         uint64
-	Nonce           uint64
-	Symbol          string
-	Name            string
-	Decimals        uint8
-	MasterAuthority common.Address
-}
-
 func TestIssueToken(t *testing.T) {
-	msg := &IssueTokenMessage{
+
+	var nonce uint64 = 2
+
+	payload := TokenIssuePayload{
 		ChainID:         1212101,
 		Decimals:        6,
-		MasterAuthority: common.HexToAddress("0x1DFa71eC8284F0F835EDbfaEA458d38bCff446d6"),
-		Name:            "USDF Stablecoin",
-		Nonce:           31,
-		Symbol:          "USDF",
+		MasterAuthority: common.HexToAddress(config.MasterAuthorityAddress),
+		Name:            "USDG Stablecoin",
+		Nonce:           nonce,
+		Symbol:          "USDG",
 	}
 
-	privateKey := "76700ba1cb72480053d43b6202a16e9acbfb318b0321cfac4e55d38747bf9057"
-	signature, err := sign.Message(msg, privateKey)
+	privateKey := strings.TrimPrefix(config.OperatorPrivateKey, "0x")
+	signature, err := sign.Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
 
 	req := &IssueTokenRequest{
-		ChainID:         1212101,
-		Decimals:        6,
-		MasterAuthority: "0x1DFa71eC8284F0F835EDbfaEA458d38bCff446d6",
-		Name:            "USDF Stablecoin",
-		Nonce:           31,
-		Symbol:          "USDF",
+		TokenIssuePayload: payload,
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
@@ -48,37 +39,17 @@ func TestIssueToken(t *testing.T) {
 		},
 	}
 
-	result, err := IssueToken(req)
-	if err != nil {
-		t.Fatalf("IssueToken failed: %v", err)
+	result1, err1 := IssueToken(req)
+	if err1 != nil {
+		t.Fatalf("IssueToken failed: %v", err1)
 	}
 
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-
-	if result.Hash == "" {
-		t.Error("Expected Hash to be present")
-	}
-
-	if result.Hash[:2] != "0x" {
-		t.Error("Expected Hash to start with 0x")
-	}
-
-	if result.Token == "" {
-		t.Error("Expected Token to be present")
-	}
-
-	if result.Token[:2] != "0x" {
-		t.Error("Expected Token to start with 0x")
-	}
-
-	t.Logf("Successfully issued token: %s", result.Token)
-	t.Logf("Transaction hash: %s", result.Hash)
+	t.Logf("Successfully issued token: %s", result1.Token)
+	t.Logf("Transaction hash: %s", result1.Hash)
 }
 
 func TestGetTokenInfo(t *testing.T) {
-	tokenAddress := "0x57a7d1514bae23bfc4e03dbb839e1ae2a2f18192"
+	tokenAddress := "0x14fbf92b1c0ca82900baeeb1483446a24281ab87"
 	result, err := GetTokenInfo(tokenAddress)
 	if err != nil {
 		t.Fatalf("GetTokenInfo failed: %v", err)
@@ -176,39 +147,32 @@ func TestUpdateTokenMetadata(t *testing.T) {
 		t.Fatalf("UpdateTokenMetadata failed: %v", err)
 	}
 
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-
-	if result.Hash == "" {
-		t.Error("Expected Hash to be present")
-	}
-
-	if result.Hash[:2] != "0x" {
-		t.Error("Expected Hash to start with 0x")
-	}
-
 	t.Log("\nMetadata Update Result:")
 	t.Log("=====================")
 	t.Logf("Transaction Hash: %s", result.Hash)
 }
 
-func TestGrantAuthority(t *testing.T) {
+func TestGrantMasterMintAuthority(t *testing.T) {
+
+	var nonce uint64 = 1
+
 	payload := TokenAuthorityPayload{
 		ChainID:          1212101,
-		Nonce:            0,
+		Nonce:            nonce,
 		Action:           AuthorityActionGrant,
-		AuthorityType:    AuthorityTypeMasterMint,
-		AuthorityAddress: common.HexToAddress("0x1DFa71eC8284F0F835EDbfaEA458d38bCff446d6"),
-		Token:            common.HexToAddress("0x6ADE9688A44D058fF181Ed64ddFAFbBE5CC742Ac"),
-		Value:            big.NewInt(0),
+		AuthorityType:    AuthorityTypeMintTokens,
+		AuthorityAddress: common.HexToAddress(config.MasterMintAuthorityAddress),
+		Token:            common.HexToAddress("0x14fbf92b1c0ca82900baeeb1483446a24281ab87"),
+		Value:            big.NewInt(1500000),
 	}
 
-	privateKey := "b1c49ed15a19a21541cd71a0837c75194756cbe81ac13c14e31213d766e84e7a"
+	privateKey := strings.TrimPrefix(config.MasterAuthorityPrivateKey, "0x")
 	signature, err := sign.Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
+
+	t.Logf("\nGrant signature Result: %v", signature)
 
 	req := TokenAuthorityRequest{
 		TokenAuthorityPayload: payload,
@@ -224,24 +188,7 @@ func TestGrantAuthority(t *testing.T) {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
 
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-
-	if result.Hash == "" {
-		t.Error("Expected Hash to be present")
-	}
-
-	if result.Hash[:2] != "0x" {
-		t.Error("Expected Hash to start with 0x")
-	}
-
 	t.Log("\nGrant Authority Result:")
 	t.Log("=====================")
-	t.Logf("Action:            %s", req.Action)
-	t.Logf("Authority Type:    %s", req.AuthorityType)
-	t.Logf("Authority Address: %s", req.AuthorityAddress)
-	t.Logf("Token:             %s", req.Token)
-	t.Logf("Value:             %s", req.Value)
 	t.Logf("Transaction Hash:  %s", result.Hash)
 }

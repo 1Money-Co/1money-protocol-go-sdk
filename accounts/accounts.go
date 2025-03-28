@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"go-1money/config"
 )
 
 type TokenAccount struct {
@@ -15,14 +17,14 @@ type TokenAccount struct {
 }
 
 type AccountNonce struct {
-	Nonce int `json:"nonce"`
+	Nonce uint64 `json:"nonce"`
 }
 
 func GetTokenAccount(address, token string) (*TokenAccount, error) {
 	gin.SetMode(gin.ReleaseMode)
 	client := &http.Client{}
 
-	url := fmt.Sprintf("https://api.testnet.1money.network/v1/accounts/token_account?address=%s&token=%s", address, token)
+	url := fmt.Sprintf(config.BaseAPIURL+"/v1/accounts/token_account?address=%s&token=%s", address, token)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -50,7 +52,7 @@ func GetAccountNonce(address string) (*AccountNonce, error) {
 	gin.SetMode(gin.ReleaseMode)
 	client := &http.Client{}
 
-	url := fmt.Sprintf("https://api.testnet.1money.network/v1/accounts/nonce?address=%s", address)
+	url := fmt.Sprintf(config.BaseAPIURL+"/v1/accounts/nonce?address=%s", address)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

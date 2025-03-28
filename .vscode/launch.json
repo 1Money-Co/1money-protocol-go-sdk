@@ -7,7 +7,8 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
-            "output": "${workspaceFolder}/debug/__debug_bin"
+            "output": "${workspaceFolder}/debug/__debug_bin",
+            "buildFlags": "-count=1"
         },
         {
             "name": "Launch Current File",
@@ -15,7 +16,8 @@
             "request": "launch",
             "mode": "auto",
             "program": "${file}",
-            "output": "${workspaceFolder}/debug/__debug_bin"
+            "output": "${workspaceFolder}/debug/__debug_bin",
+            "buildFlags": "-count=1"
         }
     ]
-} 
+}
