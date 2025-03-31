@@ -13,15 +13,15 @@ import (
 
 func TestIssueToken(t *testing.T) {
 
-	var nonce uint64 = 1
+	var nonce uint64 = 3
 
 	payload := TokenIssuePayload{
 		ChainID:         1212101,
 		Decimals:        6,
 		MasterAuthority: common.HexToAddress(config.MasterAuthorityAddress),
-		Name:            "USDG Stablecoin",
+		Name:            "Palisade Testing Stablecoin",
 		Nonce:           nonce,
-		Symbol:          "USDG",
+		Symbol:          "USDPX",
 	}
 
 	privateKey := strings.TrimPrefix(config.OperatorPrivateKey, "0x")
@@ -49,7 +49,7 @@ func TestIssueToken(t *testing.T) {
 }
 
 func TestGetTokenInfo(t *testing.T) {
-	tokenAddress := "0x14fbf92b1c0ca82900baeeb1483446a24281ab87"
+	tokenAddress := "0x77be73b6e864221d2746b70982c299f60fd840cc"
 	result, err := GetTokenInfo(tokenAddress)
 	if err != nil {
 		t.Fatalf("GetTokenInfo failed: %v", err)
@@ -162,7 +162,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 		Action:           AuthorityActionGrant,
 		AuthorityType:    AuthorityTypeMintTokens,
 		AuthorityAddress: common.HexToAddress(config.MintAuthorityAddress),
-		Token:            common.HexToAddress("0x14fbf92b1c0ca82900baeeb1483446a24281ab87"),
+		Token:            common.HexToAddress("0x91f66cb6c9b56c7e3bcdb9eff9da13da171e89f4"),
 		Value:            big.NewInt(1500000),
 	}
 
@@ -202,7 +202,7 @@ func TestMintToken(t *testing.T) {
 		Nonce:     nonce,
 		Recipient: common.HexToAddress(config.BurnAuthorityAddress),
 		Value:     big.NewInt(150000),
-		Token:     common.HexToAddress("0x14fbf92b1c0ca82900baeeb1483446a24281ab87"),
+		Token:     common.HexToAddress("0x91f66cb6c9b56c7e3bcdb9eff9da13da171e89f4"),
 	}
 
 	// Sign the payload

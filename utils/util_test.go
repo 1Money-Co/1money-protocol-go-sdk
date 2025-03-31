@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"testing"
 
@@ -26,4 +27,28 @@ func TestCreateKeyPair(t *testing.T) {
 		fmt.Println("Address:", address.Hex())
 		fmt.Println()
 	}
+}
+
+func TestRecoverAddressFromPrivateKey(t *testing.T) {
+	// Test private key (remove "0x" prefix if present)
+	privateKeyHex := "1a92ee8541aa114414b1a747a5072495cae1bc310012e26d098e554d4d50c951"
+
+	// Convert hex string to ECDSA private key
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		t.Fatalf("Failed to convert hex to ECDSA: %v", err)
+	}
+
+	// Get public key
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		t.Fatal("Failed to get public key")
+	}
+
+	// Get address
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	fmt.Println("Private Key:", "0x"+privateKeyHex)
+	fmt.Println("Address:", address.Hex())
 }

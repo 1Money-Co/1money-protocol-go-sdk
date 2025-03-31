@@ -1,11 +1,11 @@
 package config
 
 const (
-	//BaseAPIURL = "https://api.testnet.1money.network"
-	BaseAPIURL = "http://127.0.0.1:18555"
+	BaseAPIURL = "https://api.testnet.1money.network"
+	// BaseAPIURL = "http://127.0.0.1:18555"
 
-	OperatorPrivateKey = "0x76700ba1cb72480053d43b6202a16e9acbfb318b0321cfac4e55d38747bf9057"
-	OperratorAddress   = "0xeFd86F9EA9b981edA887f984C7883481Ec665b65"
+	OperatorPrivateKey = "0x1a92ee8541aa114414b1a747a5072495cae1bc310012e26d098e554d4d50c951"
+	OperratorAddress   = "0xA634dfba8c7550550817898bC4820cD10888Aac5"
 
 	MasterAuthorityPrivateKey = "0xb1c49ed15a19a21541cd71a0837c75194756cbe81ac13c14e31213d766e84e7a"
 	MasterAuthorityPublicKey  = "0x22b8a59ae8f55f3955f356118374fcdde5a6e0143a30a2e80a154877bc3e9a1b"

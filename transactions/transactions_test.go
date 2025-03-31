@@ -157,7 +157,7 @@ func TestSendPayment(t *testing.T) {
 		Nonce:     nonce,
 		Recipient: common.HexToAddress("0x9E1E9688A44D058fF181Ed64ddFAFbBE5CC742Ab"),
 		Value:     big.NewInt(100),
-		Token:     common.HexToAddress("0x14fbf92b1c0ca82900baeeb1483446a24281ab87"),
+		Token:     common.HexToAddress("0x91f66cb6c9b56c7e3bcdb9eff9da13da171e89f4"),
 	}
 
 	// Sign the payload
