@@ -1,4 +1,4 @@
-package checkpoints
+package api
 
 import (
 	"testing"

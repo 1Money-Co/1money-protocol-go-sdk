@@ -1,4 +1,4 @@
-package accounts
+package api
 
 import (
 	"testing"
@@ -39,10 +39,6 @@ func TestGetAccountNonce(t *testing.T) {
 
 	if result == nil {
 		t.Fatal("Expected result to not be nil")
-	}
-
-	if result.Nonce < 0 {
-		t.Errorf("Expected nonce to be non-negative, got %d", result.Nonce)
 	}
 
 	t.Logf("Successfully retrieved account nonce: %d", result.Nonce)

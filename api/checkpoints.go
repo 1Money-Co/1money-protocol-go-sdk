@@ -1,4 +1,4 @@
-package checkpoints
+package api
 
 import (
 	"encoding/json"
@@ -14,30 +14,10 @@ type CheckpointNumber struct {
 	Number int `json:"number"`
 }
 
-type Signature struct {
-	R string `json:"r"`
-	S string `json:"s"`
-	V string `json:"v"`
-}
-
 type TokenData struct {
 	Decimals        string `json:"decimals"`
 	MasterAuthority string `json:"master_authority"`
 	Symbol          string `json:"symbol"`
-}
-
-type Transaction struct {
-	Data             *TokenData `json:"data,omitempty"`
-	TransactionType  string     `json:"transaction_type,omitempty"`
-	ChainID          string     `json:"chain_id,omitempty"`
-	CheckpointHash   string     `json:"checkpoint_hash,omitempty"`
-	CheckpointNumber string     `json:"checkpoint_number,omitempty"`
-	Fee              string     `json:"fee,omitempty"`
-	From             string     `json:"from,omitempty"`
-	Hash             string     `json:"hash,omitempty"`
-	Nonce            string     `json:"nonce,omitempty"`
-	Signature        *Signature `json:"signature,omitempty"`
-	TransactionIndex string     `json:"transaction_index,omitempty"`
 }
 
 type CheckpointDetail struct {

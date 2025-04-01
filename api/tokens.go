@@ -1,4 +1,4 @@
-package tokens
+package api
 
 import (
 	"bytes"
@@ -12,12 +12,6 @@ import (
 
 	"go-1money/config"
 )
-
-type Signature struct {
-	R string `json:"r"`
-	S string `json:"s"`
-	V int    `json:"v"`
-}
 
 type TokenIssuePayload struct {
 	ChainID         uint64         `json:"chain_id"`

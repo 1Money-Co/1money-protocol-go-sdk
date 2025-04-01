@@ -1,9 +1,8 @@
-package transactions
+package api
 
 import (
 	"fmt"
 	"go-1money/config"
-	"go-1money/sign"
 	"math/big"
 	"strings"
 	"testing"
@@ -162,7 +161,7 @@ func TestSendPayment(t *testing.T) {
 
 	// Sign the payload
 	privateKey := strings.TrimPrefix(config.BurnAuthorityPrivateKey, "0x")
-	signature, err := sign.Message(payload, privateKey)
+	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -173,7 +172,7 @@ func TestSendPayment(t *testing.T) {
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
-			V: int(signature.V),
+			V: uint64(signature.V),
 		},
 	}
 

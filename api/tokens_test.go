@@ -1,12 +1,10 @@
-package tokens
+package api
 
 import (
+	"go-1money/config"
 	"math/big"
 	"strings"
 	"testing"
-
-	"go-1money/config"
-	"go-1money/sign"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -25,7 +23,7 @@ func TestIssueToken(t *testing.T) {
 	}
 
 	privateKey := strings.TrimPrefix(config.OperatorPrivateKey, "0x")
-	signature, err := sign.Message(payload, privateKey)
+	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -35,7 +33,7 @@ func TestIssueToken(t *testing.T) {
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
-			V: int(signature.V),
+			V: uint64(signature.V),
 		},
 	}
 
@@ -123,7 +121,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 	}
 
 	privateKey := "b1c49ed15a19a21541cd71a0837c75194756cbe81ac13c14e31213d766e84e7a"
-	signature, err := sign.Message(msg, privateKey)
+	signature, err := Message(msg, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -138,7 +136,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
-			V: int(signature.V),
+			V: uint64(signature.V),
 		},
 	}
 
@@ -167,7 +165,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 	}
 
 	privateKey := strings.TrimPrefix(config.MasterAuthorityPrivateKey, "0x")
-	signature, err := sign.Message(payload, privateKey)
+	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -179,7 +177,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
-			V: int(signature.V),
+			V: uint64(signature.V),
 		},
 	}
 
@@ -207,7 +205,7 @@ func TestMintToken(t *testing.T) {
 
 	// Sign the payload
 	privateKey := strings.TrimPrefix(config.MintAuthorityPrivateKey, "0x")
-	signature, err := sign.Message(payload, privateKey)
+	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -218,7 +216,7 @@ func TestMintToken(t *testing.T) {
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
-			V: int(signature.V),
+			V: uint64(signature.V),
 		},
 	}
 

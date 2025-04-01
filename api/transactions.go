@@ -1,4 +1,4 @@
-package transactions
+package api
 
 import (
 	"bytes"
@@ -31,19 +31,6 @@ type TokenTransferPayload struct {
 	Token *Address `json:"token"`
 }
 
-// TokenMintPayload represents token minting data
-type TokenMintPayload struct {
-	Value   string  `json:"value"`
-	Address Address `json:"address"`
-	Token   Address `json:"token"`
-}
-
-type Signature struct {
-	R string `json:"r"`
-	S string `json:"s"`
-	V int    `json:"v"`
-}
-
 type Transaction struct {
 	TransactionType  string      `json:"transaction_type"`
 	Data             interface{} `json:"data"`
@@ -56,65 +43,6 @@ type Transaction struct {
 	Nonce            int         `json:"nonce"`
 	Signature        *Signature  `json:"signature"`
 	TransactionIndex int         `json:"transaction_index"`
-}
-
-// UnmarshalJSON implements custom JSON unmarshaling
-func (t *Transaction) UnmarshalJSON(data []byte) error {
-	type TempTransaction struct {
-		TransactionType  string          `json:"transaction_type"`
-		Data             json.RawMessage `json:"data"`
-		ChainID          int             `json:"chain_id"`
-		CheckpointHash   string          `json:"checkpoint_hash"`
-		CheckpointNumber int             `json:"checkpoint_number"`
-		Fee              int             `json:"fee"`
-		From             string          `json:"from"`
-		Hash             string          `json:"hash"`
-		Nonce            int             `json:"nonce"`
-		Signature        *Signature      `json:"signature"`
-		TransactionIndex int             `json:"transaction_index"`
-	}
-
-	var temp TempTransaction
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
-	}
-
-	t.TransactionType = temp.TransactionType
-	t.ChainID = temp.ChainID
-	t.CheckpointHash = temp.CheckpointHash
-	t.CheckpointNumber = temp.CheckpointNumber
-	t.Fee = temp.Fee
-	t.From = temp.From
-	t.Hash = temp.Hash
-	t.Nonce = temp.Nonce
-	t.Signature = temp.Signature
-	t.TransactionIndex = temp.TransactionIndex
-
-	switch temp.TransactionType {
-	case "TokenCreate":
-		var payload TokenCreatePayload
-		if err := json.Unmarshal(temp.Data, &payload); err != nil {
-			return err
-		}
-		t.Data = &payload
-	case "TokenTransfer":
-		var payload TokenTransferPayload
-		if err := json.Unmarshal(temp.Data, &payload); err != nil {
-			return err
-		}
-		t.Data = &payload
-	case "TokenMint":
-		var payload TokenMintPayload
-		if err := json.Unmarshal(temp.Data, &payload); err != nil {
-			return err
-		}
-		t.Data = &payload
-	//TODO more structures here
-	default:
-		t.Data = temp.Data
-	}
-
-	return nil
 }
 
 func GetTransactionByHash(hash string) (*Transaction, error) {
