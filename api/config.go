@@ -1,7 +1,5 @@
 package api
 
-var ABaseAPIURL = "https://api.testnet.1money.network"
-
 const (
 	BaseAPIURL = "https://api.testnet.1money.network"
 	// BaseAPIURL = "http://127.0.0.1:18555"

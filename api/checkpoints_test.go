@@ -1,13 +1,11 @@
-package tests
+package api
 
 import (
 	"testing"
-
-	"go-1money/api"
 )
 
 func TestGetCheckpointNumber(t *testing.T) {
-	result, err := api.GetCheckpointNumber()
+	result, err := GetCheckpointNumber()
 	if err != nil {
 		t.Fatalf("GetCheckpointNumber failed: %v", err)
 	}
@@ -27,7 +25,7 @@ func TestGetCheckpointNumber(t *testing.T) {
 }
 
 func TestGetCheckpointByNumber(t *testing.T) {
-	result, err := api.GetCheckpointByNumber(900, false)
+	result, err := GetCheckpointByNumber(900, false)
 	if err != nil {
 		t.Fatalf("GetCheckpointByNumber failed: %v", err)
 	}
