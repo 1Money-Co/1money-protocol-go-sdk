@@ -14,13 +14,13 @@ func TestIssueToken(t *testing.T) {
 	payload := TokenIssuePayload{
 		ChainID:         1212101,
 		Decimals:        6,
-		MasterAuthority: common.HexToAddress(MasterAuthorityAddress),
+		MasterAuthority: common.HexToAddress(TestMasterAuthorityAddress),
 		Name:            "Palisade Testing Stablecoin",
 		Nonce:           nonce,
 		Symbol:          "USDPX",
 	}
 
-	privateKey := strings.TrimPrefix(OperatorPrivateKey, "0x")
+	privateKey := strings.TrimPrefix(TestOperatorPrivateKey, "0x")
 	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
@@ -157,12 +157,12 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 		Nonce:            nonce,
 		Action:           AuthorityActionGrant,
 		AuthorityType:    AuthorityTypeMintTokens,
-		AuthorityAddress: common.HexToAddress(MintAuthorityAddress),
+		AuthorityAddress: common.HexToAddress(TestMintAuthorityAddress),
 		Token:            common.HexToAddress("0x91f66cb6c9b56c7e3bcdb9eff9da13da171e89f4"),
 		Value:            big.NewInt(1500000),
 	}
 
-	privateKey := strings.TrimPrefix(MasterAuthorityPrivateKey, "0x")
+	privateKey := strings.TrimPrefix(TestMasterAuthorityPrivateKey, "0x")
 	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
@@ -196,13 +196,13 @@ func TestMintToken(t *testing.T) {
 	payload := TokenMintPayload{
 		ChainID:   1212101,
 		Nonce:     nonce,
-		Recipient: common.HexToAddress(BurnAuthorityAddress),
+		Recipient: common.HexToAddress(TestBurnAuthorityAddress),
 		Value:     big.NewInt(150000),
 		Token:     common.HexToAddress("0x91f66cb6c9b56c7e3bcdb9eff9da13da171e89f4"),
 	}
 
 	// Sign the payload
-	privateKey := strings.TrimPrefix(MintAuthorityPrivateKey, "0x")
+	privateKey := strings.TrimPrefix(TestMintAuthorityPrivateKey, "0x")
 	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)

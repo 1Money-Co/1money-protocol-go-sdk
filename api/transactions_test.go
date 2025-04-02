@@ -159,7 +159,7 @@ func TestSendPayment(t *testing.T) {
 	}
 
 	// Sign the payload
-	privateKey := strings.TrimPrefix(BurnAuthorityPrivateKey, "0x")
+	privateKey := strings.TrimPrefix(TestBurnAuthorityPrivateKey, "0x")
 	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
