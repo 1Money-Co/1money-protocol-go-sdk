@@ -9,8 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
-
-	"go-1money/config"
 )
 
 type TokenIssuePayload struct {
@@ -141,7 +139,7 @@ func IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := config.BaseAPIURL + "/v1/tokens/issue"
+	url := BaseAPIURL + "/v1/tokens/issue"
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -171,7 +169,7 @@ func GetTokenInfo(tokenAddress string) (*TokenInfo, error) {
 	gin.SetMode(gin.ReleaseMode)
 	client := &http.Client{}
 
-	url := fmt.Sprintf(config.BaseAPIURL+"/v1/tokens/token_metadata?token=%s", tokenAddress)
+	url := fmt.Sprintf(BaseAPIURL+"/v1/tokens/token_metadata?token=%s", tokenAddress)
 	println("access url: ", url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -205,7 +203,7 @@ func UpdateTokenMetadata(req *UpdateMetadataRequest) (*UpdateMetadataResponse, e
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := config.BaseAPIURL + "/v1/tokens/update_metadata"
+	url := BaseAPIURL + "/v1/tokens/update_metadata"
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -240,7 +238,7 @@ func GrantAuthority(req *TokenAuthorityRequest) (*GrantAuthorityResponse, error)
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := config.BaseAPIURL + "/v1/tokens/grant_authority"
+	url := BaseAPIURL + "/v1/tokens/grant_authority"
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -275,7 +273,7 @@ func MintToken(req *MintTokenRequest) (*MintTokenResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := config.BaseAPIURL + "/v1/tokens/mint"
+	url := BaseAPIURL + "/v1/tokens/mint"
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

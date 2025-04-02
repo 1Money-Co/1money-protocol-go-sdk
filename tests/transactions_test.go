@@ -1,13 +1,14 @@
-package api
+package tests
 
 import (
 	"fmt"
-	"go-1money/config"
 	"math/big"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"go-1money/api"
 )
 
 func TestGetTransactionByHash(t *testing.T) {
@@ -27,7 +28,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	// for create/mint related transaction, can check cp=1 related transactions to get the hash to test
 	hash := "0x485667dd311b9ef9d966268672483246c2ffda4eeb52ea1ee59c1ed7cdeb407b"
 
-	result, err := GetTransactionByHash(hash)
+	result, err := api.GetTransactionByHash(hash)
 	if err != nil {
 		t.Fatalf("GetTransactionByHash failed: %v", err)
 	}
@@ -55,15 +56,15 @@ func TestGetTransactionByHash(t *testing.T) {
 
 	switch result.TransactionType {
 	case "TokenCreate":
-		if tokenData, ok := result.Data.(*TokenCreatePayload); ok {
+		if tokenData, ok := result.Data.(*api.TokenCreatePayload); ok {
 			fmt.Printf("Token Symbol: %s\n", tokenData.Symbol)
 		}
 	case "TokenTransfer":
-		if transferData, ok := result.Data.(*TokenTransferPayload); ok {
+		if transferData, ok := result.Data.(*api.TokenTransferPayload); ok {
 			fmt.Printf("Transfer Amount: %s\n", transferData.Value)
 		}
 	case "TokenMint":
-		if mintData, ok := result.Data.(*TokenMintPayload); ok {
+		if mintData, ok := result.Data.(*api.TokenMintPayload); ok {
 			fmt.Printf("Mint Amount: %s\n", mintData.Value)
 		}
 	}
@@ -73,7 +74,7 @@ func TestGetTransactionByHash(t *testing.T) {
 func TestGetTransactionReceipt(t *testing.T) {
 	hash := "0x485667dd311b9ef9d966268672483246c2ffda4eeb52ea1ee59c1ed7cdeb407b"
 
-	result, err := GetTransactionReceipt(hash)
+	result, err := api.GetTransactionReceipt(hash)
 	if err != nil {
 		t.Fatalf("GetTransactionReceipt failed: %v", err)
 	}
@@ -121,7 +122,7 @@ func TestGetEstimateFee(t *testing.T) {
 	token := "0x3c21b53619fdf08fbbe0615871a55fea79a9353b"
 	value := "1500000" // 1 token with 18 decimals
 
-	result, err := GetEstimateFee(from, token, value)
+	result, err := api.GetEstimateFee(from, token, value)
 	if err != nil {
 		t.Fatalf("GetEstimateFee failed: %v", err)
 	}
@@ -151,7 +152,7 @@ func TestSendPayment(t *testing.T) {
 	var nonce uint64 = 0
 
 	// Create payment payload
-	payload := PaymentPayload{
+	payload := api.PaymentPayload{
 		ChainID:   1212101,
 		Nonce:     nonce,
 		Recipient: common.HexToAddress("0x9E1E9688A44D058fF181Ed64ddFAFbBE5CC742Ab"),
@@ -160,16 +161,16 @@ func TestSendPayment(t *testing.T) {
 	}
 
 	// Sign the payload
-	privateKey := strings.TrimPrefix(config.BurnAuthorityPrivateKey, "0x")
-	signature, err := Message(payload, privateKey)
+	privateKey := strings.TrimPrefix(api.BurnAuthorityPrivateKey, "0x")
+	signature, err := api.Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
 
 	// Create payment request
-	req := &PaymentRequest{
+	req := &api.PaymentRequest{
 		PaymentPayload: payload,
-		Signature: Signature{
+		Signature: api.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: uint64(signature.V),
@@ -177,7 +178,7 @@ func TestSendPayment(t *testing.T) {
 	}
 
 	// Send payment
-	result, err := SendPayment(req)
+	result, err := api.SendPayment(req)
 	if err != nil {
 		t.Fatalf("SendPayment failed: %v", err)
 	}

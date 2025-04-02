@@ -9,8 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
-
-	"go-1money/config"
 )
 
 type Address string
@@ -49,7 +47,7 @@ func GetTransactionByHash(hash string) (*Transaction, error) {
 	gin.SetMode(gin.ReleaseMode)
 	client := &http.Client{}
 
-	url := fmt.Sprintf(config.BaseAPIURL+"/v1/transactions/by_hash?hash=%s", hash)
+	url := fmt.Sprintf(BaseAPIURL+"/v1/transactions/by_hash?hash=%s", hash)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -89,7 +87,7 @@ func GetTransactionReceipt(hash string) (*TransactionReceipt, error) {
 	gin.SetMode(gin.ReleaseMode)
 	client := &http.Client{}
 
-	url := fmt.Sprintf(config.BaseAPIURL+"/v1/transactions/receipt/by_hash?hash=%s", hash)
+	url := fmt.Sprintf(BaseAPIURL+"/v1/transactions/receipt/by_hash?hash=%s", hash)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -121,7 +119,7 @@ func GetEstimateFee(from, token, value string) (*EstimateFee, error) {
 	gin.SetMode(gin.ReleaseMode)
 	client := &http.Client{}
 
-	url := fmt.Sprintf(config.BaseAPIURL+"/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value)
+	url := fmt.Sprintf(BaseAPIURL+"/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -171,7 +169,7 @@ func SendPayment(req *PaymentRequest) (*PaymentResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := config.BaseAPIURL + "/v1/transactions/payment"
+	url := BaseAPIURL + "/v1/transactions/payment"
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

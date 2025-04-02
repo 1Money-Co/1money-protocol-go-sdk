@@ -1,43 +1,43 @@
-package api
+package tests
 
 import (
-	"go-1money/config"
 	"math/big"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"go-1money/api"
 )
 
 func TestIssueToken(t *testing.T) {
-
 	var nonce uint64 = 3
 
-	payload := TokenIssuePayload{
+	payload := api.TokenIssuePayload{
 		ChainID:         1212101,
 		Decimals:        6,
-		MasterAuthority: common.HexToAddress(config.MasterAuthorityAddress),
+		MasterAuthority: common.HexToAddress(api.MasterAuthorityAddress),
 		Name:            "Palisade Testing Stablecoin",
 		Nonce:           nonce,
 		Symbol:          "USDPX",
 	}
 
-	privateKey := strings.TrimPrefix(config.OperatorPrivateKey, "0x")
-	signature, err := Message(payload, privateKey)
+	privateKey := strings.TrimPrefix(api.OperatorPrivateKey, "0x")
+	signature, err := api.Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
 
-	req := &IssueTokenRequest{
+	req := &api.IssueTokenRequest{
 		TokenIssuePayload: payload,
-		Signature: Signature{
+		Signature: api.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: uint64(signature.V),
 		},
 	}
 
-	result1, err1 := IssueToken(req)
+	result1, err1 := api.IssueToken(req)
 	if err1 != nil {
 		t.Fatalf("IssueToken failed: %v", err1)
 	}
@@ -48,7 +48,7 @@ func TestIssueToken(t *testing.T) {
 
 func TestGetTokenInfo(t *testing.T) {
 	tokenAddress := "0x77be73b6e864221d2746b70982c299f60fd840cc"
-	result, err := GetTokenInfo(tokenAddress)
+	result, err := api.GetTokenInfo(tokenAddress)
 	if err != nil {
 		t.Fatalf("GetTokenInfo failed: %v", err)
 	}
@@ -121,26 +121,26 @@ func TestUpdateTokenMetadata(t *testing.T) {
 	}
 
 	privateKey := "b1c49ed15a19a21541cd71a0837c75194756cbe81ac13c14e31213d766e84e7a"
-	signature, err := Message(msg, privateKey)
+	signature, err := api.Message(msg, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
 
-	req := &UpdateMetadataRequest{
+	req := &api.UpdateMetadataRequest{
 		ChainID:            1212101,
 		Nonce:              0,
 		Token:              "0x57a7d1514bae23bfc4e03dbb839e1ae2a2f18192",
 		Name:               "USDFF Stablecoin",
 		URI:                "https://usdf.com",
 		AdditionalMetadata: "[{\"key1\":\"v1\",\"key2\":\"v2\"}]",
-		Signature: Signature{
+		Signature: api.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: uint64(signature.V),
 		},
 	}
 
-	result, err := UpdateTokenMetadata(req)
+	result, err := api.UpdateTokenMetadata(req)
 	if err != nil {
 		t.Fatalf("UpdateTokenMetadata failed: %v", err)
 	}
@@ -154,34 +154,34 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 
 	var nonce uint64 = 0
 
-	payload := TokenAuthorityPayload{
+	payload := api.TokenAuthorityPayload{
 		ChainID:          1212101,
 		Nonce:            nonce,
-		Action:           AuthorityActionGrant,
-		AuthorityType:    AuthorityTypeMintTokens,
-		AuthorityAddress: common.HexToAddress(config.MintAuthorityAddress),
+		Action:           api.AuthorityActionGrant,
+		AuthorityType:    api.AuthorityTypeMintTokens,
+		AuthorityAddress: common.HexToAddress(api.MintAuthorityAddress),
 		Token:            common.HexToAddress("0x91f66cb6c9b56c7e3bcdb9eff9da13da171e89f4"),
 		Value:            big.NewInt(1500000),
 	}
 
-	privateKey := strings.TrimPrefix(config.MasterAuthorityPrivateKey, "0x")
-	signature, err := Message(payload, privateKey)
+	privateKey := strings.TrimPrefix(api.MasterAuthorityPrivateKey, "0x")
+	signature, err := api.Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
 
 	t.Logf("\nGrant signature Result: %v", signature)
 
-	req := TokenAuthorityRequest{
+	req := api.TokenAuthorityRequest{
 		TokenAuthorityPayload: payload,
-		Signature: Signature{
+		Signature: api.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: uint64(signature.V),
 		},
 	}
 
-	result, err := GrantAuthority(&req)
+	result, err := api.GrantAuthority(&req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -195,25 +195,25 @@ func TestMintToken(t *testing.T) {
 	// Get the current nonce
 	var nonce uint64 = 0
 	// Create mint payload
-	payload := TokenMintPayload{
+	payload := api.TokenMintPayload{
 		ChainID:   1212101,
 		Nonce:     nonce,
-		Recipient: common.HexToAddress(config.BurnAuthorityAddress),
+		Recipient: common.HexToAddress(api.BurnAuthorityAddress),
 		Value:     big.NewInt(150000),
 		Token:     common.HexToAddress("0x91f66cb6c9b56c7e3bcdb9eff9da13da171e89f4"),
 	}
 
 	// Sign the payload
-	privateKey := strings.TrimPrefix(config.MintAuthorityPrivateKey, "0x")
-	signature, err := Message(payload, privateKey)
+	privateKey := strings.TrimPrefix(api.MintAuthorityPrivateKey, "0x")
+	signature, err := api.Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
 
 	// Create mint request
-	req := &MintTokenRequest{
+	req := &api.MintTokenRequest{
 		TokenMintPayload: payload,
-		Signature: Signature{
+		Signature: api.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: uint64(signature.V),
@@ -221,7 +221,7 @@ func TestMintToken(t *testing.T) {
 	}
 
 	// Send mint request
-	result, err := MintToken(req)
+	result, err := api.MintToken(req)
 	if err != nil {
 		t.Fatalf("MintToken failed: %v", err)
 	}
