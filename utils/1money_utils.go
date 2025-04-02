@@ -12,7 +12,6 @@ import (
 // method to create a ethereum private key / public key pair
 // return private key and public key
 func TestCreateKeyPair(t *testing.T) {
-	// 运行多次以验证随机性
 	for i := 0; i < 3; i++ {
 		privateKey, err := crypto.GenerateKey()
 		if err != nil {
