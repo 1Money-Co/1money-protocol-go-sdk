@@ -9,12 +9,12 @@ import (
 )
 
 type Signature struct {
-	R string
-	S string
-	V uint64
+	R string `json:"r"`
+	S string `json:"s"`
+	V uint64 `json:"v"`
 }
 
-func Message(msg interface{}, privateKey string) (*Signature, error) {
+func Message(msg any, privateKey string) (*Signature, error) {
 	encoded, err := rlp.EncodeToBytes(msg)
 	if err != nil {
 		return nil, fmt.Errorf("encode message: %w", err)

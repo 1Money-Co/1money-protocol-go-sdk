@@ -153,13 +153,9 @@ func IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result IssueTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -182,13 +178,9 @@ func GetTokenInfo(tokenAddress string) (*TokenInfo, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result TokenInfo
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -217,13 +209,9 @@ func UpdateTokenMetadata(req *UpdateMetadataRequest) (*UpdateMetadataResponse, e
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result UpdateMetadataResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -252,13 +240,9 @@ func GrantAuthority(req *TokenAuthorityRequest) (*GrantAuthorityResponse, error)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result GrantAuthorityResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -287,13 +271,9 @@ func MintToken(req *MintTokenRequest) (*MintTokenResponse, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result MintTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil

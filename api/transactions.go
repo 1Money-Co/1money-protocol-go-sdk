@@ -59,13 +59,9 @@ func GetTransactionByHash(hash string) (*Transaction, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result Transaction
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -99,13 +95,9 @@ func GetTransactionReceipt(hash string) (*TransactionReceipt, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result TransactionReceipt
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -131,13 +123,9 @@ func GetEstimateFee(from, token, value string) (*EstimateFee, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result EstimateFee
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -183,13 +171,9 @@ func SendPayment(req *PaymentRequest) (*PaymentResponse, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result PaymentResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil

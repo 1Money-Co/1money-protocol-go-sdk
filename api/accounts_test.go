@@ -1,12 +1,15 @@
 package api
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
 func TestGetTokenAccount(t *testing.T) {
-	address := "0x29b0fbe6aa3174ed8cc5900e2f3d81c765c116c6"
-	token := "0x3c21b53619fdf08fbbe0615871a55fea79a9353b"
+	address := TestOperratorAddress
+	token := MintAccount
 
 	result, err := GetTokenAccount(address, token)
 	if err != nil {
@@ -30,7 +33,7 @@ func TestGetTokenAccount(t *testing.T) {
 }
 
 func TestGetAccountNonce(t *testing.T) {
-	address := "0x29b0fbe6aa3174ed8cc5900e2f3d81c765c116c6"
+	address := "0xeFd86F9EA9b981edA887f984C7883481Ec665b61"
 
 	result, err := GetAccountNonce(address)
 	if err != nil {
@@ -42,4 +45,45 @@ func TestGetAccountNonce(t *testing.T) {
 	}
 
 	t.Logf("Successfully retrieved account nonce: %d", result.Nonce)
+}
+
+func TestErrorHandling(t *testing.T) {
+	// Save the original BaseAPIURL
+	originalBaseAPIURL := BaseAPIURL
+
+	// Create a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `{"error_code":"invalid_request","message":"Invalid request parameters"}`)
+	}))
+	defer server.Close()
+
+	// Set the BaseAPIURL to the test server URL
+	BaseAPIURL = server.URL
+
+	// Restore the original BaseAPIURL when the test is done
+	defer func() { BaseAPIURL = originalBaseAPIURL }()
+
+	// Test GetAccountNonce with error response
+	_, err := GetAccountNonce("0x123")
+
+	// Check if the error is of type APIError
+	apiErr, ok := err.(*APIError)
+	if !ok {
+		t.Fatalf("Expected APIError, got %T: %v", err, err)
+	}
+
+	// Check the error details
+	if apiErr.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, apiErr.StatusCode)
+	}
+	if apiErr.ErrorCode != "invalid_request" {
+		t.Errorf("Expected error code 'invalid_request', got '%s'", apiErr.ErrorCode)
+	}
+	if apiErr.Message != "Invalid request parameters" {
+		t.Errorf("Expected message 'Invalid request parameters', got '%s'", apiErr.Message)
+	}
+
+	t.Logf("Successfully tested error handling: %v", err)
 }

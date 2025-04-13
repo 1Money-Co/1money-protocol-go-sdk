@@ -9,15 +9,18 @@ import (
 )
 
 func TestIssueToken(t *testing.T) {
-	var nonce uint64 = 3
+
+	t.Logf("TestIssueToken started")
+
+	var nonce uint64 = 0
 
 	payload := TokenIssuePayload{
 		ChainID:         1212101,
 		Decimals:        6,
-		MasterAuthority: common.HexToAddress(TestMasterAuthorityAddress),
-		Name:            "Palisade Testing Stablecoin",
+		MasterAuthority: common.HexToAddress(TestOperratorAddress),
+		Name:            "1Money Stable Coin",
 		Nonce:           nonce,
-		Symbol:          "USDPX",
+		Symbol:          "USD1",
 	}
 
 	privateKey := strings.TrimPrefix(TestOperatorPrivateKey, "0x")
@@ -31,7 +34,7 @@ func TestIssueToken(t *testing.T) {
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
-			V: uint64(signature.V),
+			V: signature.V,
 		},
 	}
 
@@ -45,7 +48,7 @@ func TestIssueToken(t *testing.T) {
 }
 
 func TestGetTokenInfo(t *testing.T) {
-	tokenAddress := "0x77be73b6e864221d2746b70982c299f60fd840cc"
+	tokenAddress := MintAccount
 	result, err := GetTokenInfo(tokenAddress)
 	if err != nil {
 		t.Fatalf("GetTokenInfo failed: %v", err)
@@ -114,11 +117,11 @@ func TestUpdateTokenMetadata(t *testing.T) {
 		Nonce:              0,
 		Name:               "USDFF Stablecoin",
 		URI:                "https://usdf.com",
-		Token:              common.HexToAddress("0x57a7d1514bae23bfc4e03dbb839e1ae2a2f18192"),
+		Token:              common.HexToAddress(MintAccount),
 		AdditionalMetadata: "[{\"key1\":\"v1\",\"key2\":\"v2\"}]",
 	}
 
-	privateKey := "b1c49ed15a19a21541cd71a0837c75194756cbe81ac13c14e31213d766e84e7a"
+	privateKey := TestOperatorPrivateKey
 	signature, err := Message(msg, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
@@ -127,14 +130,14 @@ func TestUpdateTokenMetadata(t *testing.T) {
 	req := &UpdateMetadataRequest{
 		ChainID:            1212101,
 		Nonce:              0,
-		Token:              "0x57a7d1514bae23bfc4e03dbb839e1ae2a2f18192",
+		Token:              MintAccount,
 		Name:               "USDFF Stablecoin",
 		URI:                "https://usdf.com",
 		AdditionalMetadata: "[{\"key1\":\"v1\",\"key2\":\"v2\"}]",
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
-			V: uint64(signature.V),
+			V: signature.V,
 		},
 	}
 
@@ -157,12 +160,12 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 		Nonce:            nonce,
 		Action:           AuthorityActionGrant,
 		AuthorityType:    AuthorityTypeMintTokens,
-		AuthorityAddress: common.HexToAddress(TestMintAuthorityAddress),
-		Token:            common.HexToAddress("0x91f66cb6c9b56c7e3bcdb9eff9da13da171e89f4"),
+		AuthorityAddress: common.HexToAddress(TestOperratorAddress),
+		Token:            common.HexToAddress(MintAccount),
 		Value:            big.NewInt(1500000),
 	}
 
-	privateKey := strings.TrimPrefix(TestMasterAuthorityPrivateKey, "0x")
+	privateKey := strings.TrimPrefix(Test2ndPrivateKey, "0x")
 	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
@@ -175,7 +178,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
-			V: uint64(signature.V),
+			V: signature.V,
 		},
 	}
 
@@ -196,13 +199,13 @@ func TestMintToken(t *testing.T) {
 	payload := TokenMintPayload{
 		ChainID:   1212101,
 		Nonce:     nonce,
-		Recipient: common.HexToAddress(TestBurnAuthorityAddress),
+		Recipient: common.HexToAddress(TestOperratorAddress),
 		Value:     big.NewInt(150000),
-		Token:     common.HexToAddress("0x91f66cb6c9b56c7e3bcdb9eff9da13da171e89f4"),
+		Token:     common.HexToAddress(MintAccount),
 	}
 
 	// Sign the payload
-	privateKey := strings.TrimPrefix(TestMintAuthorityPrivateKey, "0x")
+	privateKey := strings.TrimPrefix(TestOperatorPrivateKey, "0x")
 	signature, err := Message(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
@@ -214,7 +217,7 @@ func TestMintToken(t *testing.T) {
 		Signature: Signature{
 			R: signature.R,
 			S: signature.S,
-			V: uint64(signature.V),
+			V: signature.V,
 		},
 	}
 

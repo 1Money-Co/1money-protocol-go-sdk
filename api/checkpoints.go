@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -46,13 +45,9 @@ func GetCheckpointNumber() (*CheckpointNumber, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result CheckpointNumber
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil
@@ -74,13 +69,9 @@ func GetCheckpointByNumber(number int, full bool) (*CheckpointDetail, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	var result CheckpointDetail
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := HandleAPIResponse(resp, &result); err != nil {
+		return nil, err
 	}
 
 	return &result, nil
