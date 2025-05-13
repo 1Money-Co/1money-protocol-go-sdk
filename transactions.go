@@ -1,14 +1,13 @@
-package api
+package onemoney
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math/big"
-	"net/http"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"math/big"
+	"net/http"
 )
 
 type Address string
@@ -43,27 +42,21 @@ type Transaction struct {
 	TransactionIndex int         `json:"transaction_index"`
 }
 
-func GetTransactionByHash(hash string) (*Transaction, error) {
+func (api *Client) GetTransactionByHash(hash string) (*Transaction, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
-	url := fmt.Sprintf(BaseAPIURL+"/v1/transactions/by_hash?hash=%s", hash)
+	url := fmt.Sprintf(api.baseUrl+"/v1/transactions/by_hash?hash=%s", hash)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
-	resp, err := client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transaction: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result Transaction
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 
@@ -79,27 +72,21 @@ type TransactionReceipt struct {
 	TransactionIndex int    `json:"transaction_index"`
 }
 
-func GetTransactionReceipt(hash string) (*TransactionReceipt, error) {
+func (api *Client) GetTransactionReceipt(hash string) (*TransactionReceipt, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
-	url := fmt.Sprintf(BaseAPIURL+"/v1/transactions/receipt/by_hash?hash=%s", hash)
+	url := fmt.Sprintf(api.baseUrl+"/v1/transactions/receipt/by_hash?hash=%s", hash)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
-	resp, err := client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result TransactionReceipt
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 
@@ -107,27 +94,21 @@ type EstimateFee struct {
 	Fee string `json:"fee"`
 }
 
-func GetEstimateFee(from, token, value string) (*EstimateFee, error) {
+func (api *Client) GetEstimateFee(from, token, value string) (*EstimateFee, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
-	url := fmt.Sprintf(BaseAPIURL+"/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value)
+	url := fmt.Sprintf(api.baseUrl+"/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
-	resp, err := client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get estimate fee: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result EstimateFee
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 
@@ -148,33 +129,24 @@ type PaymentResponse struct {
 	Hash string `json:"hash"`
 }
 
-func SendPayment(req *PaymentRequest) (*PaymentResponse, error) {
+func (api *Client) SendPayment(req *PaymentRequest) (*PaymentResponse, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
 	jsonData, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-
-	url := BaseAPIURL + "/v1/transactions/payment"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	httpReq, err := http.NewRequest("POST", api.baseUrl+"/v1/transactions/payment", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
 	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(httpReq)
+	resp, err := api.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send payment: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result PaymentResponse
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }

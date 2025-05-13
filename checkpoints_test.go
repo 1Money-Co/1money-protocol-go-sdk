@@ -1,40 +1,38 @@
-package api
+package onemoney_test
 
 import (
+	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"testing"
 )
 
 func TestGetCheckpointNumber(t *testing.T) {
-	result, err := GetCheckpointNumber()
+	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	result, err := api.GetCheckpointNumber()
 	if err != nil {
 		t.Fatalf("GetCheckpointNumber failed: %v", err)
 	}
-
 	// Verify the result is not nil
 	if result == nil {
 		t.Fatal("Expected result to not be nil")
 	}
-
 	// Verify the number is positive
 	if result.Number <= 0 {
 		t.Errorf("Expected number to be positive, got %d", result.Number)
 	}
-
 	// Log the result for manual verification
 	t.Logf("Successfully retrieved checkpoint number: %d", result.Number)
 }
 
 func TestGetCheckpointByNumber(t *testing.T) {
-	result, err := GetCheckpointByNumber(900, false)
+	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	result, err := api.GetCheckpointByNumber(482505, false)
 	if err != nil {
 		t.Fatalf("GetCheckpointByNumber failed: %v", err)
 	}
-
 	// Verify the result is not nil
 	if result == nil {
 		t.Fatal("Expected result to not be nil")
 	}
-
 	// Verify required fields are present
 	if result.Number == "" {
 		t.Error("Expected Number to be present")
@@ -48,12 +46,10 @@ func TestGetCheckpointByNumber(t *testing.T) {
 	if result.Timestamp == "" {
 		t.Error("Expected Timestamp to be present")
 	}
-
 	// Verify size matches transactions length
 	if result.Size != len(result.Transactions) {
 		t.Errorf("Expected Size (%d) to match Transactions length (%d)", result.Size, len(result.Transactions))
 	}
-
 	// Log the result for manual verification
 	t.Logf("Successfully retrieved checkpoint detail for number: %s", result.Number)
 	t.Logf("Number of transactions: %d", result.Size)

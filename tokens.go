@@ -1,14 +1,13 @@
-package api
+package onemoney
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math/big"
-	"net/http"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	"math/big"
+	"net/http"
 )
 
 type TokenIssuePayload struct {
@@ -130,151 +129,111 @@ type MintTokenResponse struct {
 	Hash string `json:"hash"`
 }
 
-func IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
+func (api *Client) IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
 	jsonData, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-
-	url := BaseAPIURL + "/v1/tokens/issue"
+	url := api.baseUrl + "/v1/tokens/issue"
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
 	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(httpReq)
+	resp, err := api.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to issue token: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result IssueTokenResponse
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 
-func GetTokenInfo(tokenAddress string) (*TokenInfo, error) {
+func (api *Client) GetTokenInfo(tokenAddress string) (*TokenInfo, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
-	url := fmt.Sprintf(BaseAPIURL+"/v1/tokens/token_metadata?token=%s", tokenAddress)
+	url := fmt.Sprintf(api.baseUrl+"/v1/tokens/token_metadata?token=%s", tokenAddress)
 	println("access url: ", url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
-	resp, err := client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token info: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result TokenInfo
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 
-func UpdateTokenMetadata(req *UpdateMetadataRequest) (*UpdateMetadataResponse, error) {
+func (api *Client) UpdateTokenMetadata(req *UpdateMetadataRequest) (*UpdateMetadataResponse, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
 	jsonData, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-
-	url := BaseAPIURL + "/v1/tokens/update_metadata"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	httpReq, err :=
+		http.NewRequest("POST", api.baseUrl+"/v1/tokens/update_metadata", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
 	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(httpReq)
+	resp, err := api.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update token metadata: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result UpdateMetadataResponse
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 
-func GrantAuthority(req *TokenAuthorityRequest) (*GrantAuthorityResponse, error) {
+func (api *Client) GrantTokenAuthority(req *TokenAuthorityRequest) (*GrantAuthorityResponse, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
 	jsonData, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-
-	url := BaseAPIURL + "/v1/tokens/grant_authority"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	httpReq, err := http.NewRequest("POST", api.baseUrl+"/v1/tokens/grant_authority", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
 	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(httpReq)
+	resp, err := api.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to grant authority: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result GrantAuthorityResponse
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 
-func MintToken(req *MintTokenRequest) (*MintTokenResponse, error) {
+func (api *Client) MintToken(req *MintTokenRequest) (*MintTokenResponse, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
 	jsonData, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-
-	url := BaseAPIURL + "/v1/tokens/mint"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	httpReq, err := http.NewRequest("POST", api.baseUrl+"/v1/tokens/mint", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
 	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(httpReq)
+	resp, err := api.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mint token: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result MintTokenResponse
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }

@@ -1,10 +1,9 @@
-package api
+package onemoney
 
 import (
 	"fmt"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 type CheckpointNumber struct {
@@ -30,49 +29,37 @@ type CheckpointDetail struct {
 	Transactions     []Transaction `json:"transactions"`
 }
 
-func GetCheckpointNumber() (*CheckpointNumber, error) {
+func (api *Client) GetCheckpointNumber() (*CheckpointNumber, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", BaseAPIURL+"/v1/checkpoints/number", nil)
+	req, err := http.NewRequest("GET", api.baseUrl+"/v1/checkpoints/number", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
-	resp, err := client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get checkpoint number: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result CheckpointNumber
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }
 
-func GetCheckpointByNumber(number int, full bool) (*CheckpointDetail, error) {
+func (api *Client) GetCheckpointByNumber(number int, full bool) (*CheckpointDetail, error) {
 	gin.SetMode(gin.ReleaseMode)
-	client := &http.Client{}
-
-	url := fmt.Sprintf(BaseAPIURL+"/v1/checkpoints/by_number?number=%d&full=%v", number, full)
+	url := fmt.Sprintf(api.baseUrl+"/v1/checkpoints/by_number?number=%d&full=%v", number, full)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
-	resp, err := client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get checkpoint detail: %w", err)
 	}
-	defer resp.Body.Close()
-
 	var result CheckpointDetail
 	if err := HandleAPIResponse(resp, &result); err != nil {
 		return nil, err
 	}
-
 	return &result, nil
 }

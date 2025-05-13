@@ -1,4 +1,4 @@
-package api
+package onemoney
 
 import (
 	"encoding/json"
@@ -31,7 +31,6 @@ func (e *APIError) Error() string {
 // HandleAPIResponse is a helper function to handle API responses consistently
 func HandleAPIResponse(resp *http.Response, result any) error {
 	defer resp.Body.Close()
-
 	// If status code is OK, decode the response into the result
 	if resp.StatusCode == http.StatusOK {
 		if result != nil {
@@ -41,7 +40,6 @@ func HandleAPIResponse(resp *http.Response, result any) error {
 		}
 		return nil
 	}
-
 	// For non-200 responses, try to parse the error response
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -50,7 +48,6 @@ func HandleAPIResponse(resp *http.Response, result any) error {
 			Message:    fmt.Sprintf("failed to read error response: %v", err),
 		}
 	}
-
 	// Try to parse the error response
 	var errorResp ErrorResponse
 	if err := json.Unmarshal(bodyBytes, &errorResp); err != nil {
@@ -60,7 +57,6 @@ func HandleAPIResponse(resp *http.Response, result any) error {
 			Message:    fmt.Sprintf("unexpected status code: %d", resp.StatusCode),
 		}
 	}
-
 	// Return a structured error with the error details
 	return &APIError{
 		StatusCode: resp.StatusCode,

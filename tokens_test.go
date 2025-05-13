@@ -1,59 +1,53 @@
-package api
+package onemoney_test
 
 import (
+	onemoney "github.com/1Money-Co/1money-go-sdk"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"strings"
 	"testing"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func TestIssueToken(t *testing.T) {
-
 	t.Logf("TestIssueToken started")
-
 	var nonce uint64 = 0
-
-	payload := TokenIssuePayload{
+	payload := onemoney.TokenIssuePayload{
 		ChainID:         1212101,
 		Decimals:        6,
-		MasterAuthority: common.HexToAddress(TestOperratorAddress),
+		MasterAuthority: common.HexToAddress(TestOperatorAddress),
 		Name:            "1Money Stable Coin",
 		Nonce:           nonce,
 		Symbol:          "USD1",
 	}
-
+	api := onemoney.New(onemoney.ApiBaseUrlTest)
 	privateKey := strings.TrimPrefix(TestOperatorPrivateKey, "0x")
-	signature, err := Message(payload, privateKey)
+	signature, err := api.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
-
-	req := &IssueTokenRequest{
+	req := &onemoney.IssueTokenRequest{
 		TokenIssuePayload: payload,
-		Signature: Signature{
+		Signature: onemoney.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: signature.V,
 		},
 	}
-
-	result1, err1 := IssueToken(req)
+	result1, err1 := api.IssueToken(req)
 	if err1 != nil {
 		t.Fatalf("IssueToken failed: %v", err1)
 	}
-
 	t.Logf("Successfully issued token: %s", result1.Token)
 	t.Logf("Transaction hash: %s", result1.Hash)
 }
 
 func TestGetTokenInfo(t *testing.T) {
+	api := onemoney.New(onemoney.ApiBaseUrlTest)
 	tokenAddress := MintAccount
-	result, err := GetTokenInfo(tokenAddress)
+	result, err := api.GetTokenInfo(tokenAddress)
 	if err != nil {
 		t.Fatalf("GetTokenInfo failed: %v", err)
 	}
-
 	if result == nil {
 		t.Fatal("Expected result to not be nil")
 	}
@@ -85,7 +79,6 @@ func TestGetTokenInfo(t *testing.T) {
 		t.Logf("  Minter: %s", minter.Minter)
 		t.Logf("    Allowance: %s", minter.Allowance)
 	}
-
 	t.Log("\nOther Authorities:")
 	t.Log("  Black List Authorities:")
 	for _, auth := range result.BlackListAuthorities {
@@ -112,6 +105,7 @@ type UpdateMetadataMessage struct {
 }
 
 func TestUpdateTokenMetadata(t *testing.T) {
+	api := onemoney.New(onemoney.ApiBaseUrlTest)
 	msg := &UpdateMetadataMessage{
 		ChainID:            1212101,
 		Nonce:              0,
@@ -120,28 +114,26 @@ func TestUpdateTokenMetadata(t *testing.T) {
 		Token:              common.HexToAddress(MintAccount),
 		AdditionalMetadata: "[{\"key1\":\"v1\",\"key2\":\"v2\"}]",
 	}
-
 	privateKey := TestOperatorPrivateKey
-	signature, err := Message(msg, privateKey)
+	signature, err := api.SignMessage(msg, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
-
-	req := &UpdateMetadataRequest{
+	req := &onemoney.UpdateMetadataRequest{
 		ChainID:            1212101,
 		Nonce:              0,
 		Token:              MintAccount,
 		Name:               "USDFF Stablecoin",
 		URI:                "https://usdf.com",
 		AdditionalMetadata: "[{\"key1\":\"v1\",\"key2\":\"v2\"}]",
-		Signature: Signature{
+		Signature: onemoney.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: signature.V,
 		},
 	}
 
-	result, err := UpdateTokenMetadata(req)
+	result, err := api.UpdateTokenMetadata(req)
 	if err != nil {
 		t.Fatalf("UpdateTokenMetadata failed: %v", err)
 	}
@@ -152,81 +144,72 @@ func TestUpdateTokenMetadata(t *testing.T) {
 }
 
 func TestGrantMasterMintAuthority(t *testing.T) {
-
+	api := onemoney.New(onemoney.ApiBaseUrlTest)
 	var nonce uint64 = 0
-
-	payload := TokenAuthorityPayload{
+	payload := onemoney.TokenAuthorityPayload{
 		ChainID:          1212101,
 		Nonce:            nonce,
-		Action:           AuthorityActionGrant,
-		AuthorityType:    AuthorityTypeMintTokens,
-		AuthorityAddress: common.HexToAddress(TestOperratorAddress),
+		Action:           onemoney.AuthorityActionGrant,
+		AuthorityType:    onemoney.AuthorityTypeMintTokens,
+		AuthorityAddress: common.HexToAddress(TestOperatorAddress),
 		Token:            common.HexToAddress(MintAccount),
 		Value:            big.NewInt(1500000),
 	}
-
 	privateKey := strings.TrimPrefix(Test2ndPrivateKey, "0x")
-	signature, err := Message(payload, privateKey)
+	signature, err := api.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
-
 	t.Logf("\nGrant signature Result: %v", signature)
-
-	req := TokenAuthorityRequest{
+	req := onemoney.TokenAuthorityRequest{
 		TokenAuthorityPayload: payload,
-		Signature: Signature{
+		Signature: onemoney.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: signature.V,
 		},
 	}
-
-	result, err := GrantAuthority(&req)
+	result, err := api.GrantTokenAuthority(&req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
-
 	t.Log("\nGrant Authority Result:")
 	t.Log("=====================")
 	t.Logf("Transaction Hash:  %s", result.Hash)
 }
 
 func TestMintToken(t *testing.T) {
+	api := onemoney.New(onemoney.ApiBaseUrlTest)
 	// Get the current nonce
 	var nonce uint64 = 0
 	// Create mint payload
-	payload := TokenMintPayload{
+	payload := onemoney.TokenMintPayload{
 		ChainID:   1212101,
 		Nonce:     nonce,
-		Recipient: common.HexToAddress(TestOperratorAddress),
+		Recipient: common.HexToAddress(TestOperatorAddress),
 		Value:     big.NewInt(150000),
 		Token:     common.HexToAddress(MintAccount),
 	}
-
 	// Sign the payload
 	privateKey := strings.TrimPrefix(TestOperatorPrivateKey, "0x")
-	signature, err := Message(payload, privateKey)
+	signature, err := api.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
-
 	// Create mint request
-	req := &MintTokenRequest{
+	req := &onemoney.MintTokenRequest{
 		TokenMintPayload: payload,
-		Signature: Signature{
+		Signature: onemoney.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: signature.V,
 		},
 	}
-
 	// Send mint request
-	result, err := MintToken(req)
+	result, err := api.MintToken(req)
 	if err != nil {
 		t.Fatalf("MintToken failed: %v", err)
 	}
-
 	t.Log("\nMint Token Result:")
 	t.Log("=================")
 	t.Logf("Transaction Hash: %s", result.Hash)

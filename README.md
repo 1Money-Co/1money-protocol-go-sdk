@@ -17,7 +17,7 @@ go get -u  https://github.com/1Money-Co/1money-go-sdk
 
 ## Where can I see examples?
 
-Take a look at `examples/` for some examples of how to write clients.
+Take a look at `xx_test` for some examples of how to write clients.
 
 ## Where can I learn more?
 
