@@ -1,27 +1,24 @@
-package api
+package onemoney_test
 
 import (
 	"fmt"
-	"math/big"
-	"strings"
-	"testing"
-
+	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
+	"math/big"
+	"testing"
 )
 
 func TestGetTransactionByHash(t *testing.T) {
+	client := onemoney.NewTestClient()
 	// for create/mint related transaction, can check cp=1 related transactions to get the hash to test
-	hash := "0x2bae78414bdf32bc6c8dd708eae72af2f5b4bf2dc649757cd0bfe499191dc277"
-
-	result, err := GetTransactionByHash(hash)
+	hash := "0x85396c45c42acfc73c214da3b71737f3c46b4bda638d5b0c58404d176392f867"
+	result, err := client.GetTransactionByHash(hash)
 	if err != nil {
 		t.Fatalf("GetTransactionByHash failed: %v", err)
 	}
-
 	if result == nil {
 		t.Fatal("Expected result to not be nil")
 	}
-
 	if result.Hash == "" {
 		t.Error("Expected Hash to be present")
 	}
@@ -41,15 +38,15 @@ func TestGetTransactionByHash(t *testing.T) {
 
 	switch result.TransactionType {
 	case "TokenCreate":
-		if tokenData, ok := result.Data.(*TokenCreatePayload); ok {
+		if tokenData, ok := result.Data.(*onemoney.TokenCreatePayload); ok {
 			fmt.Printf("Token Symbol: %s\n", tokenData.Symbol)
 		}
 	case "TokenTransfer":
-		if transferData, ok := result.Data.(*TokenTransferPayload); ok {
+		if transferData, ok := result.Data.(*onemoney.TokenTransferPayload); ok {
 			fmt.Printf("Transfer Amount: %s\n", transferData.Value)
 		}
 	case "TokenMint":
-		if mintData, ok := result.Data.(*TokenMintPayload); ok {
+		if mintData, ok := result.Data.(*onemoney.TokenMintPayload); ok {
 			fmt.Printf("Mint Amount: %s\n", mintData.Value)
 		}
 	}
@@ -57,17 +54,15 @@ func TestGetTransactionByHash(t *testing.T) {
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
-	hash := "0x2bae78414bdf32bc6c8dd708eae72af2f5b4bf2dc649757cd0bfe499191dc277"
-
-	result, err := GetTransactionReceipt(hash)
+	client := onemoney.NewTestClient()
+	hash := "0x85396c45c42acfc73c214da3b71737f3c46b4bda638d5b0c58404d176392f867"
+	result, err := client.GetTransactionReceipt(hash)
 	if err != nil {
 		t.Fatalf("GetTransactionReceipt failed: %v", err)
 	}
-
 	if result == nil {
 		t.Fatal("Expected result to not be nil")
 	}
-
 	if result.TransactionHash == "" {
 		t.Error("Expected TransactionHash to be present")
 	}
@@ -80,7 +75,6 @@ func TestGetTransactionReceipt(t *testing.T) {
 	if result.CheckpointHash == "" {
 		t.Error("Expected CheckpointHash to be present")
 	}
-
 	if result.CheckpointNumber <= 0 {
 		t.Error("Expected CheckpointNumber to be positive")
 	}
@@ -90,7 +84,6 @@ func TestGetTransactionReceipt(t *testing.T) {
 	if result.FeeUsed < 0 {
 		t.Error("Expected FeeUsed to be non-negative")
 	}
-
 	if result.TransactionHash != hash {
 		t.Errorf("Expected TransactionHash to be %s, got %s", hash, result.TransactionHash)
 	}
@@ -103,71 +96,60 @@ func TestGetTransactionReceipt(t *testing.T) {
 }
 
 func TestGetEstimateFee(t *testing.T) {
+	client := onemoney.NewTestClient()
 	from := "0xfcecaf244ce223050980038c4fe2328e7580afd9"
 	token := "0x354312ce56a578c98559154Dd7A50F5C08D17270"
 	value := "1500000" // 1 token with 18 decimals
-
-	result, err := GetEstimateFee(from, token, value)
+	result, err := client.GetEstimateFee(from, token, value)
 	if err != nil {
 		t.Fatalf("GetEstimateFee failed: %v", err)
 	}
-
 	if result == nil {
 		t.Fatal("Expected result to not be nil")
 	}
-
 	if result.Fee == "" {
 		t.Error("Expected Fee to be present")
 	}
-
 	fee := new(big.Int)
 	if _, ok := fee.SetString(result.Fee, 10); !ok {
 		t.Error("Expected Fee to be a valid number")
 	}
-
 	if fee.Cmp(big.NewInt(0)) <= 0 {
 		t.Error("Expected Fee to be positive")
 	}
-
 	t.Logf("Successfully estimated fee: %s", result.Fee)
 }
 
 func TestSendPayment(t *testing.T) {
-
+	client := onemoney.NewTestClient()
 	var nonce uint64 = 11
-
 	// Create payment payload
-	payload := PaymentPayload{
+	payload := onemoney.PaymentPayload{
 		ChainID:   1212101,
 		Nonce:     nonce,
-		Recipient: common.HexToAddress(Test2ndAddress),
+		Recipient: common.HexToAddress(onemoney.Test2ndAddress),
 		Value:     big.NewInt(40250000),
-		Token:     common.HexToAddress(MintAccount),
+		Token:     common.HexToAddress(onemoney.TestTokenAddress),
 	}
-
 	// Sign the payload
-	privateKey := strings.TrimPrefix(TestOperatorPrivateKey, "0x")
-	signature, err := Message(payload, privateKey)
+	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
-
 	// Create payment request
-	req := &PaymentRequest{
+	req := &onemoney.PaymentRequest{
 		PaymentPayload: payload,
-		Signature: Signature{
+		Signature: onemoney.Signature{
 			R: signature.R,
 			S: signature.S,
 			V: signature.V,
 		},
 	}
-
 	// Send payment
-	result, err := SendPayment(req)
+	result, err := client.SendPayment(req)
 	if err != nil {
 		t.Fatalf("SendPayment failed: %v", err)
 	}
-
 	t.Log("\nPayment Result:")
 	t.Log("==============")
 	t.Logf("Transaction Hash: %s", result.Hash)

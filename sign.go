@@ -1,11 +1,11 @@
-package api
+package onemoney
 
 import (
 	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"strings"
 )
 
 type Signature struct {
@@ -14,7 +14,8 @@ type Signature struct {
 	V uint64 `json:"v"`
 }
 
-func Message(msg any, privateKey string) (*Signature, error) {
+func (client *Client) SignMessage(msg any, privateKey string) (*Signature, error) {
+	privateKey = strings.TrimPrefix(privateKey, "0x")
 	encoded, err := rlp.EncodeToBytes(msg)
 	if err != nil {
 		return nil, fmt.Errorf("encode message: %w", err)
