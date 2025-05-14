@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 const (
-	apiBaseUrl     = "https://api.1money.network"
-	apiBaseUrlTest = "https://api.testnet.1money.network"
+	apiBaseHost     = "https://api.1money.network"
+	apiBaseHostTest = "https://api.testnet.1money.network"
 )
 
 const (
@@ -21,26 +22,56 @@ const (
 )
 
 type Client struct {
-	baseUrl    string
+	baseHost   string
 	httpclient *http.Client
 }
 
-func NewClient() *Client {
-	return &Client{
-		baseUrl:    apiBaseUrl,
-		httpclient: http.DefaultClient,
+func newClientInternal(baseHost string, options ...ClientOption) *Client {
+	client := &Client{
+		baseHost: baseHost,
+		httpclient: &http.Client{
+			Timeout: 4 * time.Second,
+		},
 	}
+	for _, opt := range options {
+		opt(client)
+	}
+	return client
+}
+
+func NewClient() *Client {
+	return newClientInternal(apiBaseHost)
 }
 
 func NewTestClient() *Client {
-	return &Client{
-		baseUrl:    apiBaseUrlTest,
-		httpclient: http.DefaultClient,
+	return newClientInternal(apiBaseHostTest)
+}
+
+func NewClientWithOpts(opts ...ClientOption) *Client {
+	return newClientInternal(apiBaseHost, opts...)
+}
+
+func NewTestClientWithOpts(opts ...ClientOption) *Client {
+	return newClientInternal(apiBaseHostTest, opts...)
+}
+
+// ClientOption defines a function that configures a Client
+type ClientOption func(*Client)
+
+func WithTimeout(timeout time.Duration) ClientOption {
+	return func(c *Client) {
+		c.httpclient.Timeout = timeout
+	}
+}
+
+func WithHTTPClient(httpclient *http.Client) ClientOption {
+	return func(c *Client) {
+		c.httpclient = httpclient
 	}
 }
 
 func (client *Client) GetMethod(path string, result any) error {
-	req, err := http.NewRequest("GET", client.baseUrl+path, nil)
+	req, err := http.NewRequest("GET", client.baseHost+path, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -56,7 +87,7 @@ func (client *Client) PostMethod(path string, body any, result any) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
-	req, err := http.NewRequest("POST", client.baseUrl+path, bytes.NewBuffer(data))
+	req, err := http.NewRequest("POST", client.baseHost+path, bytes.NewBuffer(data))
 	if err != nil {
 		return fmt.Errorf("api post failed to request path: %s, err: %w", path, err)
 	}
