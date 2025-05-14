@@ -5,7 +5,6 @@ import (
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
-	"strings"
 	"testing"
 )
 
@@ -133,8 +132,7 @@ func TestSendPayment(t *testing.T) {
 		Token:     common.HexToAddress(onemoney.TestMintAccount),
 	}
 	// Sign the payload
-	privateKey := strings.TrimPrefix(onemoney.TestOperatorPrivateKey, "0x")
-	signature, err := client.SignMessage(payload, privateKey)
+	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}

@@ -66,7 +66,7 @@ type EstimateFeeResponse struct {
 
 func (client *Client) GetEstimateFee(from, token, value string) (*EstimateFeeResponse, error) {
 	result := new(EstimateFeeResponse)
-	return result, client.GetMethod(fmt.Sprintf(api.baseUrl+"/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value), result)
 }
 
 type PaymentPayload struct {

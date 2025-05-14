@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"strings"
 )
 
 type Signature struct {
@@ -14,6 +15,7 @@ type Signature struct {
 }
 
 func (client *Client) SignMessage(msg any, privateKey string) (*Signature, error) {
+	privateKey = strings.TrimPrefix(privateKey, "0x")
 	encoded, err := rlp.EncodeToBytes(msg)
 	if err != nil {
 		return nil, fmt.Errorf("encode message: %w", err)

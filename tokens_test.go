@@ -4,7 +4,6 @@ import (
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
-	"strings"
 	"testing"
 )
 
@@ -20,8 +19,7 @@ func TestIssueToken(t *testing.T) {
 		Symbol:          "USD1",
 	}
 	client := onemoney.NewTestClient()
-	privateKey := strings.TrimPrefix(onemoney.TestOperatorPrivateKey, "0x")
-	signature, err := client.SignMessage(payload, privateKey)
+	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -114,8 +112,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 		Token:              common.HexToAddress(onemoney.TestMintAccount),
 		AdditionalMetadata: "[{\"key1\":\"v1\",\"key2\":\"v2\"}]",
 	}
-	privateKey := onemoney.TestOperatorPrivateKey
-	signature, err := client.SignMessage(msg, privateKey)
+	signature, err := client.SignMessage(msg, onemoney.TestOperatorPrivateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -155,8 +152,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 		Token:            common.HexToAddress(onemoney.TestMintAccount),
 		Value:            big.NewInt(1500000),
 	}
-	privateKey := strings.TrimPrefix(onemoney.Test2ndPrivateKey, "0x")
-	signature, err := client.SignMessage(payload, privateKey)
+	signature, err := client.SignMessage(payload, onemoney.Test2ndPrivateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -191,8 +187,7 @@ func TestMintToken(t *testing.T) {
 		Token:     common.HexToAddress(onemoney.TestMintAccount),
 	}
 	// Sign the payload
-	privateKey := strings.TrimPrefix(onemoney.TestOperatorPrivateKey, "0x")
-	signature, err := client.SignMessage(payload, privateKey)
+	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
