@@ -79,7 +79,7 @@ func (client *Client) GetMethod(path string, result any) error {
 	if err != nil {
 		return fmt.Errorf("api get failed to request path: %s, err: %w", path, err)
 	}
-	return handleAPIResponse(resp, &result)
+	return handleAPIResponse(resp, result)
 }
 
 func (client *Client) PostMethod(path string, body any, result any) error {
@@ -96,7 +96,7 @@ func (client *Client) PostMethod(path string, body any, result any) error {
 	if err != nil {
 		return fmt.Errorf("failed to request path: %s, err: %w", path, err)
 	}
-	return handleAPIResponse(resp, &result)
+	return handleAPIResponse(resp, result)
 }
 
 // ErrorResponse represents the error response from the API
