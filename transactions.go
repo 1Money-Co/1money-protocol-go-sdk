@@ -38,9 +38,9 @@ type Transaction struct {
 	TransactionIndex int         `json:"transaction_index"`
 }
 
-func (api *Client) GetTransactionByHash(hash string) (*Transaction, error) {
+func (client *Client) GetTransactionByHash(hash string) (*Transaction, error) {
 	result := new(Transaction)
-	return result, api.GetMethod(fmt.Sprintf("/v1/transactions/by_hash?hash=%s", hash), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/transactions/by_hash?hash=%s", hash), result)
 }
 
 type TransactionReceiptResponse struct {
@@ -55,18 +55,18 @@ type TransactionReceiptResponse struct {
 	TransactionIndex int    `json:"transaction_index"`
 }
 
-func (api *Client) GetTransactionReceipt(hash string) (*TransactionReceiptResponse, error) {
+func (client *Client) GetTransactionReceipt(hash string) (*TransactionReceiptResponse, error) {
 	result := new(TransactionReceiptResponse)
-	return result, api.GetMethod(fmt.Sprintf("/v1/transactions/receipt/by_hash?hash=%s", hash), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/transactions/receipt/by_hash?hash=%s", hash), result)
 }
 
 type EstimateFeeResponse struct {
 	Fee string `json:"fee"`
 }
 
-func (api *Client) GetEstimateFee(from, token, value string) (*EstimateFeeResponse, error) {
+func (client *Client) GetEstimateFee(from, token, value string) (*EstimateFeeResponse, error) {
 	result := new(EstimateFeeResponse)
-	return result, api.GetMethod(fmt.Sprintf(api.baseUrl+"/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value), result)
+	return result, client.GetMethod(fmt.Sprintf(api.baseUrl+"/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value), result)
 }
 
 type PaymentPayload struct {
@@ -86,7 +86,7 @@ type PaymentResponse struct {
 	Hash string `json:"hash"`
 }
 
-func (api *Client) SendPayment(req *PaymentRequest) (*PaymentResponse, error) {
+func (client *Client) SendPayment(req *PaymentRequest) (*PaymentResponse, error) {
 	result := new(PaymentResponse)
-	return result, api.PostMethod("/v1/transactions/payment", req, result)
+	return result, client.PostMethod("/v1/transactions/payment", req, result)
 }

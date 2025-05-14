@@ -14,12 +14,12 @@ type AccountNonceResponse struct {
 	Nonce uint64 `json:"nonce"`
 }
 
-func (api *Client) GetTokenAccount(address, token string) (*TokenAccountResponse, error) {
+func (client *Client) GetTokenAccount(address, token string) (*TokenAccountResponse, error) {
 	result := new(TokenAccountResponse)
-	return result, api.GetMethod(fmt.Sprintf("/v1/accounts/token_account?address=%s&token=%s", address, token), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/accounts/token_account?address=%s&token=%s", address, token), result)
 }
 
-func (api *Client) GetAccountNonce(address string) (*AccountNonceResponse, error) {
+func (client *Client) GetAccountNonce(address string) (*AccountNonceResponse, error) {
 	result := new(AccountNonceResponse)
-	return result, api.GetMethod(fmt.Sprintf("/v1/accounts/nonce?address=%s", address), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/accounts/nonce?address=%s", address), result)
 }

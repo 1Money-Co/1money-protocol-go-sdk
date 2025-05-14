@@ -175,42 +175,41 @@ type PauseTokenResponse struct {
 	Hash string `json:"hash"`
 }
 
-func (api *Client) IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
+func (client *Client) IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
 	result := new(IssueTokenResponse)
-	return result, api.PostMethod("/v1/tokens/issue", req, result)
+	return result, client.PostMethod("/v1/tokens/issue", req, result)
 }
 
-func (api *Client) GetTokenMetadata(tokenAddress string) (*TokenInfoResponse, error) {
+func (client *Client) GetTokenMetadata(tokenAddress string) (*TokenInfoResponse, error) {
 	result := new(TokenInfoResponse)
-	return result, api.GetMethod(fmt.Sprintf("/v1/tokens/token_metadata?token=%s", tokenAddress), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/tokens/token_metadata?token=%s", tokenAddress), result)
 }
 
-func (api *Client) UpdateTokenMetadata(req *UpdateMetadataRequest) (*UpdateMetadataResponse, error) {
+func (client *Client) UpdateTokenMetadata(req *UpdateMetadataRequest) (*UpdateMetadataResponse, error) {
 	result := new(UpdateMetadataResponse)
-	return result, api.PostMethod("/v1/tokens/update_metadata", req, result)
+	return result, client.PostMethod("/v1/tokens/update_metadata", req, result)
 }
 
-func (api *Client) GrantTokenAuthority(req *TokenAuthorityRequest) (*GrantAuthorityResponse, error) {
+func (client *Client) GrantTokenAuthority(req *TokenAuthorityRequest) (*GrantAuthorityResponse, error) {
 	result := new(GrantAuthorityResponse)
-	return result, api.PostMethod("/v1/tokens/grant_authority", req, result)
+	return result, client.PostMethod("/v1/tokens/grant_authority", req, result)
 }
 
-func (api *Client) MintToken(req *MintTokenRequest) (*MintTokenResponse, error) {
+func (client *Client) MintToken(req *MintTokenRequest) (*MintTokenResponse, error) {
 	result := new(MintTokenResponse)
-	return result, api.PostMethod("/v1/tokens/mint", req, result)
+	return result, client.PostMethod("/v1/tokens/mint", req, result)
 }
 
-func (api *Client) BurnToken(req *BurnTokenRequest) (*BurnTokenResponse, error) {
+func (client *Client) BurnToken(req *BurnTokenRequest) (*BurnTokenResponse, error) {
 	result := new(BurnTokenResponse)
-	return result, api.PostMethod("/v1/tokens/burn", req, result)
+	return result, client.PostMethod("/v1/tokens/burn", req, result)
 }
 
-func (api *Client) SetTokenBlacklist(req *SetTokenBlacklistRequest) (*SetTokenBlacklistResponse, error) {
+func (client *Client) SetTokenBlacklist(req *SetTokenBlacklistRequest) (*SetTokenBlacklistResponse, error) {
 	result := new(SetTokenBlacklistResponse)
-	return result, api.PostMethod("/v1/tokens/blacklist", req, result)
+	return result, client.PostMethod("/v1/tokens/blacklist", req, result)
 }
-func (api *Client) PauseToken(req *PauseTokenRequest) (*PauseTokenResponse, error) {
+func (client *Client) PauseToken(req *PauseTokenRequest) (*PauseTokenResponse, error) {
 	result := new(PauseTokenResponse)
-	return result, api.PostMethod("/v1/tokens/pause", req, result)
+	return result, client.PostMethod("/v1/tokens/pause", req, result)
 }
-

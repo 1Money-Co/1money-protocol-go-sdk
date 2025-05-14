@@ -19,9 +19,9 @@ func TestIssueToken(t *testing.T) {
 		Nonce:           nonce,
 		Symbol:          "USD1",
 	}
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	privateKey := strings.TrimPrefix(onemoney.TestOperatorPrivateKey, "0x")
-	signature, err := api.SignMessage(payload, privateKey)
+	signature, err := client.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestIssueToken(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result1, err1 := api.IssueToken(req)
+	result1, err1 := client.IssueToken(req)
 	if err1 != nil {
 		t.Fatalf("IssueToken failed: %v", err1)
 	}
@@ -42,9 +42,9 @@ func TestIssueToken(t *testing.T) {
 }
 
 func TestGetTokenInfo(t *testing.T) {
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	tokenAddress := onemoney.TestMintAccount
-	result, err := api.GetTokenMetadata(tokenAddress)
+	result, err := client.GetTokenMetadata(tokenAddress)
 	if err != nil {
 		t.Fatalf("GetTokenMetadata failed: %v", err)
 	}
@@ -105,7 +105,7 @@ type UpdateMetadataMessage struct {
 }
 
 func TestUpdateTokenMetadata(t *testing.T) {
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	msg := &UpdateMetadataMessage{
 		ChainID:            1212101,
 		Nonce:              0,
@@ -115,7 +115,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 		AdditionalMetadata: "[{\"key1\":\"v1\",\"key2\":\"v2\"}]",
 	}
 	privateKey := onemoney.TestOperatorPrivateKey
-	signature, err := api.SignMessage(msg, privateKey)
+	signature, err := client.SignMessage(msg, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 		},
 	}
 
-	result, err := api.UpdateTokenMetadata(req)
+	result, err := client.UpdateTokenMetadata(req)
 	if err != nil {
 		t.Fatalf("UpdateTokenMetadata failed: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 }
 
 func TestGrantMasterMintAuthority(t *testing.T) {
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	var nonce uint64 = 0
 	payload := onemoney.TokenAuthorityPayload{
 		ChainID:          1212101,
@@ -156,7 +156,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 		Value:            big.NewInt(1500000),
 	}
 	privateKey := strings.TrimPrefix(onemoney.Test2ndPrivateKey, "0x")
-	signature, err := api.SignMessage(payload, privateKey)
+	signature, err := client.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := api.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(&req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 }
 
 func TestMintToken(t *testing.T) {
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	// Get the current nonce
 	var nonce uint64 = 0
 	// Create mint payload
@@ -192,7 +192,7 @@ func TestMintToken(t *testing.T) {
 	}
 	// Sign the payload
 	privateKey := strings.TrimPrefix(onemoney.TestOperatorPrivateKey, "0x")
-	signature, err := api.SignMessage(payload, privateKey)
+	signature, err := client.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestMintToken(t *testing.T) {
 		},
 	}
 	// Send mint request
-	result, err := api.MintToken(req)
+	result, err := client.MintToken(req)
 	if err != nil {
 		t.Fatalf("MintToken failed: %v", err)
 	}

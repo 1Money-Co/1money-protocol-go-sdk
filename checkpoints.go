@@ -40,27 +40,27 @@ type CheckpointDetail struct {
 	Size             int      `json:"size"`
 }
 
-func (api *Client) GetCheckpointNumber() (*CheckpointNumber, error) {
+func (client *Client) GetCheckpointNumber() (*CheckpointNumber, error) {
 	result := new(CheckpointNumber)
-	return result, api.GetMethod("/v1/checkpoints/number", result)
+	return result, client.GetMethod("/v1/checkpoints/number", result)
 }
 
-func (api *Client) GetCheckpointByHashFull(hash string) (*CheckpointDetailFull, error) {
+func (client *Client) GetCheckpointByHashFull(hash string) (*CheckpointDetailFull, error) {
 	result := new(CheckpointDetailFull)
-	return result, api.GetMethod(fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, true), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, true), result)
 }
 
-func (api *Client) GetCheckpointByHash(hash string) (*CheckpointDetail, error) {
+func (client *Client) GetCheckpointByHash(hash string) (*CheckpointDetail, error) {
 	result := new(CheckpointDetail)
-	return result, api.GetMethod(fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, false), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, false), result)
 }
 
-func (api *Client) GetCheckpointByNumberFull(number int) (*CheckpointDetailFull, error) {
+func (client *Client) GetCheckpointByNumberFull(number int) (*CheckpointDetailFull, error) {
 	result := new(CheckpointDetailFull)
-	return result, api.GetMethod(fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, true), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, true), result)
 }
 
-func (api *Client) GetCheckpointByNumber(number int) (*CheckpointDetail, error) {
+func (client *Client) GetCheckpointByNumber(number int) (*CheckpointDetail, error) {
 	result := new(CheckpointDetail)
-	return result, api.GetMethod(fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, false), result)
+	return result, client.GetMethod(fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, false), result)
 }

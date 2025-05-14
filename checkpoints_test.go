@@ -6,8 +6,8 @@ import (
 )
 
 func TestGetCheckpointNumber(t *testing.T) {
-	api := onemoney.NewTest()
-	result, err := api.GetCheckpointNumber()
+	client := onemoney.NewTestClient()
+	result, err := client.GetCheckpointNumber()
 	if err != nil {
 		t.Fatalf("GetCheckpointNumber failed: %v", err)
 	}
@@ -24,9 +24,9 @@ func TestGetCheckpointNumber(t *testing.T) {
 }
 
 func TestGetCheckpointByHashFull(t *testing.T) {
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	hash := "0x7e564f15b2c35b12571ad31e2f87901d146ac5e1e7663c73375a88961944fc61"
-	result, err := api.GetCheckpointByHashFull(hash)
+	result, err := client.GetCheckpointByHashFull(hash)
 	if err != nil {
 		t.Fatalf("GetCheckpointByHashFull failed: %v", err)
 	}
@@ -47,9 +47,9 @@ func TestGetCheckpointByHashFull(t *testing.T) {
 }
 
 func TestGetCheckpointByHash(t *testing.T) {
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	hash := "0x7e564f15b2c35b12571ad31e2f87901d146ac5e1e7663c73375a88961944fc61"
-	result, err := api.GetCheckpointByHash(hash)
+	result, err := client.GetCheckpointByHash(hash)
 	if err != nil {
 		t.Fatalf("GetCheckpointByHashFull failed: %v", err)
 	}
@@ -70,8 +70,8 @@ func TestGetCheckpointByHash(t *testing.T) {
 }
 
 func TestGetCheckpointByNumberFull(t *testing.T) {
-	api := onemoney.NewTest()
-	result, err := api.GetCheckpointByNumberFull(482505)
+	client := onemoney.NewTestClient()
+	result, err := client.GetCheckpointByNumberFull(482505)
 	if err != nil {
 		t.Fatalf("GetCheckpointByNumberFull failed: %v", err)
 	}
@@ -92,8 +92,8 @@ func TestGetCheckpointByNumberFull(t *testing.T) {
 }
 
 func TestGetCheckpointByNumber(t *testing.T) {
-	api := onemoney.NewTest()
-	result, err := api.GetCheckpointByNumber(482505)
+	client := onemoney.NewTestClient()
+	result, err := client.GetCheckpointByNumber(482505)
 	if err != nil {
 		t.Fatalf("GetCheckpointByNumberFull failed: %v", err)
 	}

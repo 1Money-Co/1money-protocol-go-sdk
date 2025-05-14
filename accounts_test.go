@@ -10,10 +10,10 @@ import (
 )
 
 func TestGetTokenAccount(t *testing.T) {
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	address := onemoney.TestOperatorAddress
 	token := onemoney.TestMintAccount
-	result, err := api.GetTokenAccount(address, token)
+	result, err := client.GetTokenAccount(address, token)
 	if err != nil {
 		t.Fatalf("GetTokenAccount failed: %v", err)
 	}
@@ -32,9 +32,9 @@ func TestGetTokenAccount(t *testing.T) {
 }
 
 func TestGetAccountNonce(t *testing.T) {
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	address := "0x2eb2c7703267a73f34585a61f21e7e2af31d4b41"
-	result, err := api.GetAccountNonce(address)
+	result, err := client.GetAccountNonce(address)
 	if err != nil {
 		t.Fatalf("GetAccountNonce failed: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestGetAccountNonce(t *testing.T) {
 }
 
 func TestErrorHandling(t *testing.T) {
-	api := onemoney.NewTest()
+	client := onemoney.NewTestClient()
 	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -57,7 +57,7 @@ func TestErrorHandling(t *testing.T) {
 	}))
 	defer server.Close()
 	// Test GetAccountNonce with error response
-	_, err := api.GetAccountNonce("0x123")
+	_, err := client.GetAccountNonce("0x123")
 	// Check if the error is of type APIError
 	var apiErr *onemoney.APIError
 	ok := errors.As(err, &apiErr)

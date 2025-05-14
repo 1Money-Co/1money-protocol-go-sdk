@@ -13,7 +13,7 @@ type Signature struct {
 	V uint64 `json:"v"`
 }
 
-func (api *Client) SignMessage(msg any, privateKey string) (*Signature, error) {
+func (client *Client) SignMessage(msg any, privateKey string) (*Signature, error) {
 	encoded, err := rlp.EncodeToBytes(msg)
 	if err != nil {
 		return nil, fmt.Errorf("encode message: %w", err)

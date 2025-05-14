@@ -23,47 +23,47 @@ const (
 )
 
 type Client struct {
-	baseUrl string
-	client  *http.Client
+	baseUrl    string
+	httpclient *http.Client
 }
 
-func New() *Client {
+func NewClient() *Client {
 	return &Client{
-		baseUrl: apiBaseUrl,
-		client:  http.DefaultClient,
+		baseUrl:    apiBaseUrl,
+		httpclient: http.DefaultClient,
 	}
 }
 
-func NewTest() *Client {
+func NewTestClient() *Client {
 	return &Client{
-		baseUrl: apiBaseUrlTest,
-		client:  http.DefaultClient,
+		baseUrl:    apiBaseUrlTest,
+		httpclient: http.DefaultClient,
 	}
 }
 
-func (api *Client) GetMethod(path string, result any) error {
-	req, err := http.NewRequest("GET", api.baseUrl+path, nil)
+func (client *Client) GetMethod(path string, result any) error {
+	req, err := http.NewRequest("GET", client.baseUrl+path, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	resp, err := api.client.Do(req)
+	resp, err := client.httpclient.Do(req)
 	if err != nil {
 		return fmt.Errorf("api get failed to request path: %s, err: %w", path, err)
 	}
 	return handleAPIResponse(resp, &result)
 }
 
-func (api *Client) PostMethod(path string, body any, result any) error {
+func (client *Client) PostMethod(path string, body any, result any) error {
 	data, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
-	req, err := http.NewRequest("POST", api.baseUrl+path, bytes.NewBuffer(data))
+	req, err := http.NewRequest("POST", client.baseUrl+path, bytes.NewBuffer(data))
 	if err != nil {
 		return fmt.Errorf("api post failed to request path: %s, err: %w", path, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := api.client.Do(req)
+	resp, err := client.httpclient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to request path: %s, err: %w", path, err)
 	}

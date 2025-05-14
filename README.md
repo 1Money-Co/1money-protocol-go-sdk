@@ -15,10 +15,14 @@ Add go to your `go.mod` file
 go get -u  https://github.com/1Money-Co/1money-go-sdk
 ```
 
-## Where can I see examples?
+## Example
 
-Take a look at `xx_test` for some examples of how to write clients.
-
+### TestNetwork
+    client := onemoney.NewTestClient()
+	result, err := client.GetCheckpointNumber()
+### MainNetwork
+    client := onemoney.NewClient()
+    result, err := client.GetCheckpointNumber()
 ## Where can I learn more?
 
 You can read more about the Go SDK documentation on [1Money developer portal](https://developer.1moneynetwork.com/integrations/sdks/golang)
