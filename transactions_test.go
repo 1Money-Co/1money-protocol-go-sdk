@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetTransactionByHash(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	api := onemoney.NewTest()
 	// for create/mint related transaction, can check cp=1 related transactions to get the hash to test
 	hash := "0x2bae78414bdf32bc6c8dd708eae72af2f5b4bf2dc649757cd0bfe499191dc277"
 	result, err := api.GetTransactionByHash(hash)
@@ -55,7 +55,7 @@ func TestGetTransactionByHash(t *testing.T) {
 }
 
 func TestGetTransactionReceipt(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	api := onemoney.NewTest()
 	hash := "0x2bae78414bdf32bc6c8dd708eae72af2f5b4bf2dc649757cd0bfe499191dc277"
 	result, err := api.GetTransactionReceipt(hash)
 	if err != nil {
@@ -97,7 +97,7 @@ func TestGetTransactionReceipt(t *testing.T) {
 }
 
 func TestGetEstimateFee(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	api := onemoney.NewTest()
 	from := "0xfcecaf244ce223050980038c4fe2328e7580afd9"
 	token := "0x354312ce56a578c98559154Dd7A50F5C08D17270"
 	value := "1500000" // 1 token with 18 decimals
@@ -122,18 +122,18 @@ func TestGetEstimateFee(t *testing.T) {
 }
 
 func TestSendPayment(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	api := onemoney.NewTest()
 	var nonce uint64 = 11
 	// Create payment payload
 	payload := onemoney.PaymentPayload{
 		ChainID:   1212101,
 		Nonce:     nonce,
-		Recipient: common.HexToAddress(Test2ndAddress),
+		Recipient: common.HexToAddress(onemoney.Test2ndAddress),
 		Value:     big.NewInt(40250000),
-		Token:     common.HexToAddress(MintAccount),
+		Token:     common.HexToAddress(onemoney.TestMintAccount),
 	}
 	// Sign the payload
-	privateKey := strings.TrimPrefix(TestOperatorPrivateKey, "0x")
+	privateKey := strings.TrimPrefix(onemoney.TestOperatorPrivateKey, "0x")
 	signature, err := api.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)

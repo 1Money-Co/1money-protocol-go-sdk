@@ -1,13 +1,9 @@
 package onemoney
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gin-gonic/gin"
 	"math/big"
-	"net/http"
 )
 
 type Address string
@@ -43,24 +39,11 @@ type Transaction struct {
 }
 
 func (api *Client) GetTransactionByHash(hash string) (*Transaction, error) {
-	gin.SetMode(gin.ReleaseMode)
-	url := fmt.Sprintf(api.baseUrl+"/v1/transactions/by_hash?hash=%s", hash)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get transaction: %w", err)
-	}
-	var result Transaction
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+	result := new(Transaction)
+	return result, api.GetMethod(fmt.Sprintf("/v1/transactions/by_hash?hash=%s", hash), result)
 }
 
-type TransactionReceipt struct {
+type TransactionReceiptResponse struct {
 	CheckpointHash   string `json:"checkpoint_hash"`
 	CheckpointNumber int    `json:"checkpoint_number"`
 	FeeUsed          int    `json:"fee_used"`
@@ -72,44 +55,18 @@ type TransactionReceipt struct {
 	TransactionIndex int    `json:"transaction_index"`
 }
 
-func (api *Client) GetTransactionReceipt(hash string) (*TransactionReceipt, error) {
-	gin.SetMode(gin.ReleaseMode)
-	url := fmt.Sprintf(api.baseUrl+"/v1/transactions/receipt/by_hash?hash=%s", hash)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
-	}
-	var result TransactionReceipt
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+func (api *Client) GetTransactionReceipt(hash string) (*TransactionReceiptResponse, error) {
+	result := new(TransactionReceiptResponse)
+	return result, api.GetMethod(fmt.Sprintf("/v1/transactions/receipt/by_hash?hash=%s", hash), result)
 }
 
-type EstimateFee struct {
+type EstimateFeeResponse struct {
 	Fee string `json:"fee"`
 }
 
-func (api *Client) GetEstimateFee(from, token, value string) (*EstimateFee, error) {
-	gin.SetMode(gin.ReleaseMode)
-	url := fmt.Sprintf(api.baseUrl+"/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get estimate fee: %w", err)
-	}
-	var result EstimateFee
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+func (api *Client) GetEstimateFee(from, token, value string) (*EstimateFeeResponse, error) {
+	result := new(EstimateFeeResponse)
+	return result, api.GetMethod(fmt.Sprintf(api.baseUrl+"/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value), result)
 }
 
 type PaymentPayload struct {
@@ -130,23 +87,6 @@ type PaymentResponse struct {
 }
 
 func (api *Client) SendPayment(req *PaymentRequest) (*PaymentResponse, error) {
-	gin.SetMode(gin.ReleaseMode)
-	jsonData, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-	httpReq, err := http.NewRequest("POST", api.baseUrl+"/v1/transactions/payment", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := api.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send payment: %w", err)
-	}
-	var result PaymentResponse
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+	result := new(PaymentResponse)
+	return result, api.PostMethod("/v1/transactions/payment", req, result)
 }

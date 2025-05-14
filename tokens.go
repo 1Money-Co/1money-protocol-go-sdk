@@ -1,13 +1,9 @@
 package onemoney
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gin-gonic/gin"
 	"math/big"
-	"net/http"
 )
 
 type TokenIssuePayload struct {
@@ -45,7 +41,7 @@ type MinterAuthority struct {
 	Minter    string `json:"minter"`
 }
 
-type TokenInfo struct {
+type TokenInfoResponse struct {
 	BlackList               []string          `json:"black_list"`
 	BlackListAuthorities    []string          `json:"black_list_authorities"`
 	BurnAuthorities         []string          `json:"burn_authorities"`
@@ -129,111 +125,92 @@ type MintTokenResponse struct {
 	Hash string `json:"hash"`
 }
 
-func (api *Client) IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
-	gin.SetMode(gin.ReleaseMode)
-	jsonData, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-	url := api.baseUrl + "/v1/tokens/issue"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := api.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to issue token: %w", err)
-	}
-	var result IssueTokenResponse
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+type TokenBurnPayload struct {
+	ChainID   uint64         `json:"chain_id"`
+	Nonce     uint64         `json:"nonce"`
+	Recipient common.Address `json:"recipient"`
+	Value     *big.Int       `json:"value"`
+	Token     common.Address `json:"token"`
 }
 
-func (api *Client) GetTokenInfo(tokenAddress string) (*TokenInfo, error) {
-	gin.SetMode(gin.ReleaseMode)
-	url := fmt.Sprintf(api.baseUrl+"/v1/tokens/token_metadata?token=%s", tokenAddress)
-	println("access url: ", url)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get token info: %w", err)
-	}
-	var result TokenInfo
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+type BurnTokenRequest struct {
+	TokenBurnPayload
+	Signature Signature `json:"signature"`
+}
+
+type BurnTokenResponse struct {
+	Hash string `json:"hash"`
+}
+
+type TokenBlacklistPayload struct {
+	ChainID uint64         `json:"chain_id"`
+	Nonce   uint64         `json:"nonce"`
+	Action  string         `json:"action"`
+	Address common.Address `json:"address"`
+	Token   common.Address `json:"token"`
+}
+
+type SetTokenBlacklistRequest struct {
+	TokenBlacklistPayload
+	Signature Signature `json:"signature"`
+}
+
+type SetTokenBlacklistResponse struct {
+	Hash string `json:"hash"`
+}
+
+type PauseTokenPayload struct {
+	ChainID uint64         `json:"chain_id"`
+	Nonce   uint64         `json:"nonce"`
+	Action  string         `json:"action"`
+	Token   common.Address `json:"token"`
+}
+
+type PauseTokenRequest struct {
+	PauseTokenPayload
+	Signature Signature `json:"signature"`
+}
+
+type PauseTokenResponse struct {
+	Hash string `json:"hash"`
+}
+
+func (api *Client) IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
+	result := new(IssueTokenResponse)
+	return result, api.PostMethod("/v1/tokens/issue", req, result)
+}
+
+func (api *Client) GetTokenMetadata(tokenAddress string) (*TokenInfoResponse, error) {
+	result := new(TokenInfoResponse)
+	return result, api.GetMethod(fmt.Sprintf("/v1/tokens/token_metadata?token=%s", tokenAddress), result)
 }
 
 func (api *Client) UpdateTokenMetadata(req *UpdateMetadataRequest) (*UpdateMetadataResponse, error) {
-	gin.SetMode(gin.ReleaseMode)
-	jsonData, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-	httpReq, err :=
-		http.NewRequest("POST", api.baseUrl+"/v1/tokens/update_metadata", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := api.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update token metadata: %w", err)
-	}
-	var result UpdateMetadataResponse
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+	result := new(UpdateMetadataResponse)
+	return result, api.PostMethod("/v1/tokens/update_metadata", req, result)
 }
 
 func (api *Client) GrantTokenAuthority(req *TokenAuthorityRequest) (*GrantAuthorityResponse, error) {
-	gin.SetMode(gin.ReleaseMode)
-	jsonData, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-	httpReq, err := http.NewRequest("POST", api.baseUrl+"/v1/tokens/grant_authority", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := api.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to grant authority: %w", err)
-	}
-	var result GrantAuthorityResponse
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+	result := new(GrantAuthorityResponse)
+	return result, api.PostMethod("/v1/tokens/grant_authority", req, result)
 }
 
 func (api *Client) MintToken(req *MintTokenRequest) (*MintTokenResponse, error) {
-	gin.SetMode(gin.ReleaseMode)
-	jsonData, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-	httpReq, err := http.NewRequest("POST", api.baseUrl+"/v1/tokens/mint", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := api.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to mint token: %w", err)
-	}
-	var result MintTokenResponse
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+	result := new(MintTokenResponse)
+	return result, api.PostMethod("/v1/tokens/mint", req, result)
 }
+
+func (api *Client) BurnToken(req *BurnTokenRequest) (*BurnTokenResponse, error) {
+	result := new(BurnTokenResponse)
+	return result, api.PostMethod("/v1/tokens/burn", req, result)
+}
+
+func (api *Client) SetTokenBlacklist(req *SetTokenBlacklistRequest) (*SetTokenBlacklistResponse, error) {
+	result := new(SetTokenBlacklistResponse)
+	return result, api.PostMethod("/v1/tokens/blacklist", req, result)
+}
+func (api *Client) PauseToken(req *PauseTokenRequest) (*PauseTokenResponse, error) {
+	result := new(PauseTokenResponse)
+	return result, api.PostMethod("/v1/tokens/pause", req, result)
+}
+

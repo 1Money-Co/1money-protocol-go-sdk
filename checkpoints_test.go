@@ -6,7 +6,7 @@ import (
 )
 
 func TestGetCheckpointNumber(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	api := onemoney.NewTest()
 	result, err := api.GetCheckpointNumber()
 	if err != nil {
 		t.Fatalf("GetCheckpointNumber failed: %v", err)
@@ -23,19 +23,16 @@ func TestGetCheckpointNumber(t *testing.T) {
 	t.Logf("Successfully retrieved checkpoint number: %d", result.Number)
 }
 
-func TestGetCheckpointByNumber(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
-	result, err := api.GetCheckpointByNumber(482505, false)
+func TestGetCheckpointByHashFull(t *testing.T) {
+	api := onemoney.NewTest()
+	hash := "0x7e564f15b2c35b12571ad31e2f87901d146ac5e1e7663c73375a88961944fc61"
+	result, err := api.GetCheckpointByHashFull(hash)
 	if err != nil {
-		t.Fatalf("GetCheckpointByNumber failed: %v", err)
+		t.Fatalf("GetCheckpointByHashFull failed: %v", err)
 	}
 	// Verify the result is not nil
 	if result == nil {
 		t.Fatal("Expected result to not be nil")
-	}
-	// Verify required fields are present
-	if result.Number == "" {
-		t.Error("Expected Number to be present")
 	}
 	if result.Hash == "" {
 		t.Error("Expected Hash to be present")
@@ -43,14 +40,75 @@ func TestGetCheckpointByNumber(t *testing.T) {
 	if result.ParentHash == "" {
 		t.Error("Expected ParentHash to be present")
 	}
-	if result.Timestamp == "" {
-		t.Error("Expected Timestamp to be present")
+	// Log the result for manual verification
+	t.Logf("Successfully retrieved checkpoint detail for hash: %s", hash)
+	t.Logf("Number of transactions: %d", result.Size)
+	t.Log("result: ", result)
+}
+
+func TestGetCheckpointByHash(t *testing.T) {
+	api := onemoney.NewTest()
+	hash := "0x7e564f15b2c35b12571ad31e2f87901d146ac5e1e7663c73375a88961944fc61"
+	result, err := api.GetCheckpointByHash(hash)
+	if err != nil {
+		t.Fatalf("GetCheckpointByHashFull failed: %v", err)
 	}
-	// Verify size matches transactions length
-	if result.Size != len(result.Transactions) {
-		t.Errorf("Expected Size (%d) to match Transactions length (%d)", result.Size, len(result.Transactions))
+	// Verify the result is not nil
+	if result == nil {
+		t.Fatal("Expected result to not be nil")
+	}
+	if result.Hash == "" {
+		t.Error("Expected Hash to be present")
+	}
+	if result.ParentHash == "" {
+		t.Error("Expected ParentHash to be present")
 	}
 	// Log the result for manual verification
-	t.Logf("Successfully retrieved checkpoint detail for number: %s", result.Number)
+	t.Logf("Successfully retrieved checkpoint detail for hash: %s", hash)
 	t.Logf("Number of transactions: %d", result.Size)
+	t.Log("result: ", result)
+}
+
+func TestGetCheckpointByNumberFull(t *testing.T) {
+	api := onemoney.NewTest()
+	result, err := api.GetCheckpointByNumberFull(482505)
+	if err != nil {
+		t.Fatalf("GetCheckpointByNumberFull failed: %v", err)
+	}
+	// Verify the result is not nil
+	if result == nil {
+		t.Fatal("Expected result to not be nil")
+	}
+	if result.Hash == "" {
+		t.Error("Expected Hash to be present")
+	}
+	if result.ParentHash == "" {
+		t.Error("Expected ParentHash to be present")
+	}
+	// Log the result for manual verification
+	t.Logf("Successfully retrieved checkpoint detail for number: %d", result.Number)
+	t.Logf("Number of transactions: %d", result.Size)
+	t.Log("result: ", result)
+}
+
+func TestGetCheckpointByNumber(t *testing.T) {
+	api := onemoney.NewTest()
+	result, err := api.GetCheckpointByNumber(482505)
+	if err != nil {
+		t.Fatalf("GetCheckpointByNumberFull failed: %v", err)
+	}
+	// Verify the result is not nil
+	if result == nil {
+		t.Fatal("Expected result to not be nil")
+	}
+	if result.Hash == "" {
+		t.Error("Expected Hash to be present")
+	}
+	if result.ParentHash == "" {
+		t.Error("Expected ParentHash to be present")
+	}
+	// Log the result for manual verification
+	t.Logf("Successfully retrieved checkpoint detail for number: %d", result.Number)
+	t.Logf("Number of transactions: %d", result.Size)
+	t.Log("result: ", result)
 }

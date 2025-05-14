@@ -2,8 +2,6 @@ package onemoney
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 type CheckpointNumber struct {
@@ -16,50 +14,53 @@ type TokenData struct {
 	Symbol          string `json:"symbol"`
 }
 
-type CheckpointDetail struct {
+type CheckpointDetailFull struct {
 	ExtraData        string        `json:"extra_data"`
 	Hash             string        `json:"hash"`
-	Number           string        `json:"number"`
+	Number           uint64        `json:"number"`
 	ParentHash       string        `json:"parent_hash"`
 	ReceiptsRoot     string        `json:"receipts_root"`
 	StateRoot        string        `json:"state_root"`
-	Timestamp        string        `json:"timestamp"`
+	Timestamp        uint64        `json:"timestamp"`
 	TransactionsRoot string        `json:"transactions_root"`
-	Size             int           `json:"size"`
 	Transactions     []Transaction `json:"transactions"`
+	Size             int           `json:"size"`
+}
+
+type CheckpointDetail struct {
+	ExtraData        string   `json:"extra_data"`
+	Hash             string   `json:"hash"`
+	Number           uint64   `json:"number"`
+	ParentHash       string   `json:"parent_hash"`
+	ReceiptsRoot     string   `json:"receipts_root"`
+	StateRoot        string   `json:"state_root"`
+	Timestamp        uint64   `json:"timestamp"`
+	TransactionsRoot string   `json:"transactions_root"`
+	Transactions     []string `json:"transactions"`
+	Size             int      `json:"size"`
 }
 
 func (api *Client) GetCheckpointNumber() (*CheckpointNumber, error) {
-	gin.SetMode(gin.ReleaseMode)
-	req, err := http.NewRequest("GET", api.baseUrl+"/v1/checkpoints/number", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get checkpoint number: %w", err)
-	}
-	var result CheckpointNumber
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+	result := new(CheckpointNumber)
+	return result, api.GetMethod("/v1/checkpoints/number", result)
 }
 
-func (api *Client) GetCheckpointByNumber(number int, full bool) (*CheckpointDetail, error) {
-	gin.SetMode(gin.ReleaseMode)
-	url := fmt.Sprintf(api.baseUrl+"/v1/checkpoints/by_number?number=%d&full=%v", number, full)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	resp, err := api.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get checkpoint detail: %w", err)
-	}
-	var result CheckpointDetail
-	if err := HandleAPIResponse(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+func (api *Client) GetCheckpointByHashFull(hash string) (*CheckpointDetailFull, error) {
+	result := new(CheckpointDetailFull)
+	return result, api.GetMethod(fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, true), result)
+}
+
+func (api *Client) GetCheckpointByHash(hash string) (*CheckpointDetail, error) {
+	result := new(CheckpointDetail)
+	return result, api.GetMethod(fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, false), result)
+}
+
+func (api *Client) GetCheckpointByNumberFull(number int) (*CheckpointDetailFull, error) {
+	result := new(CheckpointDetailFull)
+	return result, api.GetMethod(fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, true), result)
+}
+
+func (api *Client) GetCheckpointByNumber(number int) (*CheckpointDetail, error) {
+	result := new(CheckpointDetail)
+	return result, api.GetMethod(fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, false), result)
 }

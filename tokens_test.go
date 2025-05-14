@@ -14,13 +14,13 @@ func TestIssueToken(t *testing.T) {
 	payload := onemoney.TokenIssuePayload{
 		ChainID:         1212101,
 		Decimals:        6,
-		MasterAuthority: common.HexToAddress(TestOperatorAddress),
+		MasterAuthority: common.HexToAddress(onemoney.TestOperatorAddress),
 		Name:            "1Money Stable Coin",
 		Nonce:           nonce,
 		Symbol:          "USD1",
 	}
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
-	privateKey := strings.TrimPrefix(TestOperatorPrivateKey, "0x")
+	api := onemoney.NewTest()
+	privateKey := strings.TrimPrefix(onemoney.TestOperatorPrivateKey, "0x")
 	signature, err := api.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
@@ -42,11 +42,11 @@ func TestIssueToken(t *testing.T) {
 }
 
 func TestGetTokenInfo(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
-	tokenAddress := MintAccount
-	result, err := api.GetTokenInfo(tokenAddress)
+	api := onemoney.NewTest()
+	tokenAddress := onemoney.TestMintAccount
+	result, err := api.GetTokenMetadata(tokenAddress)
 	if err != nil {
-		t.Fatalf("GetTokenInfo failed: %v", err)
+		t.Fatalf("GetTokenMetadata failed: %v", err)
 	}
 	if result == nil {
 		t.Fatal("Expected result to not be nil")
@@ -105,16 +105,16 @@ type UpdateMetadataMessage struct {
 }
 
 func TestUpdateTokenMetadata(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	api := onemoney.NewTest()
 	msg := &UpdateMetadataMessage{
 		ChainID:            1212101,
 		Nonce:              0,
 		Name:               "USDFF Stablecoin",
 		URI:                "https://usdf.com",
-		Token:              common.HexToAddress(MintAccount),
+		Token:              common.HexToAddress(onemoney.TestMintAccount),
 		AdditionalMetadata: "[{\"key1\":\"v1\",\"key2\":\"v2\"}]",
 	}
-	privateKey := TestOperatorPrivateKey
+	privateKey := onemoney.TestOperatorPrivateKey
 	signature, err := api.SignMessage(msg, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
@@ -122,7 +122,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 	req := &onemoney.UpdateMetadataRequest{
 		ChainID:            1212101,
 		Nonce:              0,
-		Token:              MintAccount,
+		Token:              onemoney.TestMintAccount,
 		Name:               "USDFF Stablecoin",
 		URI:                "https://usdf.com",
 		AdditionalMetadata: "[{\"key1\":\"v1\",\"key2\":\"v2\"}]",
@@ -144,18 +144,18 @@ func TestUpdateTokenMetadata(t *testing.T) {
 }
 
 func TestGrantMasterMintAuthority(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	api := onemoney.NewTest()
 	var nonce uint64 = 0
 	payload := onemoney.TokenAuthorityPayload{
 		ChainID:          1212101,
 		Nonce:            nonce,
 		Action:           onemoney.AuthorityActionGrant,
 		AuthorityType:    onemoney.AuthorityTypeMintTokens,
-		AuthorityAddress: common.HexToAddress(TestOperatorAddress),
-		Token:            common.HexToAddress(MintAccount),
+		AuthorityAddress: common.HexToAddress(onemoney.TestOperatorAddress),
+		Token:            common.HexToAddress(onemoney.TestMintAccount),
 		Value:            big.NewInt(1500000),
 	}
-	privateKey := strings.TrimPrefix(Test2ndPrivateKey, "0x")
+	privateKey := strings.TrimPrefix(onemoney.Test2ndPrivateKey, "0x")
 	signature, err := api.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
@@ -179,19 +179,19 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 }
 
 func TestMintToken(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	api := onemoney.NewTest()
 	// Get the current nonce
 	var nonce uint64 = 0
 	// Create mint payload
 	payload := onemoney.TokenMintPayload{
 		ChainID:   1212101,
 		Nonce:     nonce,
-		Recipient: common.HexToAddress(TestOperatorAddress),
+		Recipient: common.HexToAddress(onemoney.TestOperatorAddress),
 		Value:     big.NewInt(150000),
-		Token:     common.HexToAddress(MintAccount),
+		Token:     common.HexToAddress(onemoney.TestMintAccount),
 	}
 	// Sign the payload
-	privateKey := strings.TrimPrefix(TestOperatorPrivateKey, "0x")
+	privateKey := strings.TrimPrefix(onemoney.TestOperatorPrivateKey, "0x")
 	signature, err := api.SignMessage(payload, privateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)

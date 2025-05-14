@@ -10,9 +10,9 @@ import (
 )
 
 func TestGetTokenAccount(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
-	address := TestOperatorAddress
-	token := MintAccount
+	api := onemoney.NewTest()
+	address := onemoney.TestOperatorAddress
+	token := onemoney.TestMintAccount
 	result, err := api.GetTokenAccount(address, token)
 	if err != nil {
 		t.Fatalf("GetTokenAccount failed: %v", err)
@@ -32,8 +32,8 @@ func TestGetTokenAccount(t *testing.T) {
 }
 
 func TestGetAccountNonce(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
-	address := "0xeFd86F9EA9b981edA887f984C7883481Ec665b61"
+	api := onemoney.NewTest()
+	address := "0x2eb2c7703267a73f34585a61f21e7e2af31d4b41"
 	result, err := api.GetAccountNonce(address)
 	if err != nil {
 		t.Fatalf("GetAccountNonce failed: %v", err)
@@ -45,7 +45,7 @@ func TestGetAccountNonce(t *testing.T) {
 }
 
 func TestErrorHandling(t *testing.T) {
-	api := onemoney.New(onemoney.ApiBaseUrlTest)
+	api := onemoney.NewTest()
 	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
