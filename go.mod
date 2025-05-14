@@ -1,6 +1,6 @@
 module github.com/1Money-Co/1money-go-sdk
 
-go 1.23.0
+go 1.24
 
 require (
 	github.com/ethereum/go-ethereum v1.15.7
