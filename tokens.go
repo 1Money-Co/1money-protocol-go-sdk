@@ -49,22 +49,26 @@ type TokenInfoResponse struct {
 	IsPaused                bool              `json:"is_paused"`
 	MasterAuthority         string            `json:"master_authority"`
 	MasterMintAuthority     string            `json:"master_mint_authority"`
+	MinterBurnAuthorities   []MinterAuthority `json:"minter_burn_authorities"`
 	Meta                    Meta              `json:"meta"`
 	MetadataUpdateAuthority string            `json:"metadata_update_authority"`
-	MinterAuthorities       []MinterAuthority `json:"minter_authorities"`
 	PauseAuthority          string            `json:"pause_authority"`
 	Supply                  string            `json:"supply"`
 	Symbol                  string            `json:"symbol"`
 }
 
+type UpdateMetadataPayload struct {
+	ChainID            uint64               `json:"chain_id"`
+	Nonce              uint64               `json:"nonce"`
+	Name               string               `json:"name"`
+	URI                string               `json:"uri"`
+	Token              string               `json:"token"`
+	AdditionalMetadata []AdditionalMetadata `json:"additional_metadata"`
+}
+
 type UpdateMetadataRequest struct {
-	AdditionalMetadata string    `json:"additional_metadata"`
-	ChainID            int       `json:"chain_id"`
-	Name               string    `json:"name"`
-	Nonce              int       `json:"nonce"`
-	Token              string    `json:"token"`
-	URI                string    `json:"uri"`
-	Signature          Signature `json:"signature"`
+	UpdateMetadataPayload
+	Signature Signature `json:"signature"`
 }
 
 type UpdateMetadataResponse struct {
@@ -82,11 +86,17 @@ type AuthorityType string
 
 const (
 	AuthorityTypeMasterMint     AuthorityType = "MasterMint"
-	AuthorityTypeMintTokens     AuthorityType = "MintTokens"
+	AuthorityTypeMintBurnTokens AuthorityType = "MintBurnTokens"
 	AuthorityTypePause          AuthorityType = "Pause"
-	AuthorityTypeBurn           AuthorityType = "BurnFromAccount"
-	AuthorityTypeBlacklist      AuthorityType = "BlacklistAccount"
+	AuthorityTypeManageList     AuthorityType = "ManageList"
 	AuthorityTypeUpdateMetadata AuthorityType = "UpdateMetadata"
+)
+
+type PauseActionType string
+
+const (
+	Pause   PauseActionType = "Pause"
+	UnPause PauseActionType = "Unpause"
 )
 
 type TokenAuthorityPayload struct {
@@ -160,10 +170,10 @@ type SetTokenBlacklistResponse struct {
 }
 
 type PauseTokenPayload struct {
-	ChainID uint64         `json:"chain_id"`
-	Nonce   uint64         `json:"nonce"`
-	Action  string         `json:"action"`
-	Token   common.Address `json:"token"`
+	ChainID uint64          `json:"chain_id"`
+	Nonce   uint64          `json:"nonce"`
+	Action  PauseActionType `json:"action"`
+	Token   common.Address  `json:"token"`
 }
 
 type PauseTokenRequest struct {
@@ -209,6 +219,7 @@ func (client *Client) SetTokenBlacklist(req *SetTokenBlacklistRequest) (*SetToke
 	result := new(SetTokenBlacklistResponse)
 	return result, client.PostMethod("/v1/tokens/blacklist", req, result)
 }
+
 func (client *Client) PauseToken(req *PauseTokenRequest) (*PauseTokenResponse, error) {
 	result := new(PauseTokenResponse)
 	return result, client.PostMethod("/v1/tokens/pause", req, result)

@@ -11,7 +11,7 @@ import (
 func TestGetTransactionByHash(t *testing.T) {
 	client := onemoney.NewTestClient()
 	// for create/mint related transaction, can check cp=1 related transactions to get the hash to test
-	hash := "0x2bae78414bdf32bc6c8dd708eae72af2f5b4bf2dc649757cd0bfe499191dc277"
+	hash := "0x85396c45c42acfc73c214da3b71737f3c46b4bda638d5b0c58404d176392f867"
 	result, err := client.GetTransactionByHash(hash)
 	if err != nil {
 		t.Fatalf("GetTransactionByHash failed: %v", err)
@@ -55,7 +55,7 @@ func TestGetTransactionByHash(t *testing.T) {
 
 func TestGetTransactionReceipt(t *testing.T) {
 	client := onemoney.NewTestClient()
-	hash := "0x2bae78414bdf32bc6c8dd708eae72af2f5b4bf2dc649757cd0bfe499191dc277"
+	hash := "0x85396c45c42acfc73c214da3b71737f3c46b4bda638d5b0c58404d176392f867"
 	result, err := client.GetTransactionReceipt(hash)
 	if err != nil {
 		t.Fatalf("GetTransactionReceipt failed: %v", err)
@@ -129,7 +129,7 @@ func TestSendPayment(t *testing.T) {
 		Nonce:     nonce,
 		Recipient: common.HexToAddress(onemoney.Test2ndAddress),
 		Value:     big.NewInt(40250000),
-		Token:     common.HexToAddress(onemoney.TestMintAccount),
+		Token:     common.HexToAddress(onemoney.TestTokenAddress),
 	}
 	// Sign the payload
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)

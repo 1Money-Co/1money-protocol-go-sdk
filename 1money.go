@@ -16,9 +16,7 @@ const (
 const (
 	TestOperatorPrivateKey = ""
 	TestOperatorAddress    = ""
-	TestMintAccount        = ""
-	Test2ndPrivateKey      = ""
-	Test2ndPublicKey       = ""
+	TestTokenAddress       = ""
 	Test2ndAddress         = ""
 )
 
