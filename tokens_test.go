@@ -93,7 +93,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 	client := onemoney.NewTestClient()
 	payload := onemoney.UpdateMetadataPayload{
 		ChainID: 1212101,
-		Nonce:   14,
+		Nonce:   63,
 		Name:    "USDFF Stablecoin",
 		URI:     "https://usdf.com",
 		Token:   onemoney.TestTokenAddress,
@@ -314,7 +314,7 @@ func TestBurnToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
-	// Create mint request
+	// Create burn request
 	req := &onemoney.BurnTokenRequest{
 		TokenBurnPayload: payload,
 		Signature: onemoney.Signature{
@@ -323,12 +323,48 @@ func TestBurnToken(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	// Send mint request
+	// Send burn request
 	result, err := client.BurnToken(req)
 	if err != nil {
 		t.Fatalf("BurnToken failed: %v", err)
 	}
 	t.Log("\nBurn Token Result:")
+	t.Log("=================")
+	t.Logf("Transaction Hash: %s", result.Hash)
+}
+
+func TestBlacklist(t *testing.T) {
+	client := onemoney.NewTestClient()
+	// Get the current nonce
+	var nonce uint64 = 63
+	// Create SetTokenBlacklist payload
+	payload := onemoney.TokenBlacklistPayload{
+		ChainID: 1212101,
+		Nonce:   nonce,
+		Action:  onemoney.Whitelist,
+		Address: common.HexToAddress(onemoney.TestOperatorAddress),
+		Token:   common.HexToAddress(onemoney.TestTokenAddress),
+	}
+	// Sign the payload
+	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
+	if err != nil {
+		t.Fatalf("Failed to generate signature: %v", err)
+	}
+	// Create SetTokenBlacklist request
+	req := &onemoney.SetTokenBlacklistRequest{
+		TokenBlacklistPayload: payload,
+		Signature: onemoney.Signature{
+			R: signature.R,
+			S: signature.S,
+			V: signature.V,
+		},
+	}
+	// Send mint request
+	result, err := client.SetTokenBlacklist(req)
+	if err != nil {
+		t.Fatalf("SetTokenBlacklist failed: %v", err)
+	}
+	t.Log("\nSetTokenBlacklist Result:")
 	t.Log("=================")
 	t.Logf("Transaction Hash: %s", result.Hash)
 }
@@ -372,7 +408,7 @@ func TestUnPauseToken(t *testing.T) {
 	client := onemoney.NewTestClient()
 	// Get the current nonce
 	var nonce uint64 = 23
-	// Create mint payload
+	// Create pause payload
 	payload := onemoney.PauseTokenPayload{
 		ChainID: 1212101,
 		Nonce:   nonce,
@@ -384,7 +420,7 @@ func TestUnPauseToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
-	// Create mint request
+	// Create pause request
 	req := &onemoney.PauseTokenRequest{
 		PauseTokenPayload: payload,
 		Signature: onemoney.Signature{
@@ -393,7 +429,7 @@ func TestUnPauseToken(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	// Send mint request
+	// Send pause request
 	result, err := client.PauseToken(req)
 	if err != nil {
 		t.Fatalf("PauseToken failed: %v", err)

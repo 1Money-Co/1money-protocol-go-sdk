@@ -99,6 +99,13 @@ const (
 	UnPause PauseActionType = "Unpause"
 )
 
+type BlacklistActionType string
+
+const (
+	Blacklist BlacklistActionType = "ManageList"
+	Whitelist BlacklistActionType = "Whitelist"
+)
+
 type TokenAuthorityPayload struct {
 	ChainID          uint64          `json:"chain_id"`
 	Nonce            uint64          `json:"nonce"`
@@ -153,11 +160,11 @@ type BurnTokenResponse struct {
 }
 
 type TokenBlacklistPayload struct {
-	ChainID uint64         `json:"chain_id"`
-	Nonce   uint64         `json:"nonce"`
-	Action  string         `json:"action"`
-	Address common.Address `json:"address"`
-	Token   common.Address `json:"token"`
+	ChainID uint64              `json:"chain_id"`
+	Nonce   uint64              `json:"nonce"`
+	Action  BlacklistActionType `json:"action"`
+	Address common.Address      `json:"address"`
+	Token   common.Address      `json:"token"`
 }
 
 type SetTokenBlacklistRequest struct {
