@@ -62,7 +62,7 @@ type UpdateMetadataPayload struct {
 	Nonce              uint64               `json:"nonce"`
 	Name               string               `json:"name"`
 	URI                string               `json:"uri"`
-	Token              string               `json:"token"`
+	Token              common.Address       `json:"token"`
 	AdditionalMetadata []AdditionalMetadata `json:"additional_metadata"`
 }
 

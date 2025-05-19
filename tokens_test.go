@@ -9,14 +9,14 @@ import (
 
 func TestIssueToken(t *testing.T) {
 	t.Logf("TestIssueToken started")
-	var nonce uint64 = 12
+	var nonce uint64 = 81
 	payload := onemoney.TokenIssuePayload{
 		ChainID:         1212101,
 		Decimals:        6,
 		MasterAuthority: common.HexToAddress(onemoney.TestOperatorAddress),
-		Name:            "1Money Stable Coin Aaron",
+		Name:            "1Money Stable Coin Aaron2",
 		Nonce:           nonce,
-		Symbol:          "USDA",
+		Symbol:          "USDA2",
 	}
 	client := onemoney.NewTestClient()
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
@@ -93,10 +93,10 @@ func TestUpdateTokenMetadata(t *testing.T) {
 	client := onemoney.NewTestClient()
 	payload := onemoney.UpdateMetadataPayload{
 		ChainID: 1212101,
-		Nonce:   63,
+		Nonce:   81,
 		Name:    "USDFF Stablecoin",
 		URI:     "https://usdf.com",
-		Token:   onemoney.TestTokenAddress,
+		Token:   common.HexToAddress(onemoney.TestTokenAddress),
 		AdditionalMetadata: []onemoney.AdditionalMetadata{
 			{
 				Key:   "test",
