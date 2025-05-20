@@ -13,6 +13,7 @@ type TokenIssuePayload struct {
 	Name            string         `json:"name"`
 	Decimals        uint8          `json:"decimals"`
 	MasterAuthority common.Address `json:"master_authority"`
+	IsPrivate       bool           `json:"is_private"`
 }
 
 type IssueTokenRequest struct {
@@ -43,7 +44,8 @@ type MinterAuthority struct {
 
 type TokenInfoResponse struct {
 	BlackList               []string          `json:"black_list"`
-	BlackListAuthorities    []string          `json:"black_list_authorities"`
+	WhiteList               []string          `json:"white_list"`
+	ListAuthorities         []string          `json:"list_authorities"`
 	BurnAuthorities         []string          `json:"burn_authorities"`
 	Decimals                uint8             `json:"decimals"`
 	IsPaused                bool              `json:"is_paused"`
@@ -99,11 +101,11 @@ const (
 	UnPause PauseActionType = "Unpause"
 )
 
-type BlacklistActionType string
+type ManageListActionType string
 
 const (
-	Blacklist BlacklistActionType = "ManageList"
-	Whitelist BlacklistActionType = "Whitelist"
+	Blacklist ManageListActionType = "ManageList"
+	Whitelist ManageListActionType = "Whitelist"
 )
 
 type TokenAuthorityPayload struct {
@@ -159,20 +161,20 @@ type BurnTokenResponse struct {
 	Hash string `json:"hash"`
 }
 
-type TokenBlacklistPayload struct {
-	ChainID uint64              `json:"chain_id"`
-	Nonce   uint64              `json:"nonce"`
-	Action  BlacklistActionType `json:"action"`
-	Address common.Address      `json:"address"`
-	Token   common.Address      `json:"token"`
+type TokenManageListPayload struct {
+	ChainID uint64               `json:"chain_id"`
+	Nonce   uint64               `json:"nonce"`
+	Action  ManageListActionType `json:"action"`
+	Address common.Address       `json:"address"`
+	Token   common.Address       `json:"token"`
 }
 
-type SetTokenBlacklistRequest struct {
-	TokenBlacklistPayload
+type SetTokenManageListRequest struct {
+	TokenManageListPayload
 	Signature Signature `json:"signature"`
 }
 
-type SetTokenBlacklistResponse struct {
+type SetTokenManageListResponse struct {
 	Hash string `json:"hash"`
 }
 
@@ -222,9 +224,9 @@ func (client *Client) BurnToken(req *BurnTokenRequest) (*BurnTokenResponse, erro
 	return result, client.PostMethod("/v1/tokens/burn", req, result)
 }
 
-func (client *Client) SetTokenBlacklist(req *SetTokenBlacklistRequest) (*SetTokenBlacklistResponse, error) {
-	result := new(SetTokenBlacklistResponse)
-	return result, client.PostMethod("/v1/tokens/blacklist", req, result)
+func (client *Client) SetTokenManageList(req *SetTokenManageListRequest) (*SetTokenManageListResponse, error) {
+	result := new(SetTokenManageListResponse)
+	return result, client.PostMethod("/v1/tokens/managelist", req, result)
 }
 
 func (client *Client) PauseToken(req *PauseTokenRequest) (*PauseTokenResponse, error) {
