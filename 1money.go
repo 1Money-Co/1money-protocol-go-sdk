@@ -13,6 +13,19 @@ import (
 // Logger defines a simple logging interface.
 type Logger interface {
 	Printf(format string, v ...interface{})
+	Infof(format string, v ...interface{})
+	Warnf(format string, v ...interface{})
+	Errorf(format string, v ...interface{})
+}
+
+// Hook defines an interface for intercepting client operations.
+type Hook interface {
+	// PreRequest is called before an HTTP request is made.
+	// The body parameter may be nil if there is no body.
+	PreRequest(ctx context.Context, method, url string, body []byte)
+	// PostRequest is called after an HTTP request has completed.
+	// responseBody may be nil. err may be nil if the request was successful.
+	PostRequest(ctx context.Context, method, url string, statusCode int, responseBody []byte, err error)
 }
 
 const (
@@ -36,6 +49,7 @@ type Client struct {
 	baseHost   string
 	httpclient *http.Client
 	logger     Logger
+	hooks      []Hook // New field
 }
 
 func newClientInternal(baseHost string, options ...ClientOption) *Client {
@@ -90,29 +104,58 @@ func WithLogger(logger Logger) ClientOption {
 	}
 }
 
+// WithHooks adds hook implementations to the Client.
+func WithHooks(hooks ...Hook) ClientOption {
+	return func(c *Client) {
+		c.hooks = append(c.hooks, hooks...)
+	}
+}
+
 // GetMethod executes a GET request to the specified path and decodes the JSON response into the result.
 // The result parameter must be a pointer to a Go value suitable for JSON unmarshalling.
 // It uses `any` because the actual type of the response varies depending on the API endpoint.
 func (client *Client) GetMethod(ctx context.Context, path string, result any) error {
 	fullURL := client.baseHost + path
 	if client.logger != nil {
-		client.logger.Printf("GET %s", fullURL)
+		client.logger.Infof("GET %s", fullURL)
 	}
+
+	if len(client.hooks) > 0 {
+		for _, hook := range client.hooks {
+			hook.PreRequest(ctx, "GET", fullURL, nil)
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
 		if client.logger != nil {
-			client.logger.Printf("Failed to create request for GET %s: %v", fullURL, err)
+			client.logger.Errorf("Failed to create request for GET %s: %v", fullURL, err)
+		}
+		// Call PostRequest hooks even if NewRequestWithContext fails (though resp is nil)
+		if len(client.hooks) > 0 {
+			for _, hook := range client.hooks {
+				// Pass nil for responseBody as there's no response, and err for the error
+				hook.PostRequest(ctx, "GET", fullURL, 0, nil, err)
+			}
 		}
 		return fmt.Errorf("failed to create request: %w", err)
 	}
+
 	resp, err := client.httpclient.Do(req)
 	if err != nil {
 		if client.logger != nil {
-			client.logger.Printf("API GET request to %s failed: %v", fullURL, err)
+			client.logger.Errorf("API GET request to %s failed: %v", fullURL, err)
+		}
+		// Call PostRequest hooks if client.httpclient.Do fails
+		if len(client.hooks) > 0 {
+			for _, hook := range client.hooks {
+				// Pass nil for responseBody as there's no response, and err for the error
+				hook.PostRequest(ctx, "GET", fullURL, 0, nil, err)
+			}
 		}
 		return fmt.Errorf("api get failed to request path: %s, err: %w", path, err)
 	}
-	return client.handleAPIResponse(resp, result)
+	return client.handleAPIResponse(ctx, "GET", fullURL, resp, result)
 }
 
 // PostMethod executes a POST request to the specified path with the given body (marshalled to JSON)
@@ -123,31 +166,59 @@ func (client *Client) GetMethod(ctx context.Context, path string, result any) er
 func (client *Client) PostMethod(ctx context.Context, path string, body any, result any) error {
 	fullURL := client.baseHost + path
 	if client.logger != nil {
-		client.logger.Printf("POST %s", fullURL)
+		client.logger.Infof("POST %s", fullURL)
 	}
+
 	data, err := json.Marshal(body)
 	if err != nil {
 		if client.logger != nil {
-			client.logger.Printf("Failed to marshal request for POST %s: %v", fullURL, err)
+			client.logger.Errorf("Failed to marshal request for POST %s: %v", fullURL, err)
+		}
+		// Call PostRequest hooks if json.Marshal fails
+		if len(client.hooks) > 0 {
+			for _, hook := range client.hooks {
+				// Pass data (which might be nil or partially formed) and err
+				hook.PostRequest(ctx, "POST", fullURL, 0, nil, err)
+			}
 		}
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
+
+	if len(client.hooks) > 0 {
+		for _, hook := range client.hooks {
+			hook.PreRequest(ctx, "POST", fullURL, data)
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, bytes.NewBuffer(data))
 	if err != nil {
 		if client.logger != nil {
-			client.logger.Printf("Failed to create request for POST %s: %v", fullURL, err)
+			client.logger.Errorf("Failed to create request for POST %s: %v", fullURL, err)
+		}
+		// Call PostRequest hooks even if NewRequestWithContext fails
+		if len(client.hooks) > 0 {
+			for _, hook := range client.hooks {
+				hook.PostRequest(ctx, "POST", fullURL, 0, nil, err)
+			}
 		}
 		return fmt.Errorf("api post failed to request path: %s, err: %w", path, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := client.httpclient.Do(req)
 	if err != nil {
 		if client.logger != nil {
-			client.logger.Printf("API POST request to %s failed: %v", fullURL, err)
+			client.logger.Errorf("API POST request to %s failed: %v", fullURL, err)
+		}
+		// Call PostRequest hooks if client.httpclient.Do fails
+		if len(client.hooks) > 0 {
+			for _, hook := range client.hooks {
+				hook.PostRequest(ctx, "POST", fullURL, 0, nil, err)
+			}
 		}
 		return fmt.Errorf("failed to request path: %s, err: %w", path, err)
 	}
-	return client.handleAPIResponse(resp, result)
+	return client.handleAPIResponse(ctx, "POST", fullURL, resp, result)
 }
 
 // ErrorResponse represents the error response from the API
@@ -174,51 +245,69 @@ func (e *APIError) Error() string {
 // handleAPIResponse is a helper function to handle API responses consistently.
 // The result parameter must be a pointer to a Go value suitable for JSON unmarshalling.
 // It uses `any` because the actual type of the response varies depending on the API endpoint.
-func (client *Client) handleAPIResponse(resp *http.Response, result any) error {
+func (client *Client) handleAPIResponse(ctx context.Context, method string, url string, resp *http.Response, result any) error {
 	defer resp.Body.Close()
-	// If status code is OK, decode the response into the result
-	if resp.StatusCode == http.StatusOK {
-		if result != nil {
-			if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-				if client.logger != nil {
-					client.logger.Printf("Failed to decode response from %s %s: %v", resp.Request.Method, resp.Request.URL.String(), err)
-				}
-				return fmt.Errorf("failed to decode response: %w", err)
-			}
-		}
-		return nil
-	}
-	// For non-200 responses, try to parse the error response
+
+	var processingErr error
+	var bodyBytes []byte
+
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		if client.logger != nil {
-			client.logger.Printf("Failed to read error response body from %s %s: %v", resp.Request.Method, resp.Request.URL.String(), err)
+			client.logger.Errorf("Failed to read response body from %s %s: %v", method, url, err)
 		}
-		return &APIError{
-			StatusCode: resp.StatusCode,
-			Message:    fmt.Sprintf("failed to read error response: %v", err),
+		processingErr = &APIError{
+			StatusCode: resp.StatusCode, // Could be 0 if error happened before getting status
+			Message:    fmt.Sprintf("failed to read response body: %v", err),
 		}
+		// Call PostRequest hooks before returning
+		if len(client.hooks) > 0 {
+			for _, hook := range client.hooks {
+				hook.PostRequest(ctx, method, url, resp.StatusCode, nil, processingErr)
+			}
+		}
+		return processingErr
 	}
-	// Try to parse the error response
-	var errorResp ErrorResponse
-	if err := json.Unmarshal(bodyBytes, &errorResp); err != nil {
-		if client.logger != nil {
-			client.logger.Printf("Failed to unmarshal error response from %s %s (status %d): %v. Body: %s", resp.Request.Method, resp.Request.URL.String(), resp.StatusCode, err, string(bodyBytes))
+
+	// If status code is OK, decode the response into the result
+	if resp.StatusCode == http.StatusOK {
+		if result != nil {
+			if err := json.Unmarshal(bodyBytes, result); err != nil {
+				if client.logger != nil {
+					client.logger.Errorf("Failed to decode response from %s %s: %v. Body: %s", method, url, err, string(bodyBytes))
+				}
+				processingErr = fmt.Errorf("failed to decode response: %w. Body: %s", err, string(bodyBytes))
+			}
 		}
-		// If we can't parse the error response, return a generic error
-		return &APIError{
-			StatusCode: resp.StatusCode,
-			Message:    fmt.Sprintf("unexpected status code: %d, body: %s", resp.StatusCode, string(bodyBytes)),
+		// processingErr remains nil if decode is successful
+	} else {
+		// For non-200 responses, try to parse the error response
+		var errorResp ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &errorResp); err != nil {
+			if client.logger != nil {
+				client.logger.Errorf("Failed to unmarshal error response from %s %s (status %d): %v. Body: %s", method, url, resp.StatusCode, err, string(bodyBytes))
+			}
+			processingErr = &APIError{
+				StatusCode: resp.StatusCode,
+				Message:    fmt.Sprintf("unexpected status code: %d, body: %s", resp.StatusCode, string(bodyBytes)),
+			}
+		} else {
+			if client.logger != nil {
+				client.logger.Errorf("API Error from %s %s: status=%d, code=%s, message=%s", method, url, resp.StatusCode, errorResp.ErrorCode, errorResp.Message)
+			}
+			processingErr = &APIError{
+				StatusCode: resp.StatusCode,
+				ErrorCode:  errorResp.ErrorCode,
+				Message:    errorResp.Message,
+			}
 		}
 	}
 
-	if client.logger != nil {
-		client.logger.Printf("API Error from %s %s: status=%d, code=%s, message=%s", resp.Request.Method, resp.Request.URL.String(), resp.StatusCode, errorResp.ErrorCode, errorResp.Message)
+	// Call PostRequest hooks before returning
+	if len(client.hooks) > 0 {
+		for _, hook := range client.hooks {
+			hook.PostRequest(ctx, method, url, resp.StatusCode, bodyBytes, processingErr)
+		}
 	}
-	// Return a structured error with the error details
-	return &APIError{
-		StatusCode: resp.StatusCode,
-		ErrorCode:  errorResp.ErrorCode,
-		Message:    errorResp.Message,
-	}
+	return processingErr
 }
