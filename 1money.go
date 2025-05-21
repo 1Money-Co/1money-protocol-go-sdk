@@ -52,6 +52,11 @@ type Client struct {
 	hooks      []Hook // New field
 }
 
+// ChainIDResponse defines the structure for the GetChainID API response.
+type ChainIDResponse struct {
+	ChainID int `json:"chain_id"`
+}
+
 func newClientInternal(baseHost string, options ...ClientOption) *Client {
 	client := &Client{
 		baseHost: baseHost,
@@ -310,4 +315,17 @@ func (client *Client) handleAPIResponse(ctx context.Context, method string, url 
 		}
 	}
 	return processingErr
+}
+
+// GetChainID fetches the chain ID from the /v1/chain_id endpoint.
+func (client *Client) GetChainID(ctx context.Context) (*ChainIDResponse, error) {
+	result := new(ChainIDResponse)
+	// Assuming the endpoint will be /v1/chain_id.
+	// If the actual endpoint is different, this will need to be adjusted.
+	endpoint := "/v1/chain_id"
+	err := client.GetMethod(ctx, endpoint, result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

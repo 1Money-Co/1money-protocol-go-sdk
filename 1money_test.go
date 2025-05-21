@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -537,6 +536,39 @@ func TestClientLoggingLevels(t *testing.T) {
 			t.Errorf("Expected Errorf log for API GET request failed, got: %s", errorfCalls[0])
 		}
 	})
+}
+
+func TestGetChainID(t *testing.T) {
+	expectedChainID := 1
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/chain_id" {
+			t.Errorf("Expected to request '/v1/chain_id', got %s", r.URL.Path)
+		}
+		if r.Method != "GET" {
+			t.Errorf("Expected GET request, got %s", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		response := ChainIDResponse{ChainID: expectedChainID} // ChainIDResponse is defined in 1money.go
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Fatalf("Failed to write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := newClientInternal(server.URL) // Use newClientInternal to set custom baseHost
+
+	resp, err := client.GetChainID(context.Background())
+	if err != nil {
+		t.Fatalf("GetChainID failed: %v", err)
+	}
+
+	if resp == nil {
+		t.Fatalf("Expected ChainIDResponse, got nil")
+	}
+
+	if resp.ChainID != expectedChainID {
+		t.Errorf("Expected chain ID %d, got %d", expectedChainID, resp.ChainID)
+	}
 }
 
 func TestClientHooks(t *testing.T) {
