@@ -1,13 +1,14 @@
 package onemoney_test
 
 import (
+	"context"
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"testing"
 )
 
 func TestGetCheckpointNumber(t *testing.T) {
 	client := onemoney.NewTestClient()
-	result, err := client.GetCheckpointNumber()
+	result, err := client.GetCheckpointNumber(context.Background())
 	if err != nil {
 		t.Fatalf("GetCheckpointNumber failed: %v", err)
 	}
@@ -26,7 +27,7 @@ func TestGetCheckpointNumber(t *testing.T) {
 func TestGetCheckpointByHashFull(t *testing.T) {
 	client := onemoney.NewTestClient()
 	hash := "0x7e564f15b2c35b12571ad31e2f87901d146ac5e1e7663c73375a88961944fc61"
-	result, err := client.GetCheckpointByHashFull(hash)
+	result, err := client.GetCheckpointByHashFull(context.Background(), hash)
 	if err != nil {
 		t.Fatalf("GetCheckpointByHashFull failed: %v", err)
 	}
@@ -49,7 +50,7 @@ func TestGetCheckpointByHashFull(t *testing.T) {
 func TestGetCheckpointByHash(t *testing.T) {
 	client := onemoney.NewTestClient()
 	hash := "0x7e564f15b2c35b12571ad31e2f87901d146ac5e1e7663c73375a88961944fc61"
-	result, err := client.GetCheckpointByHash(hash)
+	result, err := client.GetCheckpointByHash(context.Background(), hash)
 	if err != nil {
 		t.Fatalf("GetCheckpointByHashFull failed: %v", err)
 	}
@@ -71,7 +72,7 @@ func TestGetCheckpointByHash(t *testing.T) {
 
 func TestGetCheckpointByNumberFull(t *testing.T) {
 	client := onemoney.NewTestClient()
-	result, err := client.GetCheckpointByNumberFull(482505)
+	result, err := client.GetCheckpointByNumberFull(context.Background(), 482505)
 	if err != nil {
 		t.Fatalf("GetCheckpointByNumberFull failed: %v", err)
 	}
@@ -93,7 +94,7 @@ func TestGetCheckpointByNumberFull(t *testing.T) {
 
 func TestGetCheckpointByNumber(t *testing.T) {
 	client := onemoney.NewTestClient()
-	result, err := client.GetCheckpointByNumber(482505)
+	result, err := client.GetCheckpointByNumber(context.Background(), 482505)
 	if err != nil {
 		t.Fatalf("GetCheckpointByNumberFull failed: %v", err)
 	}

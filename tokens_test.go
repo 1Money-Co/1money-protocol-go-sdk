@@ -1,6 +1,7 @@
 package onemoney_test
 
 import (
+	"context"
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
@@ -31,7 +32,7 @@ func TestIssueToken(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.IssueToken(req)
+	result, err := client.IssueToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("IssueToken failed: %v", err)
 	}
@@ -42,7 +43,7 @@ func TestIssueToken(t *testing.T) {
 func TestGetTokenInfo(t *testing.T) {
 	client := onemoney.NewTestClient()
 	tokenAddress := onemoney.TestTokenAddress
-	result, err := client.GetTokenMetadata(tokenAddress)
+	result, err := client.GetTokenMetadata(context.Background(), tokenAddress)
 	if err != nil {
 		t.Fatalf("GetTokenMetadata failed: %v", err)
 	}
@@ -116,7 +117,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.UpdateTokenMetadata(req)
+	result, err := client.UpdateTokenMetadata(context.Background(), req)
 	if err != nil {
 		t.Fatalf("UpdateTokenMetadata failed: %v", err)
 	}
@@ -150,7 +151,7 @@ func TestGrantMintBurnAuthority(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -184,7 +185,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -218,7 +219,7 @@ func TestGrantMasterUpdateMetadata(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -252,7 +253,7 @@ func TestGrantMasterUpdatePause(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -288,7 +289,7 @@ func TestMintToken(t *testing.T) {
 		},
 	}
 	// Send mint request
-	result, err := client.MintToken(req)
+	result, err := client.MintToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("MintToken failed: %v", err)
 	}
@@ -324,7 +325,7 @@ func TestBurnToken(t *testing.T) {
 		},
 	}
 	// Send burn request
-	result, err := client.BurnToken(req)
+	result, err := client.BurnToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("BurnToken failed: %v", err)
 	}
@@ -360,7 +361,7 @@ func TestBlacklist(t *testing.T) {
 		},
 	}
 	// Send mint request
-	result, err := client.SetTokenBlacklist(req)
+	result, err := client.SetTokenBlacklist(context.Background(), req)
 	if err != nil {
 		t.Fatalf("SetTokenBlacklist failed: %v", err)
 	}
@@ -395,7 +396,7 @@ func TestPauseToken(t *testing.T) {
 		},
 	}
 	// Send mint request
-	result, err := client.PauseToken(req)
+	result, err := client.PauseToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("PauseToken failed: %v", err)
 	}
@@ -430,7 +431,7 @@ func TestUnPauseToken(t *testing.T) {
 		},
 	}
 	// Send pause request
-	result, err := client.PauseToken(req)
+	result, err := client.PauseToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("PauseToken failed: %v", err)
 	}

@@ -1,6 +1,7 @@
 package onemoney
 
 import (
+	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
@@ -192,42 +193,42 @@ type PauseTokenResponse struct {
 	Hash string `json:"hash"`
 }
 
-func (client *Client) IssueToken(req *IssueTokenRequest) (*IssueTokenResponse, error) {
+func (client *Client) IssueToken(ctx context.Context, req *IssueTokenRequest) (*IssueTokenResponse, error) {
 	result := new(IssueTokenResponse)
-	return result, client.PostMethod("/v1/tokens/issue", req, result)
+	return result, client.PostMethod(ctx, "/v1/tokens/issue", req, result)
 }
 
-func (client *Client) GetTokenMetadata(tokenAddress string) (*TokenInfoResponse, error) {
+func (client *Client) GetTokenMetadata(ctx context.Context, tokenAddress string) (*TokenInfoResponse, error) {
 	result := new(TokenInfoResponse)
-	return result, client.GetMethod(fmt.Sprintf("/v1/tokens/token_metadata?token=%s", tokenAddress), result)
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/tokens/token_metadata?token=%s", tokenAddress), result)
 }
 
-func (client *Client) UpdateTokenMetadata(req *UpdateMetadataRequest) (*UpdateMetadataResponse, error) {
+func (client *Client) UpdateTokenMetadata(ctx context.Context, req *UpdateMetadataRequest) (*UpdateMetadataResponse, error) {
 	result := new(UpdateMetadataResponse)
-	return result, client.PostMethod("/v1/tokens/update_metadata", req, result)
+	return result, client.PostMethod(ctx, "/v1/tokens/update_metadata", req, result)
 }
 
-func (client *Client) GrantTokenAuthority(req *TokenAuthorityRequest) (*GrantAuthorityResponse, error) {
+func (client *Client) GrantTokenAuthority(ctx context.Context, req *TokenAuthorityRequest) (*GrantAuthorityResponse, error) {
 	result := new(GrantAuthorityResponse)
-	return result, client.PostMethod("/v1/tokens/grant_authority", req, result)
+	return result, client.PostMethod(ctx, "/v1/tokens/grant_authority", req, result)
 }
 
-func (client *Client) MintToken(req *MintTokenRequest) (*MintTokenResponse, error) {
+func (client *Client) MintToken(ctx context.Context, req *MintTokenRequest) (*MintTokenResponse, error) {
 	result := new(MintTokenResponse)
-	return result, client.PostMethod("/v1/tokens/mint", req, result)
+	return result, client.PostMethod(ctx, "/v1/tokens/mint", req, result)
 }
 
-func (client *Client) BurnToken(req *BurnTokenRequest) (*BurnTokenResponse, error) {
+func (client *Client) BurnToken(ctx context.Context, req *BurnTokenRequest) (*BurnTokenResponse, error) {
 	result := new(BurnTokenResponse)
-	return result, client.PostMethod("/v1/tokens/burn", req, result)
+	return result, client.PostMethod(ctx, "/v1/tokens/burn", req, result)
 }
 
-func (client *Client) SetTokenBlacklist(req *SetTokenBlacklistRequest) (*SetTokenBlacklistResponse, error) {
+func (client *Client) SetTokenBlacklist(ctx context.Context, req *SetTokenBlacklistRequest) (*SetTokenBlacklistResponse, error) {
 	result := new(SetTokenBlacklistResponse)
-	return result, client.PostMethod("/v1/tokens/blacklist", req, result)
+	return result, client.PostMethod(ctx, "/v1/tokens/blacklist", req, result)
 }
 
-func (client *Client) PauseToken(req *PauseTokenRequest) (*PauseTokenResponse, error) {
+func (client *Client) PauseToken(ctx context.Context, req *PauseTokenRequest) (*PauseTokenResponse, error) {
 	result := new(PauseTokenResponse)
-	return result, client.PostMethod("/v1/tokens/pause", req, result)
+	return result, client.PostMethod(ctx, "/v1/tokens/pause", req, result)
 }

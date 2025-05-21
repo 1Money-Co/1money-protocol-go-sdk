@@ -1,6 +1,7 @@
 package onemoney
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -40,27 +41,27 @@ type CheckpointDetail struct {
 	Size             int      `json:"size"`
 }
 
-func (client *Client) GetCheckpointNumber() (*CheckpointNumber, error) {
+func (client *Client) GetCheckpointNumber(ctx context.Context) (*CheckpointNumber, error) {
 	result := new(CheckpointNumber)
-	return result, client.GetMethod("/v1/checkpoints/number", result)
+	return result, client.GetMethod(ctx, "/v1/checkpoints/number", result)
 }
 
-func (client *Client) GetCheckpointByHashFull(hash string) (*CheckpointDetailFull, error) {
+func (client *Client) GetCheckpointByHashFull(ctx context.Context, hash string) (*CheckpointDetailFull, error) {
 	result := new(CheckpointDetailFull)
-	return result, client.GetMethod(fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, true), result)
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, true), result)
 }
 
-func (client *Client) GetCheckpointByHash(hash string) (*CheckpointDetail, error) {
+func (client *Client) GetCheckpointByHash(ctx context.Context, hash string) (*CheckpointDetail, error) {
 	result := new(CheckpointDetail)
-	return result, client.GetMethod(fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, false), result)
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, false), result)
 }
 
-func (client *Client) GetCheckpointByNumberFull(number int) (*CheckpointDetailFull, error) {
+func (client *Client) GetCheckpointByNumberFull(ctx context.Context, number int) (*CheckpointDetailFull, error) {
 	result := new(CheckpointDetailFull)
-	return result, client.GetMethod(fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, true), result)
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, true), result)
 }
 
-func (client *Client) GetCheckpointByNumber(number int) (*CheckpointDetail, error) {
+func (client *Client) GetCheckpointByNumber(ctx context.Context, number int) (*CheckpointDetail, error) {
 	result := new(CheckpointDetail)
-	return result, client.GetMethod(fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, false), result)
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, false), result)
 }

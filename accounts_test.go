@@ -1,6 +1,7 @@
 package onemoney_test
 
 import (
+	"context"
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"testing"
 )
@@ -9,7 +10,7 @@ func TestGetTokenAccount(t *testing.T) {
 	client := onemoney.NewTestClient()
 	address := onemoney.TestOperatorAddress
 	token := onemoney.TestTokenAddress
-	result, err := client.GetTokenAccount(address, token)
+	result, err := client.GetTokenAccount(context.Background(), address, token)
 	if err != nil {
 		t.Fatalf("GetTokenAccount failed: %v", err)
 	}
@@ -30,7 +31,7 @@ func TestGetTokenAccount(t *testing.T) {
 func TestGetAccountNonce(t *testing.T) {
 	client := onemoney.NewTestClient()
 	address := onemoney.TestOperatorAddress
-	result, err := client.GetAccountNonce(address)
+	result, err := client.GetAccountNonce(context.Background(), address)
 	if err != nil {
 		t.Fatalf("GetAccountNonce failed: %v", err)
 	}
