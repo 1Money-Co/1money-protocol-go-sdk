@@ -34,15 +34,9 @@ const (
 )
 
 const (
-	// TestOperatorPrivateKey is a mock private key for testing purposes.
-	// IMPORTANT: This is a placeholder and not a real private key. Do not use for actual transactions.
-	TestOperatorPrivateKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	// TestOperatorAddress is a mock Ethereum address for testing.
-	TestOperatorAddress = "0x1234567890123456789012345678901234567890"
-	// TestTokenAddress is a mock token address for testing.
-	TestTokenAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-	// Test2ndAddress is another mock Ethereum address for testing.
-	Test2ndAddress = "0x0987654321098765432109876543210987654321"
+	TestOperatorPrivateKey = ""
+	TestOperatorAddress    = ""
+	TestTokenAddress       = ""
 )
 
 type Client struct {
@@ -114,7 +108,7 @@ func WithHooks(hooks ...Hook) ClientOption {
 // GetMethod executes a GET request to the specified path and decodes the JSON response into the result.
 // The result parameter must be a pointer to a Go value suitable for JSON unmarshalling.
 // It uses `any` because the actual type of the response varies depending on the API endpoint.
-func (client *Client) GetMethod(ctx context.Context, path string, result any) error {
+func (client *Client) GetMethod(ctx context.Context, path string, result interface{}) error {
 	fullURL := client.baseHost + path
 	if client.logger != nil {
 		client.logger.Infof("GET %s", fullURL)
@@ -163,7 +157,7 @@ func (client *Client) GetMethod(ctx context.Context, path string, result any) er
 // The body parameter can be any Go value that can be marshalled to JSON.
 // The result parameter must be a pointer to a Go value suitable for JSON unmarshalling.
 // Both use `any` because the actual types vary depending on the API endpoint and request data.
-func (client *Client) PostMethod(ctx context.Context, path string, body any, result any) error {
+func (client *Client) PostMethod(ctx context.Context, path string, body interface{}, result interface{}) error {
 	fullURL := client.baseHost + path
 	if client.logger != nil {
 		client.logger.Infof("POST %s", fullURL)
