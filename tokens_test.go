@@ -10,7 +10,7 @@ import (
 
 func TestIssueToken(t *testing.T) {
 	t.Logf("TestIssueToken started")
-	var nonce uint64 = 107
+	var nonce uint64 = 10
 	payload := onemoney.TokenIssuePayload{
 		ChainID:         1212101,
 		Nonce:           nonce,
@@ -18,7 +18,7 @@ func TestIssueToken(t *testing.T) {
 		Name:            "1Money Stable Coin Aaron",
 		Decimals:        6,
 		MasterAuthority: common.HexToAddress(onemoney.TestOperatorAddress),
-		IsPrivate:       true,
+		IsPrivate:       false,
 	}
 	client := onemoney.NewTestClient()
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
@@ -292,7 +292,7 @@ func TestGrantManageListPause(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
