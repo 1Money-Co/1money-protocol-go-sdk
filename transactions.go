@@ -1,9 +1,11 @@
 package onemoney
 
 import (
+	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+	"net/url"
 )
 
 type Address string
@@ -26,6 +28,10 @@ type TokenTransferPayload struct {
 
 type Transaction struct {
 	TransactionType  string      `json:"transaction_type"`
+	// Data holds the specific payload for the transaction, which varies based on TransactionType.
+	// Common examples include TokenCreatePayload or TokenTransferPayload.
+	// Using interface{} (or any) for flexibility as new transaction types can be added.
+	// Consumers of this struct typically use a type switch or assertion on Data based on TransactionType.
 	Data             interface{} `json:"data"`
 	ChainID          int         `json:"chain_id"`
 	CheckpointHash   string      `json:"checkpoint_hash"`
@@ -38,9 +44,12 @@ type Transaction struct {
 	TransactionIndex int         `json:"transaction_index"`
 }
 
-func (client *Client) GetTransactionByHash(hash string) (*Transaction, error) {
+func (client *Client) GetTransactionByHash(ctx context.Context, hash string) (*Transaction, error) {
 	result := new(Transaction)
-	return result, client.GetMethod(fmt.Sprintf("/v1/transactions/by_hash?hash=%s", hash), result)
+	endpoint := "/v1/transactions/by_hash"
+	params := url.Values{}
+	params.Set("hash", hash)
+	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpoint, params.Encode()), result)
 }
 
 type TransactionReceiptResponse struct {
@@ -55,18 +64,26 @@ type TransactionReceiptResponse struct {
 	TransactionIndex int    `json:"transaction_index"`
 }
 
-func (client *Client) GetTransactionReceipt(hash string) (*TransactionReceiptResponse, error) {
+func (client *Client) GetTransactionReceipt(ctx context.Context, hash string) (*TransactionReceiptResponse, error) {
 	result := new(TransactionReceiptResponse)
-	return result, client.GetMethod(fmt.Sprintf("/v1/transactions/receipt/by_hash?hash=%s", hash), result)
+	endpoint := "/v1/transactions/receipt/by_hash"
+	params := url.Values{}
+	params.Set("hash", hash)
+	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpoint, params.Encode()), result)
 }
 
 type EstimateFeeResponse struct {
 	Fee string `json:"fee"`
 }
 
-func (client *Client) GetEstimateFee(from, token, value string) (*EstimateFeeResponse, error) {
+func (client *Client) GetEstimateFee(ctx context.Context, from, token, value string) (*EstimateFeeResponse, error) {
 	result := new(EstimateFeeResponse)
-	return result, client.GetMethod(fmt.Sprintf("/v1/transactions/estimate_fee?from=%s&token=%s&value=%s", from, token, value), result)
+	endpoint := "/v1/transactions/estimate_fee"
+	params := url.Values{}
+	params.Set("from", from)
+	params.Set("token", token)
+	params.Set("value", value)
+	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpoint, params.Encode()), result)
 }
 
 type PaymentPayload struct {
@@ -86,7 +103,7 @@ type PaymentResponse struct {
 	Hash string `json:"hash"`
 }
 
-func (client *Client) SendPayment(req *PaymentRequest) (*PaymentResponse, error) {
+func (client *Client) SendPayment(ctx context.Context, req *PaymentRequest) (*PaymentResponse, error) {
 	result := new(PaymentResponse)
-	return result, client.PostMethod("/v1/transactions/payment", req, result)
+	return result, client.PostMethod(ctx, "/v1/transactions/payment", req, result)
 }

@@ -1,6 +1,7 @@
 package onemoney_test
 
 import (
+	"context"
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
@@ -9,14 +10,15 @@ import (
 
 func TestIssueToken(t *testing.T) {
 	t.Logf("TestIssueToken started")
-	var nonce uint64 = 81
+	var nonce uint64 = 10
 	payload := onemoney.TokenIssuePayload{
 		ChainID:         1212101,
+		Nonce:           nonce,
+		Symbol:          "USDA",
+		Name:            "1Money Stable Coin Aaron",
 		Decimals:        6,
 		MasterAuthority: common.HexToAddress(onemoney.TestOperatorAddress),
-		Name:            "1Money Stable Coin Aaron2",
-		Nonce:           nonce,
-		Symbol:          "USDA2",
+		IsPrivate:       false,
 	}
 	client := onemoney.NewTestClient()
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
@@ -31,7 +33,7 @@ func TestIssueToken(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.IssueToken(req)
+	result, err := client.IssueToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("IssueToken failed: %v", err)
 	}
@@ -42,7 +44,7 @@ func TestIssueToken(t *testing.T) {
 func TestGetTokenInfo(t *testing.T) {
 	client := onemoney.NewTestClient()
 	tokenAddress := onemoney.TestTokenAddress
-	result, err := client.GetTokenMetadata(tokenAddress)
+	result, err := client.GetTokenMetadata(context.Background(), tokenAddress)
 	if err != nil {
 		t.Fatalf("GetTokenMetadata failed: %v", err)
 	}
@@ -75,16 +77,20 @@ func TestGetTokenInfo(t *testing.T) {
 		t.Logf("  Allowance: %s", minter.Allowance)
 	}
 	t.Log("\nOther Authorities:")
-	t.Log("  Black List Authorities:")
-	for _, auth := range result.BlackListAuthorities {
+	t.Log("\nBlack List Authorities:")
+	for _, auth := range result.ListAuthorities {
 		t.Logf("    %s", auth)
 	}
-	t.Log("  Burn Authorities:")
+	t.Log("\nBurn Authorities:")
 	for _, auth := range result.BurnAuthorities {
 		t.Logf("    %s", auth)
 	}
 	t.Log("\nBlack List:")
 	for _, addr := range result.BlackList {
+		t.Logf("  %s", addr)
+	}
+	t.Log("\nWhite List:")
+	for _, addr := range result.WhiteList {
 		t.Logf("  %s", addr)
 	}
 }
@@ -116,7 +122,7 @@ func TestUpdateTokenMetadata(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.UpdateTokenMetadata(req)
+	result, err := client.UpdateTokenMetadata(context.Background(), req)
 	if err != nil {
 		t.Fatalf("UpdateTokenMetadata failed: %v", err)
 	}
@@ -150,7 +156,7 @@ func TestGrantMintBurnAuthority(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -184,7 +190,7 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -218,7 +224,7 @@ func TestGrantMasterUpdateMetadata(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -252,7 +258,41 @@ func TestGrantMasterUpdatePause(t *testing.T) {
 			V: signature.V,
 		},
 	}
-	result, err := client.GrantTokenAuthority(&req)
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
+	if err != nil {
+		t.Fatalf("GrantAuthority failed: %v", err)
+	}
+	t.Log("\nGrant Authority Result:")
+	t.Log("=====================")
+	t.Logf("Transaction Hash:  %s", result.Hash)
+}
+
+func TestGrantManageListPause(t *testing.T) {
+	client := onemoney.NewTestClient()
+	var nonce uint64 = 88
+	payload := onemoney.TokenAuthorityPayload{
+		ChainID:          1212101,
+		Nonce:            nonce,
+		Action:           onemoney.AuthorityActionGrant,
+		AuthorityType:    onemoney.AuthorityTypeManageList,
+		AuthorityAddress: common.HexToAddress(onemoney.TestOperatorAddress),
+		Token:            common.HexToAddress(onemoney.TestTokenAddress),
+		Value:            big.NewInt(1500000),
+	}
+	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
+	if err != nil {
+		t.Fatalf("Failed to generate signature: %v", err)
+	}
+	t.Logf("\nGrant signature Result: %v", signature)
+	req := onemoney.TokenAuthorityRequest{
+		TokenAuthorityPayload: payload,
+		Signature: onemoney.Signature{
+			R: signature.R,
+			S: signature.S,
+			V: signature.V,
+		},
+	}
+	result, err := client.GrantTokenAuthority(context.Background(), &req)
 	if err != nil {
 		t.Fatalf("GrantAuthority failed: %v", err)
 	}
@@ -288,7 +328,7 @@ func TestMintToken(t *testing.T) {
 		},
 	}
 	// Send mint request
-	result, err := client.MintToken(req)
+	result, err := client.MintToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("MintToken failed: %v", err)
 	}
@@ -324,7 +364,7 @@ func TestBurnToken(t *testing.T) {
 		},
 	}
 	// Send burn request
-	result, err := client.BurnToken(req)
+	result, err := client.BurnToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("BurnToken failed: %v", err)
 	}
@@ -336,9 +376,9 @@ func TestBurnToken(t *testing.T) {
 func TestBlacklist(t *testing.T) {
 	client := onemoney.NewTestClient()
 	// Get the current nonce
-	var nonce uint64 = 63
-	// Create SetTokenBlacklist payload
-	payload := onemoney.TokenBlacklistPayload{
+	var nonce uint64 = 87
+	// Create SetTokenManagelist payload
+	payload := onemoney.TokenManageListPayload{
 		ChainID: 1212101,
 		Nonce:   nonce,
 		Action:  onemoney.Whitelist,
@@ -350,9 +390,9 @@ func TestBlacklist(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
 	}
-	// Create SetTokenBlacklist request
-	req := &onemoney.SetTokenBlacklistRequest{
-		TokenBlacklistPayload: payload,
+	// Create SetTokenManagelist request
+	req := &onemoney.SetTokenManageListRequest{
+		TokenManageListPayload: payload,
 		Signature: onemoney.Signature{
 			R: signature.R,
 			S: signature.S,
@@ -360,11 +400,11 @@ func TestBlacklist(t *testing.T) {
 		},
 	}
 	// Send mint request
-	result, err := client.SetTokenBlacklist(req)
+	result, err := client.SetTokenManageList(context.Background(), req)
 	if err != nil {
-		t.Fatalf("SetTokenBlacklist failed: %v", err)
+		t.Fatalf("SetTokenManagelist failed: %v", err)
 	}
-	t.Log("\nSetTokenBlacklist Result:")
+	t.Log("\nSetTokenManagelist Result:")
 	t.Log("=================")
 	t.Logf("Transaction Hash: %s", result.Hash)
 }
@@ -395,7 +435,7 @@ func TestPauseToken(t *testing.T) {
 		},
 	}
 	// Send mint request
-	result, err := client.PauseToken(req)
+	result, err := client.PauseToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("PauseToken failed: %v", err)
 	}
@@ -430,7 +470,7 @@ func TestUnPauseToken(t *testing.T) {
 		},
 	}
 	// Send pause request
-	result, err := client.PauseToken(req)
+	result, err := client.PauseToken(context.Background(), req)
 	if err != nil {
 		t.Fatalf("PauseToken failed: %v", err)
 	}

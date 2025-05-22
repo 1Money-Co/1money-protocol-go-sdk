@@ -1,156 +1,256 @@
-package onemoney_test
+package onemoney
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
-	onemoney "github.com/1Money-Co/1money-go-sdk"
-	"github.com/ethereum/go-ethereum/common"
+	"io"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
-func TestGetTransactionByHash(t *testing.T) {
-	client := onemoney.NewTestClient()
-	// for create/mint related transaction, can check cp=1 related transactions to get the hash to test
-	hash := "0x85396c45c42acfc73c214da3b71737f3c46b4bda638d5b0c58404d176392f867"
-	result, err := client.GetTransactionByHash(hash)
+// Helper to create a client and server for testing transaction methods
+func setupTransactionTest(t *testing.T, handler http.HandlerFunc) (*Client, *httptest.Server) {
+	server := httptest.NewServer(handler)
+	// Use newClientInternal to ensure the test server's URL is used correctly.
+	// Pass server.URL as baseHost
+	client := newClientInternal(server.URL, WithTimeout(3*time.Second))
+	return client, server
+}
+
+func TestGetTransactionByHash_ContextCancellation(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Millisecond) // Ensure the request takes some time
+		// Send a minimal valid Transaction JSON to avoid decode errors if request proceeds
+		fmt.Fprintln(w, `{"hash":"test_hash_ctx", "transaction_type":"type", "chain_id":1, "checkpoint_hash":"chash", "checkpoint_number":1, "fee":1, "from":"from_addr", "nonce":1, "transaction_index":1}`)
+	}
+	client, server := setupTransactionTest(t, handler)
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond) // Short timeout
+	defer cancel()
+
+	time.Sleep(50 * time.Millisecond) // Give context time to expire
+
+	_, err := client.GetTransactionByHash(ctx, "somehash")
+	if err == nil {
+		t.Fatal("Expected an error due to context cancellation/timeout, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "context deadline exceeded") && !strings.Contains(err.Error(), "context canceled") {
+		t.Errorf("Expected error to contain 'context deadline exceeded' or 'context canceled', got: %v", err)
+	}
+}
+
+func TestGetTransactionByHash_URLConstruction(t *testing.T) {
+	var capturedURL *url.URL
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		capturedURL = r.URL
+		fmt.Fprintln(w, `{"hash":"test_hash_url", "transaction_type":"type", "chain_id":1, "checkpoint_hash":"chash", "checkpoint_number":1, "fee":1, "from":"from_addr", "nonce":1, "transaction_index":1}`)
+	}
+	client, server := setupTransactionTest(t, handler)
+	defer server.Close()
+
+	hash := "0x123abcDEF" // Mixed case to ensure encoding handles it if necessary
+	_, err := client.GetTransactionByHash(context.Background(), hash)
 	if err != nil {
 		t.Fatalf("GetTransactionByHash failed: %v", err)
 	}
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-	if result.Hash == "" {
-		t.Error("Expected Hash to be present")
-	}
-	if result.TransactionType == "" {
-		t.Error("Expected TransactionType to be present")
-	}
-	if result.From == "" {
-		t.Error("Expected From to be present")
-	}
-	if result.ChainID == 0 {
-		t.Error("Expected ChainID to be present")
+
+	if capturedURL == nil {
+		t.Fatal("capturedURL is nil, handler was likely not called")
 	}
 
-	t.Logf("Successfully retrieved transaction: %s", result.Hash)
-	t.Logf("Transaction type: %s", result.TransactionType)
-	t.Logf("From: %s", result.From)
-
-	switch result.TransactionType {
-	case "TokenCreate":
-		if tokenData, ok := result.Data.(*onemoney.TokenCreatePayload); ok {
-			fmt.Printf("Token Symbol: %s\n", tokenData.Symbol)
-		}
-	case "TokenTransfer":
-		if transferData, ok := result.Data.(*onemoney.TokenTransferPayload); ok {
-			fmt.Printf("Transfer Amount: %s\n", transferData.Value)
-		}
-	case "TokenMint":
-		if mintData, ok := result.Data.(*onemoney.TokenMintPayload); ok {
-			fmt.Printf("Mint Amount: %s\n", mintData.Value)
-		}
+	expectedPath := "/v1/transactions/by_hash"
+	if capturedURL.Path != expectedPath {
+		t.Errorf("URL path mismatch: expected '%s', got '%s'", expectedPath, capturedURL.Path)
 	}
-	//TODO will add more types here
+	query := capturedURL.Query()
+	if query.Get("hash") != hash {
+		t.Errorf("URL query param 'hash' mismatch: expected '%s', got '%s'", hash, query.Get("hash"))
+	}
 }
 
-func TestGetTransactionReceipt(t *testing.T) {
-	client := onemoney.NewTestClient()
-	hash := "0x85396c45c42acfc73c214da3b71737f3c46b4bda638d5b0c58404d176392f867"
-	result, err := client.GetTransactionReceipt(hash)
+func TestGetTransactionReceipt_URLConstruction(t *testing.T) {
+	var capturedURL *url.URL
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		capturedURL = r.URL
+		fmt.Fprintln(w, `{"transaction_hash":"receipt_hash_url", "checkpoint_hash":"chash", "checkpoint_number":1, "fee_used":1, "from":"from", "success":true, "to":"to", "token_address":"taddr", "transaction_index":1}`)
+	}
+	client, server := setupTransactionTest(t, handler)
+	defer server.Close()
+
+	hash := "0x456defGHI"
+	_, err := client.GetTransactionReceipt(context.Background(), hash)
 	if err != nil {
 		t.Fatalf("GetTransactionReceipt failed: %v", err)
 	}
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-	if result.TransactionHash == "" {
-		t.Error("Expected TransactionHash to be present")
-	}
-	if result.From == "" {
-		t.Error("Expected From to be present")
-	}
-	if result.To == "" {
-		t.Error("Expected To to be present")
-	}
-	if result.CheckpointHash == "" {
-		t.Error("Expected CheckpointHash to be present")
-	}
-	if result.CheckpointNumber <= 0 {
-		t.Error("Expected CheckpointNumber to be positive")
-	}
-	if result.TransactionIndex < 0 {
-		t.Error("Expected TransactionIndex to be non-negative")
-	}
-	if result.FeeUsed < 0 {
-		t.Error("Expected FeeUsed to be non-negative")
-	}
-	if result.TransactionHash != hash {
-		t.Errorf("Expected TransactionHash to be %s, got %s", hash, result.TransactionHash)
+
+	if capturedURL == nil {
+		t.Fatal("capturedURL is nil, handler was likely not called")
 	}
 
-	t.Logf("Successfully retrieved transaction receipt: %s", result.TransactionHash)
-	t.Logf("From: %s", result.From)
-	t.Logf("To: %s", result.To)
-	t.Logf("Success: %v", result.Success)
-	t.Logf("Fee Used: %d", result.FeeUsed)
+	expectedPath := "/v1/transactions/receipt/by_hash"
+	if capturedURL.Path != expectedPath {
+		t.Errorf("URL path mismatch: expected '%s', got '%s'", expectedPath, capturedURL.Path)
+	}
+	query := capturedURL.Query()
+	if query.Get("hash") != hash {
+		t.Errorf("URL query param 'hash' mismatch: expected '%s', got '%s'", hash, query.Get("hash"))
+	}
 }
 
-func TestGetEstimateFee(t *testing.T) {
-	client := onemoney.NewTestClient()
-	from := "0xfcecaf244ce223050980038c4fe2328e7580afd9"
-	token := "0x354312ce56a578c98559154Dd7A50F5C08D17270"
-	value := "1500000" // 1 token with 18 decimals
-	result, err := client.GetEstimateFee(from, token, value)
+func TestGetEstimateFee_URLConstruction(t *testing.T) {
+	var capturedURL *url.URL
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		capturedURL = r.URL
+		fmt.Fprintln(w, `{"fee":"1000"}`)
+	}
+	client, server := setupTransactionTest(t, handler)
+	defer server.Close()
+
+	from := "0xfromAddressJKL"
+	token := "0xtokenAddressMNO"
+	value := "1234567890"
+	_, err := client.GetEstimateFee(context.Background(), from, token, value)
 	if err != nil {
 		t.Fatalf("GetEstimateFee failed: %v", err)
 	}
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
+
+	if capturedURL == nil {
+		t.Fatal("capturedURL is nil, handler was likely not called")
 	}
-	if result.Fee == "" {
-		t.Error("Expected Fee to be present")
+
+	expectedPath := "/v1/transactions/estimate_fee"
+	if capturedURL.Path != expectedPath {
+		t.Errorf("URL path mismatch: expected '%s', got '%s'", expectedPath, capturedURL.Path)
 	}
-	fee := new(big.Int)
-	if _, ok := fee.SetString(result.Fee, 10); !ok {
-		t.Error("Expected Fee to be a valid number")
+	query := capturedURL.Query()
+	if query.Get("from") != from {
+		t.Errorf("URL query param 'from' mismatch: expected '%s', got '%s'", from, query.Get("from"))
 	}
-	if fee.Cmp(big.NewInt(0)) <= 0 {
-		t.Error("Expected Fee to be positive")
+	if query.Get("token") != token {
+		t.Errorf("URL query param 'token' mismatch: expected '%s', got '%s'", token, query.Get("token"))
 	}
-	t.Logf("Successfully estimated fee: %s", result.Fee)
+	if query.Get("value") != value {
+		t.Errorf("URL query param 'value' mismatch: expected '%s', got '%s'", value, query.Get("value"))
+	}
 }
 
-func TestSendPayment(t *testing.T) {
-	client := onemoney.NewTestClient()
-	var nonce uint64 = 11
-	// Create payment payload
-	payload := onemoney.PaymentPayload{
-		ChainID:   1212101,
-		Nonce:     nonce,
-		Recipient: common.HexToAddress(onemoney.Test2ndAddress),
-		Value:     big.NewInt(40250000),
-		Token:     common.HexToAddress(onemoney.TestTokenAddress),
+func TestSendPayment_ContextAndURLAndBody(t *testing.T) {
+	var capturedURL *url.URL
+	var capturedMethod string
+	var capturedBodyBytes []byte
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		capturedURL = r.URL
+		capturedMethod = r.Method
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+			t.Logf("Server failed to read request body: %v", err) // Log error in test context
+			return
+		}
+		capturedBodyBytes = body
+		r.Body.Close()
+		fmt.Fprintln(w, `{"hash":"payment_hash_ok"}`)
 	}
-	// Sign the payload
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
+	client, server := setupTransactionTest(t, handler)
+	defer server.Close()
+
+	// 1. Test Context Cancellation
+	ctxTimeout, cancelTimeout := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancelTimeout()
+
+	time.Sleep(50 * time.Millisecond) // Give context time to expire
+
+	paymentReqMinimal := &PaymentRequest{
+		PaymentPayload: PaymentPayload{ChainID: 0, Nonce: 0}, // Minimal valid
+	}
+	_, err := client.SendPayment(ctxTimeout, paymentReqMinimal)
+
+	if err == nil {
+		t.Fatal("Expected SendPayment to fail due to context timeout, but it succeeded")
+	}
+	if !strings.Contains(err.Error(), "context deadline exceeded") && !strings.Contains(err.Error(), "context canceled") {
+		t.Errorf("Expected context deadline or canceled error, got: %v", err)
+	}
+
+	// 2. Test URL, Method and Body Construction (with a fresh context)
+	freshCtx := context.Background()
+	expectedPayload := PaymentPayload{
+		ChainID:   123,
+		Nonce:     1,
+		Recipient: common.HexToAddress("0xaaaabbbbccccddddeeeeffff0000111122223333"),
+		Value:     big.NewInt(10000),
+		Token:     common.HexToAddress("0x1111222233334444555566667777888899990000"),
+	}
+	paymentReqFull := &PaymentRequest{
+		PaymentPayload: expectedPayload,
+		Signature:      Signature{R: "test_r_value", S: "test_s_value", V: 27},
+	}
+
+	// Reset captured variables for this part of the test
+	capturedURL = nil
+	capturedMethod = ""
+	capturedBodyBytes = nil
+
+	_, err = client.SendPayment(freshCtx, paymentReqFull)
 	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
+		t.Fatalf("SendPayment failed for URL/body test: %v", err)
 	}
-	// Create payment request
-	req := &onemoney.PaymentRequest{
-		PaymentPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
+
+	if capturedMethod != "POST" {
+		t.Errorf("HTTP method mismatch: expected 'POST', got '%s'", capturedMethod)
 	}
-	// Send payment
-	result, err := client.SendPayment(req)
+
+	if capturedURL == nil {
+		t.Fatal("capturedURL is nil, handler was likely not called for SendPayment freshCtx test")
+	}
+	expectedPath := "/v1/transactions/payment"
+	if capturedURL.Path != expectedPath { // For POST requests, the path should be exact.
+		t.Errorf("URL path mismatch: expected '%s', got '%s'", expectedPath, capturedURL.Path)
+	}
+	if capturedURL.RawQuery != "" {
+		t.Errorf("URL query params mismatch: expected no query params, got '%s'", capturedURL.RawQuery)
+	}
+
+
+	var decodedBody PaymentRequest
+	err = json.Unmarshal(capturedBodyBytes, &decodedBody)
 	if err != nil {
-		t.Fatalf("SendPayment failed: %v", err)
+		t.Fatalf("Failed to unmarshal captured request body: %v. Body: %s", err, string(capturedBodyBytes))
 	}
-	t.Log("\nPayment Result:")
-	t.Log("==============")
-	t.Logf("Transaction Hash: %s", result.Hash)
+
+	if decodedBody.ChainID != expectedPayload.ChainID {
+		t.Errorf("Body ChainID mismatch: expected %d, got %d", expectedPayload.ChainID, decodedBody.ChainID)
+	}
+	if decodedBody.Nonce != expectedPayload.Nonce {
+		t.Errorf("Body Nonce mismatch: expected %d, got %d", expectedPayload.Nonce, decodedBody.Nonce)
+	}
+	if decodedBody.Recipient != expectedPayload.Recipient {
+		t.Errorf("Body Recipient mismatch: expected %s, got %s", expectedPayload.Recipient.Hex(), decodedBody.Recipient.Hex())
+	}
+	if decodedBody.Value.Cmp(expectedPayload.Value) != 0 {
+		t.Errorf("Body Value mismatch: expected %s, got %s", expectedPayload.Value.String(), decodedBody.Value.String())
+	}
+	if decodedBody.Token != expectedPayload.Token {
+		t.Errorf("Body Token mismatch: expected %s, got %s", expectedPayload.Token.Hex(), decodedBody.Token.Hex())
+	}
+	if decodedBody.Signature.R != paymentReqFull.Signature.R {
+		t.Errorf("Body Signature.R mismatch: expected %s, got %s", paymentReqFull.Signature.R, decodedBody.Signature.R)
+	}
+	if decodedBody.Signature.S != paymentReqFull.Signature.S {
+		t.Errorf("Body Signature.S mismatch: expected %s, got %s", paymentReqFull.Signature.S, decodedBody.Signature.S)
+	}
+	if decodedBody.Signature.V != paymentReqFull.Signature.V {
+		t.Errorf("Body Signature.V mismatch: expected %d, got %d", paymentReqFull.Signature.V, decodedBody.Signature.V)
+	}
 }
