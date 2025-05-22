@@ -3,6 +3,8 @@ package onemoney
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strconv"
 )
 
 type CheckpointNumber struct {
@@ -48,20 +50,32 @@ func (client *Client) GetCheckpointNumber(ctx context.Context) (*CheckpointNumbe
 
 func (client *Client) GetCheckpointByHashFull(ctx context.Context, hash string) (*CheckpointDetailFull, error) {
 	result := new(CheckpointDetailFull)
-	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, true), result)
+	params := url.Values{}
+	params.Set("hash", hash)
+	params.Set("full", "true")
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_hash?%s", params.Encode()), result)
 }
 
 func (client *Client) GetCheckpointByHash(ctx context.Context, hash string) (*CheckpointDetail, error) {
 	result := new(CheckpointDetail)
-	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_hash?hash=%s&full=%v", hash, false), result)
+	params := url.Values{}
+	params.Set("hash", hash)
+	params.Set("full", "false")
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_hash?%s", params.Encode()), result)
 }
 
 func (client *Client) GetCheckpointByNumberFull(ctx context.Context, number int) (*CheckpointDetailFull, error) {
 	result := new(CheckpointDetailFull)
-	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, true), result)
+	params := url.Values{}
+	params.Set("number", strconv.Itoa(number))
+	params.Set("full", "true")
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_number?%s", params.Encode()), result)
 }
 
 func (client *Client) GetCheckpointByNumber(ctx context.Context, number int) (*CheckpointDetail, error) {
 	result := new(CheckpointDetail)
-	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_number?number=%d&full=%v", number, false), result)
+	params := url.Values{}
+	params.Set("number", strconv.Itoa(number))
+	params.Set("full", "false")
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/checkpoints/by_number?%s", params.Encode()), result)
 }

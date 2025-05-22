@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+	"net/url"
 )
 
 type TokenIssuePayload struct {
@@ -200,7 +201,9 @@ func (client *Client) IssueToken(ctx context.Context, req *IssueTokenRequest) (*
 
 func (client *Client) GetTokenMetadata(ctx context.Context, tokenAddress string) (*TokenInfoResponse, error) {
 	result := new(TokenInfoResponse)
-	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/tokens/token_metadata?token=%s", tokenAddress), result)
+	params := url.Values{}
+	params.Set("token", tokenAddress)
+	return result, client.GetMethod(ctx, fmt.Sprintf("/v1/tokens/token_metadata?%s", params.Encode()), result)
 }
 
 func (client *Client) UpdateTokenMetadata(ctx context.Context, req *UpdateMetadataRequest) (*UpdateMetadataResponse, error) {

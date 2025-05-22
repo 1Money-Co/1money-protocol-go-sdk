@@ -38,11 +38,11 @@ const (
 	// IMPORTANT: This is a placeholder and not a real private key. Do not use for actual transactions.
 	TestOperatorPrivateKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	// TestOperatorAddress is a mock Ethereum address for testing.
-	TestOperatorAddress    = "0x1234567890123456789012345678901234567890"
+	TestOperatorAddress = "0x1234567890123456789012345678901234567890"
 	// TestTokenAddress is a mock token address for testing.
-	TestTokenAddress       = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+	TestTokenAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 	// Test2ndAddress is another mock Ethereum address for testing.
-	Test2ndAddress         = "0x0987654321098765432109876543210987654321"
+	Test2ndAddress = "0x0987654321098765432109876543210987654321"
 )
 
 type Client struct {
@@ -50,11 +50,6 @@ type Client struct {
 	httpclient *http.Client
 	logger     Logger
 	hooks      []Hook // New field
-}
-
-// ChainIDResponse defines the structure for the GetChainID API response.
-type ChainIDResponse struct {
-	ChainID int `json:"chain_id"`
 }
 
 func newClientInternal(baseHost string, options ...ClientOption) *Client {
@@ -315,17 +310,4 @@ func (client *Client) handleAPIResponse(ctx context.Context, method string, url 
 		}
 	}
 	return processingErr
-}
-
-// GetChainID fetches the chain ID from the /v1/chain_id endpoint.
-func (client *Client) GetChainID(ctx context.Context) (*ChainIDResponse, error) {
-	result := new(ChainIDResponse)
-	// Assuming the endpoint will be /v1/chain_id.
-	// If the actual endpoint is different, this will need to be adjusted.
-	endpoint := "/v1/chain_id"
-	err := client.GetMethod(ctx, endpoint, result)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
 }

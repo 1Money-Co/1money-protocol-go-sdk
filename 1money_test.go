@@ -287,7 +287,9 @@ func TestClient_WithTimeout(t *testing.T) {
 	defer server.Close()
 
 	client := newClientInternal(server.URL, WithTimeout(50*time.Millisecond))
-	var result struct{ Status string `json:"status"` }
+	var result struct {
+		Status string `json:"status"`
+	}
 
 	err := client.GetMethod(context.Background(), "/v1/timeout_test", &result)
 	if err == nil {
@@ -334,7 +336,9 @@ func TestClient_WithHTTPClient(t *testing.T) {
 		t.Error("Client's httpclient is not using the expected *http.Transport type")
 	}
 
-	var result struct{ Status string `json:"status"` }
+	var result struct {
+		Status string `json:"status"`
+	}
 	err := client.GetMethod(context.Background(), "/v1/custom_client_test", &result)
 	if err != nil {
 		t.Fatalf("GetMethod with custom client failed: %v", err)
@@ -505,18 +509,17 @@ func TestClientLoggingLevels(t *testing.T) {
 			t.Errorf("Expected Errorf log for decoding error, got: %s", errorfCalls[0])
 		}
 	})
-	
+
 	t.Run("Client-Side Request Error (Timeout)", func(t *testing.T) {
 		logger.reset()
 		timeoutClient := newClientInternal(server.URL, WithLogger(logger), WithTimeout(1*time.Millisecond)) // very short timeout
-		
+
 		originalHandler := server.Config.Handler
 		server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(50 * time.Millisecond) 
-			originalHandler.ServeHTTP(w,r)
+			time.Sleep(50 * time.Millisecond)
+			originalHandler.ServeHTTP(w, r)
 		})
 		defer func() { server.Config.Handler = originalHandler }()
-
 
 		var result interface{}
 		err := timeoutClient.GetMethod(context.Background(), "/success", &result)
@@ -538,39 +541,6 @@ func TestClientLoggingLevels(t *testing.T) {
 	})
 }
 
-func TestGetChainID(t *testing.T) {
-	expectedChainID := 1
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/chain_id" {
-			t.Errorf("Expected to request '/v1/chain_id', got %s", r.URL.Path)
-		}
-		if r.Method != "GET" {
-			t.Errorf("Expected GET request, got %s", r.Method)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		response := ChainIDResponse{ChainID: expectedChainID} // ChainIDResponse is defined in 1money.go
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			t.Fatalf("Failed to write response: %v", err)
-		}
-	}))
-	defer server.Close()
-
-	client := newClientInternal(server.URL) // Use newClientInternal to set custom baseHost
-
-	resp, err := client.GetChainID(context.Background())
-	if err != nil {
-		t.Fatalf("GetChainID failed: %v", err)
-	}
-
-	if resp == nil {
-		t.Fatalf("Expected ChainIDResponse, got nil")
-	}
-
-	if resp.ChainID != expectedChainID {
-		t.Errorf("Expected chain ID %d, got %d", expectedChainID, resp.ChainID)
-	}
-}
-
 func TestClientHooks(t *testing.T) {
 	hook := newMockHook(t)
 	// var lastRequest *http.Request // For server-side inspection if needed
@@ -585,7 +555,6 @@ func TestClientHooks(t *testing.T) {
 		}
 		requestBodyOnServer = body // Store it
 		r.Body.Close()
-
 
 		switch r.URL.Path {
 		case "/get_ok":
@@ -720,12 +689,12 @@ func TestClientHooks(t *testing.T) {
 		expectedErrBody := []byte(`{"error_code":"BAD_INPUT","message":"Invalid input"}` + "\n")
 		if postCalls[0].method != "GET" || !strings.HasSuffix(postCalls[0].url, "/api_error") ||
 			postCalls[0].statusCode != http.StatusBadRequest || !bytes.Equal(postCalls[0].responseBody, expectedErrBody) ||
-			postCalls[0].err != apiErr { 
+			postCalls[0].err != apiErr {
 			t.Errorf("PostRequest call mismatch: Method=%s URL=%s Status=%d Body=%s Err=%v. Expected body: %s, expected error: %v",
 				postCalls[0].method, postCalls[0].url, postCalls[0].statusCode, string(postCalls[0].responseBody), postCalls[0].err, string(expectedErrBody), apiErr)
 		}
 	})
-	
+
 	// This sub-test must run before server.Close() if it relies on the main server.
 	// For Response Unmarshal Error, we use the main server.
 	t.Run("Response Unmarshal Error", func(t *testing.T) {
@@ -753,7 +722,7 @@ func TestClientHooks(t *testing.T) {
 		if len(postCalls) != 1 {
 			t.Fatalf("Expected 1 PostRequest call for unmarshal error, got %d", len(postCalls))
 		}
-		
+
 		malformedBody := []byte(`{"key": "value", "extra": "malformed"` + "\n")
 		if postCalls[0].method != "GET" || postCalls[0].url != expectedURL ||
 			postCalls[0].statusCode != http.StatusOK || !bytes.Equal(postCalls[0].responseBody, malformedBody) ||
@@ -769,7 +738,6 @@ func TestClientHooks(t *testing.T) {
 
 	// Close the main server after tests that use it are done.
 	server.Close()
-
 
 	t.Run("Network Error", func(t *testing.T) {
 		hook.reset()
@@ -791,7 +759,7 @@ func TestClientHooks(t *testing.T) {
 		if preCalls[0].method != "GET" || preCalls[0].url != "http://localhost:12345/some_path" {
 			t.Errorf("PreRequest call mismatch: %+v", preCalls[0])
 		}
-		
+
 		postCalls := hook.getPostRequestCalls()
 		if len(postCalls) != 1 {
 			t.Fatalf("Expected 1 PostRequest call, got %d", len(postCalls))
@@ -814,7 +782,7 @@ func TestClientHooks(t *testing.T) {
 		defer tempServer.Close()
 		marshalErrorClient := newClientInternal(tempServer.URL, WithHooks(hook), WithTimeout(1*time.Second))
 
-		unmarshallableBody := make(chan int) 
+		unmarshallableBody := make(chan int)
 		var result interface{}
 		err := marshalErrorClient.PostMethod(context.Background(), "/post_marshal_error", unmarshallableBody, &result)
 		if err == nil {
@@ -825,7 +793,7 @@ func TestClientHooks(t *testing.T) {
 		}
 
 		preCalls := hook.getPreRequestCalls()
-		if len(preCalls) != 0 { 
+		if len(preCalls) != 0 {
 			t.Fatalf("Expected 0 PreRequest calls, got %d: %+v", len(preCalls), preCalls)
 		}
 
@@ -833,7 +801,7 @@ func TestClientHooks(t *testing.T) {
 		if len(postCalls) != 1 {
 			t.Fatalf("Expected 1 PostRequest call for marshal error, got %d", len(postCalls))
 		}
-		
+
 		expectedURL := tempServer.URL + "/post_marshal_error"
 		if postCalls[0].method != "POST" || postCalls[0].url != expectedURL ||
 			postCalls[0].statusCode != 0 || postCalls[0].responseBody != nil || postCalls[0].err == nil {
