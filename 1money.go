@@ -37,6 +37,7 @@ const (
 	TestOperatorPrivateKey = ""
 	TestOperatorAddress    = ""
 	TestTokenAddress       = ""
+	Test2ndAddress         = ""
 )
 
 type Client struct {
@@ -239,7 +240,7 @@ func (e *APIError) Error() string {
 // handleAPIResponse is a helper function to handle API responses consistently.
 // The result parameter must be a pointer to a Go value suitable for JSON unmarshalling.
 // It uses `any` because the actual type of the response varies depending on the API endpoint.
-func (client *Client) handleAPIResponse(ctx context.Context, method string, url string, resp *http.Response, result any) error {
+func (client *Client) handleAPIResponse(ctx context.Context, method string, url string, resp *http.Response, result interface{}) error {
 	defer resp.Body.Close()
 
 	var processingErr error

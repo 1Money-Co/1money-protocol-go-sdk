@@ -14,7 +14,7 @@ type Signature struct {
 	V uint64 `json:"v"`
 }
 
-func (client *Client) SignMessage(msg any, privateKey string) (*Signature, error) {
+func (client *Client) SignMessage(msg interface{}, privateKey string) (*Signature, error) {
 	privateKey = strings.TrimPrefix(privateKey, "0x")
 	encoded, err := rlp.EncodeToBytes(msg)
 	if err != nil {
