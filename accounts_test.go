@@ -30,8 +30,7 @@ func TestGetTokenAccount(t *testing.T) {
 
 func TestGetAccountNonce(t *testing.T) {
 	client := onemoney.NewTestClient()
-	address := onemoney.TestOperatorAddress
-	result, err := client.GetAccountNonce(context.Background(), address)
+	result, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
 	if err != nil {
 		t.Fatalf("GetAccountNonce failed: %v", err)
 	}

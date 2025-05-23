@@ -10,7 +10,12 @@ import (
 
 func TestIssueToken(t *testing.T) {
 	t.Logf("TestIssueToken started")
-	var nonce uint64 = 10
+	client := onemoney.NewTestClient()
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	payload := onemoney.TokenIssuePayload{
 		ChainID:         1212101,
 		Nonce:           nonce,
@@ -20,7 +25,6 @@ func TestIssueToken(t *testing.T) {
 		MasterAuthority: common.HexToAddress(onemoney.TestOperatorAddress),
 		IsPrivate:       false,
 	}
-	client := onemoney.NewTestClient()
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
 	if err != nil {
 		t.Fatalf("Failed to generate signature: %v", err)
@@ -97,9 +101,14 @@ func TestGetTokenInfo(t *testing.T) {
 
 func TestUpdateTokenMetadata(t *testing.T) {
 	client := onemoney.NewTestClient()
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	payload := onemoney.UpdateMetadataPayload{
 		ChainID: 1212101,
-		Nonce:   81,
+		Nonce:   nonce,
 		Name:    "USDFF Stablecoin",
 		URI:     "https://usdf.com",
 		Token:   common.HexToAddress(onemoney.TestTokenAddress),
@@ -133,7 +142,11 @@ func TestUpdateTokenMetadata(t *testing.T) {
 
 func TestGrantMintBurnAuthority(t *testing.T) {
 	client := onemoney.NewTestClient()
-	var nonce uint64 = 15
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	payload := onemoney.TokenAuthorityPayload{
 		ChainID:          1212101,
 		Nonce:            nonce,
@@ -167,7 +180,11 @@ func TestGrantMintBurnAuthority(t *testing.T) {
 
 func TestGrantMasterMintAuthority(t *testing.T) {
 	client := onemoney.NewTestClient()
-	var nonce uint64 = 21
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	payload := onemoney.TokenAuthorityPayload{
 		ChainID:          1212101,
 		Nonce:            nonce,
@@ -201,7 +218,11 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 
 func TestGrantMasterUpdateMetadata(t *testing.T) {
 	client := onemoney.NewTestClient()
-	var nonce uint64 = 13
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	payload := onemoney.TokenAuthorityPayload{
 		ChainID:          1212101,
 		Nonce:            nonce,
@@ -235,7 +256,11 @@ func TestGrantMasterUpdateMetadata(t *testing.T) {
 
 func TestGrantMasterUpdatePause(t *testing.T) {
 	client := onemoney.NewTestClient()
-	var nonce uint64 = 16
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	payload := onemoney.TokenAuthorityPayload{
 		ChainID:          1212101,
 		Nonce:            nonce,
@@ -269,7 +294,11 @@ func TestGrantMasterUpdatePause(t *testing.T) {
 
 func TestGrantManageListPause(t *testing.T) {
 	client := onemoney.NewTestClient()
-	var nonce uint64 = 88
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	payload := onemoney.TokenAuthorityPayload{
 		ChainID:          1212101,
 		Nonce:            nonce,
@@ -304,7 +333,11 @@ func TestGrantManageListPause(t *testing.T) {
 func TestMintToken(t *testing.T) {
 	client := onemoney.NewTestClient()
 	// Get the current nonce
-	var nonce uint64 = 19
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	// Create mint payload
 	payload := onemoney.TokenMintPayload{
 		ChainID:   1212101,
@@ -340,7 +373,11 @@ func TestMintToken(t *testing.T) {
 func TestBurnToken(t *testing.T) {
 	client := onemoney.NewTestClient()
 	// Get the current nonce
-	var nonce uint64 = 20
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	// Create mint payload
 	payload := onemoney.TokenBurnPayload{
 		ChainID:   1212101,
@@ -376,7 +413,11 @@ func TestBurnToken(t *testing.T) {
 func TestBlacklist(t *testing.T) {
 	client := onemoney.NewTestClient()
 	// Get the current nonce
-	var nonce uint64 = 87
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	// Create SetTokenManagelist payload
 	payload := onemoney.TokenManageListPayload{
 		ChainID: 1212101,
@@ -412,7 +453,11 @@ func TestBlacklist(t *testing.T) {
 func TestPauseToken(t *testing.T) {
 	client := onemoney.NewTestClient()
 	// Get the current nonce
-	var nonce uint64 = 18
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	// Create mint payload
 	payload := onemoney.PauseTokenPayload{
 		ChainID: 1212101,
@@ -447,7 +492,11 @@ func TestPauseToken(t *testing.T) {
 func TestUnPauseToken(t *testing.T) {
 	client := onemoney.NewTestClient()
 	// Get the current nonce
-	var nonce uint64 = 23
+	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	if err != nil {
+		t.Fatalf("Failed to get account nonce: %v", err)
+	}
+	var nonce uint64 = accountNonce.Nonce
 	// Create pause payload
 	payload := onemoney.PauseTokenPayload{
 		ChainID: 1212101,
@@ -477,4 +526,10 @@ func TestUnPauseToken(t *testing.T) {
 	t.Log("\nPause Token Result:")
 	t.Log("=================")
 	t.Logf("Transaction Hash: %s", result.Hash)
+}
+
+func TestDeriveTokenAccountAddress(t *testing.T) {
+	client := onemoney.NewTestClient()
+	address := client.DeriveTokenAccountAddress(common.HexToAddress("0xA634dfba8c7550550817898bC4820cD10888Aac5"), common.HexToAddress("0x8E9d1b45293e30EF38564582979195DD16A16E13"))
+	t.Logf("address: %s", address)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"net/url"
 )
@@ -236,4 +237,22 @@ func (client *Client) SetTokenManageList(ctx context.Context, req *SetTokenManag
 func (client *Client) PauseToken(ctx context.Context, req *PauseTokenRequest) (*PauseTokenResponse, error) {
 	result := new(PauseTokenResponse)
 	return result, client.PostMethod(ctx, "/v1/tokens/pause", req, result)
+}
+
+// DeriveTokenAccountAddress derives the token account address given the wallet address and mint address.
+//
+// Address is 20 byte, 160 bits. Let's say if we want to support 50 billion
+// accounts on 1money. That's about 36 bits. There are 124 bits remaining. In
+// other words, the collision probability is 1/2^124, which is very very low.
+// So, we will be fine to just use the hash of the wallet address and mint
+// address to derive the token account address.
+func (client *Client) DeriveTokenAccountAddress(walletAddress common.Address, mintAddress common.Address) common.Address {
+	// Concatenate wallet address and mint address bytes
+	buf := append(walletAddress.Bytes(), mintAddress.Bytes()...)
+
+	// Calculate keccak256 hash
+	hash := crypto.Keccak256(buf)
+
+	// Return the last 20 bytes of the hash as the token account address
+	return common.BytesToAddress(hash[12:])
 }
