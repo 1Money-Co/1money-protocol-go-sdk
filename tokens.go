@@ -52,6 +52,7 @@ type TokenInfoResponse struct {
 	BurnAuthorities         []string          `json:"burn_authorities"`
 	Decimals                uint8             `json:"decimals"`
 	IsPaused                bool              `json:"is_paused"`
+	IsPrivate               bool              `json:"is_private"`
 	MasterAuthority         string            `json:"master_authority"`
 	MasterMintAuthority     string            `json:"master_mint_authority"`
 	MinterBurnAuthorities   []MinterAuthority `json:"minter_burn_authorities"`
