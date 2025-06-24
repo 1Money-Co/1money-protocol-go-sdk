@@ -72,11 +72,9 @@ func TestGetTokenInfo(t *testing.T) {
 	}
 	t.Log("\nAuthorities:")
 	t.Logf("  Master:              %s", result.MasterAuthority)
-	t.Logf("  Master Mint:         %s", result.MasterMintAuthority)
-	t.Logf("  Metadata Update:     %s", result.MetadataUpdateAuthority)
-	t.Logf("  Pause:              %s", result.PauseAuthority)
-	t.Log("\nMinter Authorities:")
-	for _, minter := range result.MinterBurnAuthorities {
+	t.Logf("  Master Mint:         %s", result.MasterMintBurnAuthority)
+	t.Log("\nMint Burn Authorities:")
+	for _, minter := range result.MintBurnAuthority {
 		t.Logf("  Minter: %s", minter.Minter)
 		t.Logf("  Allowance: %s", minter.Allowance)
 	}
@@ -85,8 +83,8 @@ func TestGetTokenInfo(t *testing.T) {
 	for _, auth := range result.ListAuthorities {
 		t.Logf("    %s", auth)
 	}
-	t.Log("\nBurn Authorities:")
-	for _, auth := range result.BurnAuthorities {
+	t.Log("\nPause Authorities:")
+	for _, auth := range result.PauseAuthorities {
 		t.Logf("    %s", auth)
 	}
 	t.Log("\nBlack List:")
@@ -95,6 +93,10 @@ func TestGetTokenInfo(t *testing.T) {
 	}
 	t.Log("\nWhite List:")
 	for _, addr := range result.WhiteList {
+		t.Logf("  %s", addr)
+	}
+	t.Log("\nMetadata Update Authorities:")
+	for _, addr := range result.MetadataUpdateAuthorities {
 		t.Logf("  %s", addr)
 	}
 }

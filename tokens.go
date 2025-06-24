@@ -46,21 +46,20 @@ type MinterAuthority struct {
 }
 
 type TokenInfoResponse struct {
-	BlackList               []string          `json:"black_list"`
-	WhiteList               []string          `json:"white_list"`
-	ListAuthorities         []string          `json:"list_authorities"`
-	BurnAuthorities         []string          `json:"burn_authorities"`
-	Decimals                uint8             `json:"decimals"`
-	IsPaused                bool              `json:"is_paused"`
-	IsPrivate               bool              `json:"is_private"`
-	MasterAuthority         string            `json:"master_authority"`
-	MasterMintAuthority     string            `json:"master_mint_authority"`
-	MinterBurnAuthorities   []MinterAuthority `json:"minter_burn_authorities"`
-	Meta                    Meta              `json:"meta"`
-	MetadataUpdateAuthority string            `json:"metadata_update_authority"`
-	PauseAuthority          string            `json:"pause_authority"`
-	Supply                  string            `json:"supply"`
-	Symbol                  string            `json:"symbol"`
+	Symbol                    string            `json:"symbol"`
+	MasterAuthority           string            `json:"master_authority"`
+	MasterMintBurnAuthority   string            `json:"master_mint_burn_authority"`
+	MintBurnAuthority         []MinterAuthority `json:"mint_burn_authorities"`
+	PauseAuthorities          []string          `json:"pause_authorities"`
+	ListAuthorities           []string          `json:"list_authorities"`
+	BlackList                 []string          `json:"black_list"`
+	WhiteList                 []string          `json:"white_list"`
+	MetadataUpdateAuthorities []string          `json:"metadata_update_authorities"`
+	Supply                    string            `json:"supply"`
+	Decimals                  uint8             `json:"decimals"`
+	IsPaused                  bool              `json:"is_paused"`
+	IsPrivate                 bool              `json:"is_private"`
+	Meta                      Meta              `json:"meta"`
 }
 
 type UpdateMetadataPayload struct {
