@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	onemoney "github.com/1Money-Co/1money-go-sdk"
@@ -12,16 +13,15 @@ import (
 const (
 	// Wallet Configuration
 	MINT_WALLETS_COUNT     = 20                                          // Number of mint authority wallets
-	TRANSFER_WALLETS_COUNT = 100                                         // Number of primary transfer recipient wallets
+	TRANSFER_WALLETS_COUNT = 500                                         // Number of primary transfer recipient wallets
 	WALLETS_PER_MINT       = TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
 
 	// Multi-tier Distribution Configuration
 	TRANSFER_MULTIPLIER        = 10                                           // Number of distribution wallets per primary wallet
 	DISTRIBUTION_WALLETS_COUNT = TRANSFER_WALLETS_COUNT * TRANSFER_MULTIPLIER // Total distribution wallets (8000)
-	TRANSFER_WORKERS_COUNT     = 50                                           // Number of concurrent transfer worker goroutines
+	TRANSFER_WORKERS_COUNT     = 100                                          // Number of concurrent transfer worker goroutines
 
 	// Token Configuration
-	TOKEN_SYMBOL   = "STRESS22"
 	TOKEN_NAME     = "Stress Test Token"
 	TOKEN_DECIMALS = 6
 	CHAIN_ID       = 1212101
@@ -68,4 +68,29 @@ type StressTester struct {
 	ctx                 context.Context
 	postRateLimiter     *rate.Limiter // Rate limiter for POST requests
 	getRateLimiter      *rate.Limiter // Rate limiter for GET requests
+}
+
+// generateTokenSymbol generates a random token symbol with format "1M" + 5 letters + 2 digits
+func generateTokenSymbol() string {
+	const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	const digits = "0123456789"
+
+	// Generate 5 random letters
+	letterPart := make([]byte, 5)
+	for i := range letterPart {
+		letterPart[i] = letters[rand.Intn(len(letters))]
+	}
+
+	// Generate 2 random digits
+	digitPart := make([]byte, 2)
+	for i := range digitPart {
+		digitPart[i] = digits[rand.Intn(len(digits))]
+	}
+
+	return "1M" + string(letterPart) + string(digitPart)
+}
+
+// GetTokenSymbol returns a dynamically generated token symbol for each test run
+func GetTokenSymbol() string {
+	return generateTokenSymbol()
 }

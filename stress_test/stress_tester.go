@@ -114,7 +114,7 @@ func (st *StressTester) createToken() error {
 	payload := onemoney.TokenIssuePayload{
 		ChainID:         CHAIN_ID,
 		Nonce:           nonce,
-		Symbol:          TOKEN_SYMBOL,
+		Symbol:          GetTokenSymbol(),
 		Name:            TOKEN_NAME,
 		Decimals:        TOKEN_DECIMALS,
 		MasterAuthority: common.HexToAddress(st.operatorWallet.Address),
@@ -480,7 +480,7 @@ func (st *StressTester) RunStressTest() error {
 	log.Printf("- Mint allowance: %d", MINT_ALLOWANCE)
 	log.Printf("- Mint amount per operation: %d", MINT_AMOUNT)
 	log.Printf("- Transfer amount per operation: %d", TRANSFER_AMOUNT)
-	log.Printf("- Token symbol: %s", TOKEN_SYMBOL)
+	log.Printf("- Token symbol: %s", GetTokenSymbol())
 	log.Printf("- Token name: %s", TOKEN_NAME)
 	log.Printf("- Chain ID: %d", CHAIN_ID)
 	log.Printf("- POST rate limit: %d TPS", POST_RATE_LIMIT_TPS)

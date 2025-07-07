@@ -20,3 +20,12 @@ go.work
 # Debug files
 __debug_bin
 .DS_Store
+
+# Stress test binaries and build artifacts
+/stress_test/stress_test
+/stress_test/stress_test_binary
+/stress_test/stress_test.test
+/stress_test/*_binary
+# Log files and CSV outputs from stress tests
+/stress_test/*.log
+/stress_test/*.csv
