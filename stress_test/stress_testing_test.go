@@ -19,25 +19,25 @@ import (
 // Configurable Constants - Modify these values as needed for different stress test scenarios
 const (
 	// Wallet Configuration
-	MINT_WALLETS_COUNT     = 5   // Number of mint authority wallets
-	TRANSFER_WALLETS_COUNT = 100 // Number of transfer recipient wallets
-	WALLETS_PER_MINT       = 20  // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
+	MINT_WALLETS_COUNT     = 20   // Number of mint authority wallets
+	TRANSFER_WALLETS_COUNT = 2000 // Number of transfer recipient wallets
+	WALLETS_PER_MINT       = 100  // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
 
 	// Token Configuration
-	TOKEN_SYMBOL   = "STRESS"
+	TOKEN_SYMBOL   = "STRESS2"
 	TOKEN_NAME     = "Stress Test Token"
 	TOKEN_DECIMALS = 6
 	CHAIN_ID       = 1212101
 
 	// Mint Configuration
-	MINT_ALLOWANCE = 10000000 // Allowance granted to each mint wallet
-	MINT_AMOUNT    = 1000     // Amount to mint per operation
+	MINT_ALLOWANCE = 1000000000 // Allowance granted to each mint wallet
+	MINT_AMOUNT    = 1000       // Amount to mint per operation
 
 	// Transaction Validation Configuration
-	RECEIPT_CHECK_TIMEOUT    = 60 * time.Second // Timeout for waiting for transaction receipt
-	RECEIPT_CHECK_INTERVAL   = 2 * time.Second  // Interval between receipt checks
-	NONCE_VALIDATION_TIMEOUT = 30 * time.Second // Timeout for nonce validation
-	NONCE_CHECK_INTERVAL     = 1 * time.Second  // Interval between nonce checks
+	RECEIPT_CHECK_TIMEOUT    = 60 * time.Second       // Timeout for waiting for transaction receipt
+	RECEIPT_CHECK_INTERVAL   = 250 * time.Millisecond // Interval between receipt checks
+	NONCE_VALIDATION_TIMEOUT = 30 * time.Second       // Timeout for nonce validation
+	NONCE_CHECK_INTERVAL     = 250 * time.Millisecond // Interval between nonce checks
 )
 
 // Wallet represents a wallet with private key, public key, and address

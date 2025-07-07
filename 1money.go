@@ -29,13 +29,13 @@ type Hook interface {
 }
 
 const (
-	apiBaseHost     = "https://api.1money.network"
-	apiBaseHostTest = "https://api.testnet.1money.network"
+	apiBaseHost     = "http://127.0.0.1:18555"
+	apiBaseHostTest = "http://127.0.0.1:18555"
 )
 
 const (
-	TestOperatorPrivateKey = ""
-	TestOperatorAddress    = ""
+	TestOperatorPrivateKey = "0x76700ba1cb72480053d43b6202a16e9acbfb318b0321cfac4e55d38747bf9057"
+	TestOperatorAddress    = "0xefd86f9ea9b981eda887f984c7883481ec665b65"
 	TestTokenAddress       = ""
 	Test2ndAddress         = ""
 )
