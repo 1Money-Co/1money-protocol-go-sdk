@@ -16,36 +16,41 @@ import (
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"golang.org/x/time/rate"
 )
 
 // Configurable Constants - Modify these values as needed for different stress test scenarios
 const (
 	// Wallet Configuration
 	MINT_WALLETS_COUNT     = 20  // Number of mint authority wallets
-	TRANSFER_WALLETS_COUNT = 500 // Number of primary transfer recipient wallets
-	WALLETS_PER_MINT       = 25  // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
+	TRANSFER_WALLETS_COUNT = 200 // Number of primary transfer recipient wallets
+	WALLETS_PER_MINT       = 10  // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
 
 	// Multi-tier Distribution Configuration
-	TRANSFER_MULTIPLIER        = 4                                            // Number of distribution wallets per primary wallet
+	TRANSFER_MULTIPLIER        = 10                                           // Number of distribution wallets per primary wallet
 	DISTRIBUTION_WALLETS_COUNT = TRANSFER_WALLETS_COUNT * TRANSFER_MULTIPLIER // Total distribution wallets (8000)
-	TRANSFER_WORKERS_COUNT     = 10                                           // Number of concurrent transfer worker goroutines
+	TRANSFER_WORKERS_COUNT     = 50                                           // Number of concurrent transfer worker goroutines
 
 	// Token Configuration
-	TOKEN_SYMBOL   = "STRESS15"
+	TOKEN_SYMBOL   = "STRESS18"
 	TOKEN_NAME     = "Stress Test Token"
 	TOKEN_DECIMALS = 6
 	CHAIN_ID       = 1212101
 
 	// Mint Configuration
 	MINT_ALLOWANCE  = 1000000000                              // Allowance granted to each mint wallet
-	MINT_AMOUNT     = 1000                                    // Amount to mint per operation
+	MINT_AMOUNT     = 11000                                   // Amount to mint per operation
 	TRANSFER_AMOUNT = MINT_AMOUNT / (TRANSFER_MULTIPLIER + 1) // Amount to transfer per distribution operation (250)
 
 	// Transaction Validation Configuration
 	RECEIPT_CHECK_TIMEOUT    = 10 * time.Second       // Timeout for waiting for transaction receipt
-	RECEIPT_CHECK_INTERVAL   = 150 * time.Millisecond // Interval between receipt checks
+	RECEIPT_CHECK_INTERVAL   = 200 * time.Millisecond // Interval between receipt checks
 	NONCE_VALIDATION_TIMEOUT = 10 * time.Second       // Timeout for nonce validation
-	NONCE_CHECK_INTERVAL     = 150 * time.Millisecond // Interval between nonce checks
+	NONCE_CHECK_INTERVAL     = 200 * time.Millisecond // Interval between nonce checks
+
+	// Rate Limiting Configuration
+	POST_RATE_LIMIT_TPS = 250 // Maximum POST requests per second (configurable)
+	GET_RATE_LIMIT_TPS  = 500 // Maximum GET requests per second (configurable)
 )
 
 // Wallet represents a wallet with private key, public key, and address
@@ -72,6 +77,8 @@ type StressTester struct {
 	distributionWallets []*Wallet // Distribution wallets (tier 3)
 	tokenAddress        string
 	ctx                 context.Context
+	postRateLimiter     *rate.Limiter // Rate limiter for POST requests
+	getRateLimiter      *rate.Limiter // Rate limiter for GET requests
 }
 
 // generateWallet creates a new wallet with private key, public key, and address
@@ -129,9 +136,11 @@ func NewStressTester() (*StressTester, error) {
 	}
 
 	return &StressTester{
-		client:         client,
-		operatorWallet: operatorWallet,
-		ctx:            context.Background(),
+		client:          client,
+		operatorWallet:  operatorWallet,
+		ctx:             context.Background(),
+		postRateLimiter: rate.NewLimiter(rate.Limit(POST_RATE_LIMIT_TPS), 1), // 250 TPS with burst of 1
+		getRateLimiter:  rate.NewLimiter(rate.Limit(GET_RATE_LIMIT_TPS), 1),  // 500 TPS with burst of 1
 	}, nil
 }
 
@@ -146,6 +155,12 @@ func (st *StressTester) waitForTransactionReceipt(txHash string) error {
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for receipt of transaction %s", txHash)
 		case <-ticker.C:
+			// Apply rate limiting for GET request
+			if err := st.getRateLimiter.Wait(st.ctx); err != nil {
+				log.Printf("Rate limiting failed for GetTransactionReceipt: %v", err)
+				continue
+			}
+
 			receipt, err := st.client.GetTransactionReceipt(st.ctx, txHash)
 			if err != nil {
 				log.Printf("Error getting receipt for transaction %s: %v", txHash, err)
@@ -175,6 +190,12 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for nonce validation for address %s", address)
 		case <-ticker.C:
+			// Apply rate limiting for GET request
+			if err := st.getRateLimiter.Wait(st.ctx); err != nil {
+				log.Printf("Rate limiting failed for GetAccountNonce in nonce validation: %v", err)
+				continue
+			}
+
 			accountNonce, err := st.client.GetAccountNonce(st.ctx, address)
 			if err != nil {
 				log.Printf("Error getting nonce for address %s: %v", address, err)
@@ -195,6 +216,11 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 
 // getAccountNonce retrieves the current nonce for an address
 func (st *StressTester) getAccountNonce(address string) (uint64, error) {
+	// Apply rate limiting for GET request
+	if err := st.getRateLimiter.Wait(st.ctx); err != nil {
+		return 0, fmt.Errorf("rate limiting failed for GetAccountNonce: %w", err)
+	}
+
 	accountNonce, err := st.client.GetAccountNonce(st.ctx, address)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get account nonce for %s: %w", address, err)
@@ -291,6 +317,11 @@ func (st *StressTester) createToken() error {
 		},
 	}
 
+	// Apply rate limiting for POST request
+	if err := st.postRateLimiter.Wait(st.ctx); err != nil {
+		return fmt.Errorf("rate limiting failed for IssueToken: %w", err)
+	}
+
 	result, err := st.client.IssueToken(st.ctx, req)
 	if err != nil {
 		return fmt.Errorf("failed to issue token: %w", err)
@@ -349,6 +380,11 @@ func (st *StressTester) grantMintAuthorities() error {
 			},
 		}
 
+		// Apply rate limiting for POST request
+		if err := st.postRateLimiter.Wait(st.ctx); err != nil {
+			return fmt.Errorf("rate limiting failed for GrantTokenAuthority: %w", err)
+		}
+
 		result, err := st.client.GrantTokenAuthority(st.ctx, req)
 		if err != nil {
 			return fmt.Errorf("failed to grant authority to wallet %d: %w", i, err)
@@ -404,6 +440,11 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 			S: signature.S,
 			V: signature.V,
 		},
+	}
+
+	// Apply rate limiting for POST request
+	if err := st.postRateLimiter.Wait(st.ctx); err != nil {
+		return fmt.Errorf("rate limiting failed for SendPayment: %w", err)
 	}
 
 	// Send payment request
@@ -578,6 +619,11 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 		},
 	}
 
+	// Apply rate limiting for POST request
+	if err := st.postRateLimiter.Wait(st.ctx); err != nil {
+		return fmt.Errorf("rate limiting failed for MintToken: %w", err)
+	}
+
 	// Send mint request
 	result, err := st.client.MintToken(st.ctx, req)
 	if err != nil {
@@ -619,6 +665,8 @@ func (st *StressTester) RunStressTest() error {
 	log.Printf("- Token symbol: %s", TOKEN_SYMBOL)
 	log.Printf("- Token name: %s", TOKEN_NAME)
 	log.Printf("- Chain ID: %d", CHAIN_ID)
+	log.Printf("- POST rate limit: %d TPS", POST_RATE_LIMIT_TPS)
+	log.Printf("- GET rate limit: %d TPS", GET_RATE_LIMIT_TPS)
 	log.Println()
 
 	// Step 1: Create mint wallets
@@ -698,6 +746,12 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 	// Write data for primary transfer wallets (tier 2)
 	log.Printf("Processing primary transfer wallets...")
 	for i, wallet := range st.transferWallets {
+		// Apply rate limiting for GET request
+		if err := st.getRateLimiter.Wait(st.ctx); err != nil {
+			log.Printf("Rate limiting failed for GetTokenAccount (primary wallet %d): %v", i+1, err)
+			continue
+		}
+
 		// Get token account balance
 		tokenAccount, err := st.client.GetTokenAccount(st.ctx, wallet.Address, st.tokenAddress)
 		if err != nil {
@@ -732,6 +786,12 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 	// Write data for distribution wallets (tier 3)
 	log.Printf("Processing distribution wallets...")
 	for i, wallet := range st.distributionWallets {
+		// Apply rate limiting for GET request
+		if err := st.getRateLimiter.Wait(st.ctx); err != nil {
+			log.Printf("Rate limiting failed for GetTokenAccount (distribution wallet %d): %v", i+1, err)
+			continue
+		}
+
 		// Get token account balance
 		tokenAccount, err := st.client.GetTokenAccount(st.ctx, wallet.Address, st.tokenAddress)
 		if err != nil {
@@ -904,6 +964,8 @@ func TestBatchMint(t *testing.T) {
 	logToFile("Transfer Amount per Operation: %d", TRANSFER_AMOUNT)
 	logToFile("Token Symbol: %s", TOKEN_SYMBOL)
 	logToFile("Chain ID: %d", CHAIN_ID)
+	logToFile("POST Rate Limit: %d TPS", POST_RATE_LIMIT_TPS)
+	logToFile("GET Rate Limit: %d TPS", GET_RATE_LIMIT_TPS)
 	logToFile("")
 
 	// Efficiency analysis
@@ -941,10 +1003,11 @@ func main() {
 	log.Println()
 	log.Println("Key Features:")
 	log.Println("- Concurrent minting and transferring operations")
-	log.Println("- Configurable transfer multiplier (currently 4)")
-	log.Println("- Multi-threaded transfer workers (10 concurrent workers)")
+	log.Println("- Configurable transfer multiplier (currently 10)")
+	log.Println("- Multi-threaded transfer workers (50 concurrent workers)")
 	log.Println("- Comprehensive CSV output with all wallet tiers")
 	log.Println("- Enhanced timing statistics and performance metrics")
+	log.Println("- Rate limiting controls for API requests (250 TPS POST, 500 TPS GET)")
 	log.Println()
 	log.Println("Usage:")
 	log.Println("  go test -v -run TestBatchMint")
@@ -954,6 +1017,8 @@ func main() {
 	log.Printf("  TRANSFER_WORKERS_COUNT: %d (concurrent transfer workers)\n", TRANSFER_WORKERS_COUNT)
 	log.Printf("  MINT_AMOUNT: %d (tokens minted per operation)\n", MINT_AMOUNT)
 	log.Printf("  TRANSFER_AMOUNT: %d (tokens transferred per distribution)\n", TRANSFER_AMOUNT)
+	log.Printf("  POST_RATE_LIMIT_TPS: %d (POST requests per second limit)\n", POST_RATE_LIMIT_TPS)
+	log.Printf("  GET_RATE_LIMIT_TPS: %d (GET requests per second limit)\n", GET_RATE_LIMIT_TPS)
 	log.Println()
 
 	// Example of running the stress test directly (uncomment to use)

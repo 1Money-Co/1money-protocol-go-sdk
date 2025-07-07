@@ -14,6 +14,7 @@ require (
 	github.com/holiman/uint256 v1.3.2 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 )
 
 replace github.com/1Money-Co/1money-go-sdk => ../
