@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -149,6 +150,20 @@ func (m *mockHook) reset() {
 	defer m.mu.Unlock()
 	m.preRequestCalls = nil
 	m.postRequestCalls = nil
+}
+
+func TestPublicAddress(t *testing.T) {
+	// 这是一个示例私钥（请勿在生产环境中使用！）
+	// 你可以替换成你自己的私钥进行测试
+	privateKeyExample := "0x76700ba1cb72480053d43b6202a16e9acbfb318b0321cfac4e55d38747bf9057" // 示例私钥
+
+	address, err := PrivateKeyToAddress(privateKeyExample)
+	if err != nil {
+		log.Fatalf("生成地址失败: %v", err)
+	}
+
+	fmt.Printf("私钥: %s\n", privateKeyExample)
+	fmt.Printf("派生出的以太坊地址: %s\n", address)
 }
 
 func TestClient_WithLogger_GetMethod(t *testing.T) {
