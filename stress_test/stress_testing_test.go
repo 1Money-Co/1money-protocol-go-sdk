@@ -24,7 +24,7 @@ const (
 	WALLETS_PER_MINT       = 100  // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
 
 	// Token Configuration
-	TOKEN_SYMBOL   = "STRESS2"
+	TOKEN_SYMBOL   = "STRESS3"
 	TOKEN_NAME     = "Stress Test Token"
 	TOKEN_DECIMALS = 6
 	CHAIN_ID       = 1212101
@@ -499,22 +499,75 @@ func (st *StressTester) RunStressTest() error {
 func TestBatchMint(t *testing.T) {
 	t.Log("Initializing 1Money Batch Mint Stress Tester...")
 
+	// Record overall test start time
+	overallStartTime := time.Now()
+
 	// Validate configuration
 	if MINT_WALLETS_COUNT*WALLETS_PER_MINT != TRANSFER_WALLETS_COUNT {
 		t.Fatalf("Configuration error: MINT_WALLETS_COUNT (%d) * WALLETS_PER_MINT (%d) must equal TRANSFER_WALLETS_COUNT (%d)",
 			MINT_WALLETS_COUNT, WALLETS_PER_MINT, TRANSFER_WALLETS_COUNT)
 	}
 
+	// Record tester creation time
+	testerStartTime := time.Now()
 	tester, err := NewStressTester()
 	if err != nil {
 		t.Fatalf("Failed to create stress tester: %v", err)
 	}
+	testerCreationDuration := time.Since(testerStartTime)
 
+	// Record stress test execution time
+	stressTestStartTime := time.Now()
 	if err := tester.RunStressTest(); err != nil {
 		t.Fatalf("Batch mint stress test failed: %v", err)
 	}
+	stressTestDuration := time.Since(stressTestStartTime)
+
+	// Calculate overall test duration
+	overallDuration := time.Since(overallStartTime)
 
 	t.Log("Batch mint stress test completed successfully!")
+
+	// Detailed timing statistics
+	t.Log("=== DETAILED TIMING STATISTICS ===")
+	t.Logf("Tester Creation Time: %v", testerCreationDuration)
+	t.Logf("Stress Test Execution Time: %v", stressTestDuration)
+	t.Logf("Total Test Duration: %v", overallDuration)
+	t.Log("")
+
+	// Performance metrics
+	totalOperations := MINT_WALLETS_COUNT * WALLETS_PER_MINT
+	totalTokensMinted := totalOperations * MINT_AMOUNT
+
+	t.Log("=== PERFORMANCE METRICS ===")
+	t.Logf("Total Mint Operations: %d", totalOperations)
+	t.Logf("Total Tokens Minted: %d", totalTokensMinted)
+	t.Logf("Operations per Second: %.2f", float64(totalOperations)/stressTestDuration.Seconds())
+	t.Logf("Tokens Minted per Second: %.2f", float64(totalTokensMinted)/stressTestDuration.Seconds())
+	t.Logf("Average Time per Operation: %v", time.Duration(int64(stressTestDuration)/int64(totalOperations)))
+	t.Log("")
+
+	// Configuration summary
+	t.Log("=== TEST CONFIGURATION ===")
+	t.Logf("Mint Wallets Count: %d", MINT_WALLETS_COUNT)
+	t.Logf("Transfer Wallets Count: %d", TRANSFER_WALLETS_COUNT)
+	t.Logf("Wallets per Mint: %d", WALLETS_PER_MINT)
+	t.Logf("Mint Amount per Operation: %d", MINT_AMOUNT)
+	t.Logf("Token Symbol: %s", TOKEN_SYMBOL)
+	t.Logf("Chain ID: %d", CHAIN_ID)
+	t.Log("")
+
+	// Efficiency analysis
+	setupTime := testerCreationDuration
+	executionTime := stressTestDuration
+	setupPercentage := (setupTime.Seconds() / overallDuration.Seconds()) * 100
+	executionPercentage := (executionTime.Seconds() / overallDuration.Seconds()) * 100
+
+	t.Log("=== EFFICIENCY ANALYSIS ===")
+	t.Logf("Setup Time: %v (%.1f%% of total)", setupTime, setupPercentage)
+	t.Logf("Execution Time: %v (%.1f%% of total)", executionTime, executionPercentage)
+	t.Logf("Throughput: %.2f operations/minute", float64(totalOperations)/(stressTestDuration.Minutes()))
+	t.Log("=== END OF TIMING STATISTICS ===")
 }
 
 // main function for standalone execution
