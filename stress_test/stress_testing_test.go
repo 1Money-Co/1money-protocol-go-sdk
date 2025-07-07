@@ -22,9 +22,9 @@ import (
 // Configurable Constants - Modify these values as needed for different stress test scenarios
 const (
 	// Wallet Configuration
-	MINT_WALLETS_COUNT     = 20  // Number of mint authority wallets
-	TRANSFER_WALLETS_COUNT = 200 // Number of primary transfer recipient wallets
-	WALLETS_PER_MINT       = 10  // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
+	MINT_WALLETS_COUNT     = 20   // Number of mint authority wallets
+	TRANSFER_WALLETS_COUNT = 1000 // Number of primary transfer recipient wallets
+	WALLETS_PER_MINT       = 50   // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
 
 	// Multi-tier Distribution Configuration
 	TRANSFER_MULTIPLIER        = 10                                           // Number of distribution wallets per primary wallet
@@ -32,7 +32,7 @@ const (
 	TRANSFER_WORKERS_COUNT     = 50                                           // Number of concurrent transfer worker goroutines
 
 	// Token Configuration
-	TOKEN_SYMBOL   = "STRESS18"
+	TOKEN_SYMBOL   = "STRESS20"
 	TOKEN_NAME     = "Stress Test Token"
 	TOKEN_DECIMALS = 6
 	CHAIN_ID       = 1212101
@@ -239,9 +239,14 @@ func (st *StressTester) createMintWallets() error {
 			return fmt.Errorf("failed to create mint wallet %d: %w", i, err)
 		}
 		st.mintWallets[i] = wallet
-		log.Printf("Created mint wallet %d: %s", i+1, wallet.Address)
+
+		// Log progress every 10 wallets to avoid excessive logging
+		if (i+1)%10 == 0 {
+			log.Printf("Created mint wallets: %d/%d", i+1, MINT_WALLETS_COUNT)
+		}
 	}
 
+	log.Printf("Successfully created all %d mint wallets", MINT_WALLETS_COUNT)
 	return nil
 }
 
@@ -256,9 +261,14 @@ func (st *StressTester) createTransferWallets() error {
 			return fmt.Errorf("failed to create primary transfer wallet %d: %w", i, err)
 		}
 		st.transferWallets[i] = wallet
-		log.Printf("Created primary transfer wallet %d: %s", i+1, wallet.Address)
+
+		// Log progress every 100 wallets to avoid excessive logging
+		if (i+1)%100 == 0 {
+			log.Printf("Created primary transfer wallets: %d/%d", i+1, TRANSFER_WALLETS_COUNT)
+		}
 	}
 
+	log.Printf("Successfully created all %d primary transfer wallets", TRANSFER_WALLETS_COUNT)
 	return nil
 }
 
@@ -834,7 +844,30 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 	return nil
 }
 
-// TestBatchMint is the main test method that performs concurrent batch minting stress testing
+// main function for standalone execution
+func main() {
+	log.Println("Configuration Constants (easily modifiable):")
+	log.Printf("  TRANSFER_MULTIPLIER: %d (distribution wallets per primary wallet)\n", TRANSFER_MULTIPLIER)
+	log.Printf("  TRANSFER_WORKERS_COUNT: %d (concurrent transfer workers)\n", TRANSFER_WORKERS_COUNT)
+	log.Printf("  MINT_AMOUNT: %d (tokens minted per operation)\n", MINT_AMOUNT)
+	log.Printf("  TRANSFER_AMOUNT: %d (tokens transferred per distribution)\n", TRANSFER_AMOUNT)
+	log.Printf("  POST_RATE_LIMIT_TPS: %d (POST requests per second limit)\n", POST_RATE_LIMIT_TPS)
+	log.Printf("  GET_RATE_LIMIT_TPS: %d (GET requests per second limit)\n", GET_RATE_LIMIT_TPS)
+	log.Println()
+
+	// Example of running the stress test directly (uncomment to use)
+	tester, err := NewStressTester()
+	if err != nil {
+		log.Fatalf("Failed to create stress tester: %v", err)
+	}
+
+	if err := tester.RunStressTest(); err != nil {
+		log.Fatalf("Multi-tier stress test failed: %v", err)
+	}
+
+	log.Println("Multi-tier stress test completed successfully!")
+}
+
 func TestBatchMint(t *testing.T) {
 	// Create log file with timestamp
 	timestamp := time.Now().Format("20060102_150405")
@@ -990,48 +1023,4 @@ func TestBatchMint(t *testing.T) {
 	// Final log message with file location
 	logToFile("All logs have been written to: %s", logFileName)
 	t.Logf("Complete multi-tier stress test logs saved to: %s", logFileName)
-}
-
-// main function for standalone execution
-func main() {
-	log.Println("1Money Multi-Tier Concurrent Token Distribution Stress Testing Tool")
-	log.Println("===================================================================")
-	log.Println("This enhanced tool implements a multi-tier concurrent token distribution strategy:")
-	log.Println("- Tier 1: 20 mint wallets (operators)")
-	log.Println("- Tier 2: 2000 primary transfer wallets (receive minted tokens)")
-	log.Println("- Tier 3: 8000 distribution wallets (receive transferred tokens)")
-	log.Println()
-	log.Println("Key Features:")
-	log.Println("- Concurrent minting and transferring operations")
-	log.Println("- Configurable transfer multiplier (currently 10)")
-	log.Println("- Multi-threaded transfer workers (50 concurrent workers)")
-	log.Println("- Comprehensive CSV output with all wallet tiers")
-	log.Println("- Enhanced timing statistics and performance metrics")
-	log.Println("- Rate limiting controls for API requests (250 TPS POST, 500 TPS GET)")
-	log.Println()
-	log.Println("Usage:")
-	log.Println("  go test -v -run TestBatchMint")
-	log.Println()
-	log.Println("Configuration Constants (easily modifiable):")
-	log.Printf("  TRANSFER_MULTIPLIER: %d (distribution wallets per primary wallet)\n", TRANSFER_MULTIPLIER)
-	log.Printf("  TRANSFER_WORKERS_COUNT: %d (concurrent transfer workers)\n", TRANSFER_WORKERS_COUNT)
-	log.Printf("  MINT_AMOUNT: %d (tokens minted per operation)\n", MINT_AMOUNT)
-	log.Printf("  TRANSFER_AMOUNT: %d (tokens transferred per distribution)\n", TRANSFER_AMOUNT)
-	log.Printf("  POST_RATE_LIMIT_TPS: %d (POST requests per second limit)\n", POST_RATE_LIMIT_TPS)
-	log.Printf("  GET_RATE_LIMIT_TPS: %d (GET requests per second limit)\n", GET_RATE_LIMIT_TPS)
-	log.Println()
-
-	// Example of running the stress test directly (uncomment to use)
-	/*
-		tester, err := NewStressTester()
-		if err != nil {
-			log.Fatalf("Failed to create stress tester: %v", err)
-		}
-
-		if err := tester.RunStressTest(); err != nil {
-			log.Fatalf("Multi-tier stress test failed: %v", err)
-		}
-
-		log.Println("Multi-tier stress test completed successfully!")
-	*/
 }
