@@ -1,23 +1,37 @@
-# 1Money Batch Mint Stress Testing Tool
+# 1Money Multi-Tier Concurrent Token Distribution Stress Testing Tool
 
-This stress testing tool performs concurrent batch minting operations to test the 1Money SDK's performance and reliability under load.
+This enhanced stress testing tool implements a sophisticated multi-tier concurrent token distribution strategy that significantly improves upon the original sequential approach. The tool creates a three-tier wallet hierarchy and performs concurrent operations to maximize throughput and test real-world scalability scenarios.
 
 ## Overview
 
-The `TestBatchMint` test method performs the following workflow:
+The `TestBatchMint` test method now performs an advanced multi-tier workflow:
 
 ### Setup Phase
-1. **Create 5 mint wallets** - Each containing private key, public key, and address to serve as mint_burn_authority addresses
-2. **Create 100 transfer wallets** - Each containing private key, public key, and address to serve as transfer recipient addresses  
-3. **Create a new token** - Using the operator wallet
-4. **Grant mint permissions** - Operator wallet grants mint permissions to each of the 5 mint wallets, providing an allowance of 10,000,000 tokens each
+1. **Create 20 mint wallets** - Each containing private key, public key, and address to serve as mint_burn_authority addresses
+2. **Create 2000 primary transfer wallets** - Each containing private key, public key, and address to receive minted tokens
+3. **Create 8000 distribution wallets** - Each containing private key, public key, and address to receive transferred tokens
+4. **Create a new token** - Using the operator wallet
+5. **Grant mint permissions** - Operator wallet grants mint permissions to each of the 20 mint wallets, providing an allowance of 1,000,000,000 tokens each
 
 ### Execution Phase
-5. **Launch 5 concurrent goroutines** - One per mint wallet, where each goroutine:
-   - Takes responsibility for 20 of the 100 transfer wallets (distributed evenly: wallet 1 handles wallets 1-20, wallet 2 handles wallets 21-40, etc.)
-   - Performs mint token operations to each of its assigned 20 transfer wallets sequentially
+6. **Launch 20 concurrent mint goroutines** - One per mint wallet, where each goroutine:
+   - Takes responsibility for 100 of the 2000 primary wallets (distributed evenly)
+   - Performs mint token operations to each of its assigned 100 primary wallets
+   - After each successful mint, immediately triggers concurrent transfer operations
+
+7. **Launch 10 concurrent transfer workers** - Processing transfer tasks where:
+   - Each primary wallet that receives minted tokens immediately begins transferring to 4 distribution wallets
+   - Transfer operations run concurrently with ongoing mint operations
+   - Uses channel-based coordination for optimal throughput
 
 ## Key Features
+
+### Multi-Tier Architecture
+The tool implements a three-tier wallet hierarchy:
+
+1. **Tier 1 - Mint Wallets (20 wallets)**: Operator wallets with mint authority
+2. **Tier 2 - Primary Transfer Wallets (2000 wallets)**: Receive minted tokens and immediately transfer to distribution wallets
+3. **Tier 3 - Distribution Wallets (8000 wallets)**: Final recipients of transferred tokens
 
 ### Configurable Constants
 All quantities are defined as configurable constants at the top of the file for easy modification:
@@ -25,25 +39,31 @@ All quantities are defined as configurable constants at the top of the file for 
 ```go
 const (
     // Wallet Configuration
-    MINT_WALLETS_COUNT     = 5   // Number of mint authority wallets
-    TRANSFER_WALLETS_COUNT = 100 // Number of transfer recipient wallets
-    WALLETS_PER_MINT       = 20  // Number of transfer wallets per mint wallet
+    MINT_WALLETS_COUNT     = 20   // Number of mint authority wallets
+    TRANSFER_WALLETS_COUNT = 2000 // Number of primary transfer recipient wallets
+    WALLETS_PER_MINT       = 100  // Number of transfer wallets per mint wallet
+
+    // Multi-tier Distribution Configuration
+    TRANSFER_MULTIPLIER        = 4     // Number of distribution wallets per primary wallet
+    DISTRIBUTION_WALLETS_COUNT = 8000  // Total distribution wallets (2000 * 4)
+    TRANSFER_WORKERS_COUNT     = 10    // Number of concurrent transfer worker goroutines
 
     // Token Configuration
-    TOKEN_SYMBOL   = "STRESS"
+    TOKEN_SYMBOL   = "STRESS14"
     TOKEN_NAME     = "Stress Test Token"
     TOKEN_DECIMALS = 6
     CHAIN_ID       = 1212101
 
     // Mint Configuration
-    MINT_ALLOWANCE = 10000000 // Allowance granted to each mint wallet
-    MINT_AMOUNT    = 1000     // Amount to mint per operation
+    MINT_ALLOWANCE  = 1000000000 // Allowance granted to each mint wallet
+    MINT_AMOUNT     = 1000       // Amount to mint per operation
+    TRANSFER_AMOUNT = 250        // Amount to transfer per distribution operation (MINT_AMOUNT / TRANSFER_MULTIPLIER)
 
     // Transaction Validation Configuration
-    RECEIPT_CHECK_TIMEOUT    = 60 * time.Second // Timeout for waiting for transaction receipt
-    RECEIPT_CHECK_INTERVAL   = 2 * time.Second  // Interval between receipt checks
-    NONCE_VALIDATION_TIMEOUT = 30 * time.Second // Timeout for nonce validation
-    NONCE_CHECK_INTERVAL     = 1 * time.Second  // Interval between nonce checks
+    RECEIPT_CHECK_TIMEOUT    = 10 * time.Second       // Timeout for waiting for transaction receipt
+    RECEIPT_CHECK_INTERVAL   = 150 * time.Millisecond // Interval between receipt checks
+    NONCE_VALIDATION_TIMEOUT = 10 * time.Second       // Timeout for nonce validation
+    NONCE_CHECK_INTERVAL     = 150 * time.Millisecond // Interval between nonce checks
 )
 ```
 
