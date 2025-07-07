@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/csv"
 	"fmt"
 	"log"
 	"math/big"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -24,7 +26,7 @@ const (
 	WALLETS_PER_MINT       = 100  // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
 
 	// Token Configuration
-	TOKEN_SYMBOL   = "STRESS12"
+	TOKEN_SYMBOL   = "STRESS13"
 	TOKEN_NAME     = "Stress Test Token"
 	TOKEN_DECIMALS = 6
 	CHAIN_ID       = 1212101
@@ -495,6 +497,65 @@ func (st *StressTester) RunStressTest() error {
 	return nil
 }
 
+// generateAccountsDetailCSV generates a CSV file with account details after minting
+func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
+	csvFileName := fmt.Sprintf("accounts_detail_%s.csv", timestamp)
+
+	// Create CSV file
+	file, err := os.Create(csvFileName)
+	if err != nil {
+		return fmt.Errorf("failed to create CSV file: %w", err)
+	}
+	defer file.Close()
+
+	// Create CSV writer
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	// Write CSV header
+	header := []string{"privatekey", "token_address", "decimal", "balance"}
+	if err := writer.Write(header); err != nil {
+		return fmt.Errorf("failed to write CSV header: %w", err)
+	}
+
+	log.Printf("Generating accounts detail CSV file: %s", csvFileName)
+	log.Printf("Collecting balance information for %d transfer wallets...", len(st.transferWallets))
+
+	// Write data for each transfer wallet that received minted tokens
+	for i, wallet := range st.transferWallets {
+		// Get token account balance
+		tokenAccount, err := st.client.GetTokenAccount(st.ctx, wallet.Address, st.tokenAddress)
+		if err != nil {
+			log.Printf("Warning: Failed to get balance for wallet %d (%s): %v", i+1, wallet.Address, err)
+			// Continue with zero balance if account doesn't exist or has error
+			tokenAccount = &onemoney.TokenAccountResponse{Balance: "0"}
+		}
+
+		// Prepare CSV row
+		row := []string{
+			wallet.PrivateKey,
+			st.tokenAddress,
+			strconv.Itoa(int(TOKEN_DECIMALS)),
+			tokenAccount.Balance,
+		}
+
+		// Write row to CSV
+		if err := writer.Write(row); err != nil {
+			return fmt.Errorf("failed to write CSV row for wallet %d: %w", i+1, err)
+		}
+
+		// Log progress every 100 wallets
+		if (i+1)%100 == 0 {
+			log.Printf("Processed %d/%d wallets for CSV generation", i+1, len(st.transferWallets))
+		}
+	}
+
+	log.Printf("Successfully generated accounts detail CSV: %s", csvFileName)
+	log.Printf("CSV contains %d account records", len(st.transferWallets))
+
+	return nil
+}
+
 // TestBatchMint is the main test method that performs concurrent batch minting stress testing
 func TestBatchMint(t *testing.T) {
 	// Create log file with timestamp
@@ -554,16 +615,29 @@ func TestBatchMint(t *testing.T) {
 	}
 	stressTestDuration := time.Since(stressTestStartTime)
 
-	// Calculate overall test duration
-	overallDuration := time.Since(overallStartTime)
-
 	logToFile("Batch mint stress test completed successfully!")
+
+	// Generate accounts detail CSV file
+	csvStartTime := time.Now()
+	logToFile("Generating accounts detail CSV file...")
+	if err := tester.generateAccountsDetailCSV(timestamp); err != nil {
+		errorMsg := fmt.Sprintf("Failed to generate accounts detail CSV: %v", err)
+		fileLogger.Println("ERROR: " + errorMsg)
+		t.Error(errorMsg) // Use t.Error instead of t.Fatal to continue with other reporting
+	} else {
+		logToFile("Accounts detail CSV file generated successfully!")
+	}
+	csvGenerationDuration := time.Since(csvStartTime)
+
+	// Calculate total test duration including CSV generation
+	totalDuration := time.Since(overallStartTime)
 
 	// Detailed timing statistics
 	logToFile("=== DETAILED TIMING STATISTICS ===")
 	logToFile("Tester Creation Time: %v", testerCreationDuration)
 	logToFile("Stress Test Execution Time: %v", stressTestDuration)
-	logToFile("Total Test Duration: %v", overallDuration)
+	logToFile("CSV Generation Time: %v", csvGenerationDuration)
+	logToFile("Total Test Duration: %v", totalDuration)
 	logToFile("")
 
 	// Performance metrics
@@ -591,12 +665,15 @@ func TestBatchMint(t *testing.T) {
 	// Efficiency analysis
 	setupTime := testerCreationDuration
 	executionTime := stressTestDuration
-	setupPercentage := (setupTime.Seconds() / overallDuration.Seconds()) * 100
-	executionPercentage := (executionTime.Seconds() / overallDuration.Seconds()) * 100
+	csvTime := csvGenerationDuration
+	setupPercentage := (setupTime.Seconds() / totalDuration.Seconds()) * 100
+	executionPercentage := (executionTime.Seconds() / totalDuration.Seconds()) * 100
+	csvPercentage := (csvTime.Seconds() / totalDuration.Seconds()) * 100
 
 	logToFile("=== EFFICIENCY ANALYSIS ===")
 	logToFile("Setup Time: %v (%.1f%% of total)", setupTime, setupPercentage)
 	logToFile("Execution Time: %v (%.1f%% of total)", executionTime, executionPercentage)
+	logToFile("CSV Generation Time: %v (%.1f%% of total)", csvTime, csvPercentage)
 	logToFile("Throughput: %.2f operations/minute", float64(totalOperations)/(stressTestDuration.Minutes()))
 	logToFile("=== END OF TIMING STATISTICS ===")
 
