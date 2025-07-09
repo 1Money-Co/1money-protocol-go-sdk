@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"math/rand"
+	// "math/rand"
 	"time"
 
 	onemoney "github.com/1Money-Co/1money-go-sdk"
@@ -73,22 +73,23 @@ type StressTester struct {
 
 // generateTokenSymbol generates a random token symbol with format "1M" + 5 letters + 2 digits
 func generateTokenSymbol() string {
-	const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	const digits = "0123456789"
+	// const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	// const digits = "0123456789"
 
-	// Generate 5 random letters
-	letterPart := make([]byte, 5)
-	for i := range letterPart {
-		letterPart[i] = letters[rand.Intn(len(letters))]
-	}
+	// // Generate 5 random letters
+	// letterPart := make([]byte, 5)
+	// for i := range letterPart {
+	// 	letterPart[i] = letters[rand.Intn(len(letters))]
+	// }
 
-	// Generate 2 random digits
-	digitPart := make([]byte, 2)
-	for i := range digitPart {
-		digitPart[i] = digits[rand.Intn(len(digits))]
-	}
+	// // Generate 2 random digits
+	// digitPart := make([]byte, 2)
+	// for i := range digitPart {
+	// 	digitPart[i] = digits[rand.Intn(len(digits))]
+	// }
 
-	return "1M" + string(letterPart) + string(digitPart)
+	// return "1USD" + string(letterPart) + string(digitPart)
+	return "1USD" 
 }
 
 // GetTokenSymbol returns a dynamically generated token symbol for each test run

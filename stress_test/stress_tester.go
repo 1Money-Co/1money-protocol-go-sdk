@@ -105,25 +105,33 @@ func (st *StressTester) createDistributionWallets() error {
 
 // Step 3: Create token using operator wallet
 func (st *StressTester) createToken() error {
-	log.Println("Creating token...")
+	log.Printf("TOKEN_CREATE_START: Creating token using operator wallet (%s)...", st.operatorWallet.Address)
 
 	nonce, err := st.getAccountNonce(st.operatorWallet.Address)
 	if err != nil {
 		return err
 	}
 
+	tokenSymbol := GetTokenSymbol()
 	payload := onemoney.TokenIssuePayload{
 		ChainID:         CHAIN_ID,
 		Nonce:           nonce,
-		Symbol:          GetTokenSymbol(),
+		Symbol:          tokenSymbol,
 		Name:            TOKEN_NAME,
 		Decimals:        TOKEN_DECIMALS,
 		MasterAuthority: common.HexToAddress(st.operatorWallet.Address),
 		IsPrivate:       false,
 	}
 
+	// Log detailed payload information
+	log.Printf("TOKEN_CREATE_PAYLOAD: ChainID=%d, Nonce=%d, Symbol=%s, Name=%s, Decimals=%d, MasterAuthority=%s, IsPrivate=%t",
+		payload.ChainID, payload.Nonce, payload.Symbol, payload.Name, payload.Decimals,
+		payload.MasterAuthority.Hex(), payload.IsPrivate)
+
 	signature, err := st.client.SignMessage(payload, st.operatorWallet.PrivateKey)
 	if err != nil {
+		log.Printf("TOKEN_CREATE_ERROR: Failed to sign token creation for operator wallet (%s): %v",
+			st.operatorWallet.Address, err)
 		return fmt.Errorf("failed to sign token creation: %w", err)
 	}
 
@@ -143,32 +151,42 @@ func (st *StressTester) createToken() error {
 
 	result, err := st.client.IssueToken(st.ctx, req)
 	if err != nil {
+		log.Printf("TOKEN_CREATE_ERROR: Failed to submit token creation transaction for operator wallet (%s): %v",
+			st.operatorWallet.Address, err)
 		return fmt.Errorf("failed to issue token: %w", err)
 	}
 
 	st.tokenAddress = result.Token
-	log.Printf("Token created successfully: %s", st.tokenAddress)
-	log.Printf("Transaction hash: %s", result.Hash)
+	log.Printf("TOKEN_CREATE_SUBMITTED: Token creation transaction submitted - Address: %s, TxHash: %s, Operator: %s",
+		st.tokenAddress, result.Hash, st.operatorWallet.Address)
 
-	// Wait for transaction confirmation
-	if err := st.waitForTransactionReceipt(result.Hash); err != nil {
+	// Wait for transaction confirmation with detailed context
+	if err := st.waitForTransactionReceiptWithContext(result.Hash, st.operatorWallet.Address, st.tokenAddress, "TOKEN_CREATE"); err != nil {
+		log.Printf("TOKEN_CREATE_TIMEOUT: Failed to confirm token creation transaction %s for operator wallet (%s): %v",
+			result.Hash, st.operatorWallet.Address, err)
 		return fmt.Errorf("failed to confirm token creation: %w", err)
 	}
 
-	// Validate nonce increment
-	if err := st.validateNonceIncrement(st.operatorWallet.Address, nonce+1); err != nil {
+	// Validate nonce increment with context
+	if err := st.validateNonceIncrementWithContext(st.operatorWallet.Address, nonce+1, "OPERATOR_WALLET", "TOKEN_CREATE"); err != nil {
+		log.Printf("TOKEN_CREATE_NONCE_ERROR: Failed to validate nonce increment for operator wallet (%s): %v",
+			st.operatorWallet.Address, err)
 		return fmt.Errorf("failed to validate nonce increment after token creation: %w", err)
 	}
+
+	log.Printf("TOKEN_CREATE_SUCCESS: Token created successfully - Address: %s, Symbol: %s, TxHash: %s",
+		st.tokenAddress, tokenSymbol, result.Hash)
 
 	return nil
 }
 
 // Step 4: Grant mint permissions to each mint wallet
 func (st *StressTester) grantMintAuthorities() error {
-	log.Println("Granting mint authorities...")
+	log.Printf("AUTHORITY_GRANT_START: Granting mint authorities to %d wallets using operator wallet (%s)...",
+		len(st.mintWallets), st.operatorWallet.Address)
 
 	for i, mintWallet := range st.mintWallets {
-		log.Printf("Granting mint authority to wallet %d: %s", i+1, mintWallet.Address)
+		log.Printf("AUTHORITY_GRANT_START: Granting mint authority to wallet %d (%s)", i+1, mintWallet.Address)
 
 		nonce, err := st.getAccountNonce(st.operatorWallet.Address)
 		if err != nil {
@@ -185,8 +203,15 @@ func (st *StressTester) grantMintAuthorities() error {
 			Value:            big.NewInt(MINT_ALLOWANCE),
 		}
 
+		// Log detailed payload information
+		log.Printf("AUTHORITY_GRANT_PAYLOAD: ChainID=%d, Nonce=%d, Action=%s, AuthorityType=%s, AuthorityAddress=%s, Token=%s, Value=%d",
+			payload.ChainID, payload.Nonce, "GRANT", "MINT_BURN_TOKENS",
+			payload.AuthorityAddress.Hex(), payload.Token.Hex(), payload.Value.Int64())
+
 		signature, err := st.client.SignMessage(payload, st.operatorWallet.PrivateKey)
 		if err != nil {
+			log.Printf("AUTHORITY_GRANT_ERROR: Failed to sign authority grant for wallet %d (%s): %v",
+				i+1, mintWallet.Address, err)
 			return fmt.Errorf("failed to sign authority grant for wallet %d: %w", i, err)
 		}
 
@@ -206,28 +231,39 @@ func (st *StressTester) grantMintAuthorities() error {
 
 		result, err := st.client.GrantTokenAuthority(st.ctx, req)
 		if err != nil {
+			log.Printf("AUTHORITY_GRANT_ERROR: Failed to submit authority grant transaction for wallet %d (%s): %v",
+				i+1, mintWallet.Address, err)
 			return fmt.Errorf("failed to grant authority to wallet %d: %w", i, err)
 		}
 
-		log.Printf("Authority granted to wallet %d, transaction: %s", i+1, result.Hash)
+		log.Printf("AUTHORITY_GRANT_SUBMITTED: Authority grant transaction submitted for wallet %d (%s), TxHash: %s",
+			i+1, mintWallet.Address, result.Hash)
 
-		// Wait for transaction confirmation
-		if err := st.waitForTransactionReceipt(result.Hash); err != nil {
+		// Wait for transaction confirmation with detailed context
+		if err := st.waitForTransactionReceiptWithContext(result.Hash, st.operatorWallet.Address, mintWallet.Address, "AUTHORITY_GRANT"); err != nil {
+			log.Printf("AUTHORITY_GRANT_TIMEOUT: Failed to confirm authority grant transaction %s for wallet %d (%s): %v",
+				result.Hash, i+1, mintWallet.Address, err)
 			return fmt.Errorf("failed to confirm authority grant for wallet %d: %w", i, err)
 		}
 
-		// Validate nonce increment
-		if err := st.validateNonceIncrement(st.operatorWallet.Address, nonce+1); err != nil {
+		// Validate nonce increment with context
+		if err := st.validateNonceIncrementWithContext(st.operatorWallet.Address, nonce+1, "OPERATOR_WALLET", "AUTHORITY_GRANT"); err != nil {
+			log.Printf("AUTHORITY_GRANT_NONCE_ERROR: Failed to validate nonce increment for operator wallet (%s) after granting authority to wallet %d: %v",
+				st.operatorWallet.Address, i+1, err)
 			return fmt.Errorf("failed to validate nonce increment after authority grant for wallet %d: %w", i, err)
 		}
+
+		log.Printf("AUTHORITY_GRANT_SUCCESS: Authority granted to wallet %d (%s), TxHash: %s, Allowance: %d",
+			i+1, mintWallet.Address, result.Hash, MINT_ALLOWANCE)
 	}
 
+	log.Printf("AUTHORITY_GRANT_COMPLETE: All %d mint authorities granted successfully", len(st.mintWallets))
 	return nil
 }
 
 // transferFromWallet performs a token transfer from one wallet to another using PaymentPayload
 func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount int64, fromIndex, toIndex int) error {
-	log.Printf("Transferring %d tokens from wallet %d (%s) to distribution wallet %d (%s)",
+	log.Printf("TRANSFER_START: Transferring %d tokens from wallet %d (%s) to distribution wallet %d (%s)",
 		amount, fromIndex, fromWallet.Address, toIndex, toWallet.Address)
 
 	// Get sender wallet's current nonce
@@ -245,9 +281,16 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 		Token:     common.HexToAddress(st.tokenAddress),
 	}
 
+	// Log detailed payload information
+	log.Printf("TRANSFER_PAYLOAD: ChainID=%d, Nonce=%d, From=%s, To=%s, Amount=%d, Token=%s",
+		payload.ChainID, payload.Nonce, fromWallet.Address, payload.Recipient.Hex(),
+		payload.Value.Int64(), payload.Token.Hex())
+
 	// Sign the payload
 	signature, err := st.client.SignMessage(payload, fromWallet.PrivateKey)
 	if err != nil {
+		log.Printf("TRANSFER_ERROR: Failed to sign transfer transaction from wallet %d (%s) to wallet %d (%s): %v",
+			fromIndex, fromWallet.Address, toIndex, toWallet.Address, err)
 		return fmt.Errorf("failed to sign transfer transaction: %w", err)
 	}
 
@@ -269,19 +312,25 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 	// Send payment request
 	result, err := st.client.SendPayment(st.ctx, req)
 	if err != nil {
+		log.Printf("TRANSFER_ERROR: Failed to submit transfer transaction from wallet %d (%s) to wallet %d (%s): %v",
+			fromIndex, fromWallet.Address, toIndex, toWallet.Address, err)
 		return fmt.Errorf("failed to send transfer: %w", err)
 	}
 
-	log.Printf("Transfer transaction sent: %s (wallet %d -> distribution wallet %d)",
-		result.Hash, fromIndex, toIndex)
+	log.Printf("TRANSFER_SUBMITTED: Transaction %s submitted (wallet %d (%s) -> distribution wallet %d (%s))",
+		result.Hash, fromIndex, fromWallet.Address, toIndex, toWallet.Address)
 
-	// Wait for transaction confirmation
-	if err := st.waitForTransactionReceipt(result.Hash); err != nil {
+	// Wait for transaction confirmation with detailed context
+	if err := st.waitForTransactionReceiptWithContext(result.Hash, fromWallet.Address, toWallet.Address, "TRANSFER"); err != nil {
+		log.Printf("TRANSFER_TIMEOUT: Failed to confirm transfer transaction %s from wallet %d (%s) to wallet %d (%s): %v",
+			result.Hash, fromIndex, fromWallet.Address, toIndex, toWallet.Address, err)
 		return fmt.Errorf("failed to confirm transfer transaction: %w", err)
 	}
 
-	// Validate nonce increment
-	if err := st.validateNonceIncrement(fromWallet.Address, nonce+1); err != nil {
+	// Validate nonce increment with context
+	if err := st.validateNonceIncrementWithContext(fromWallet.Address, nonce+1, "TRANSFER_WALLET", "TRANSFER"); err != nil {
+		log.Printf("TRANSFER_NONCE_ERROR: Failed to validate nonce increment for transfer wallet %d (%s): %v",
+			fromIndex, fromWallet.Address, err)
 		return fmt.Errorf("failed to validate nonce increment after transfer operation: %w", err)
 	}
 
@@ -289,8 +338,8 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 	currentTransfer := atomic.AddInt64(&st.transferCounter, 1)
 	totalTransfers := int64(TRANSFER_WALLETS_COUNT * TRANSFER_MULTIPLIER)
 
-	log.Printf("Transfer confirmed (%d/%d): wallet %d -> distribution wallet %d",
-		currentTransfer, totalTransfers, fromIndex, toIndex)
+	log.Printf("TRANSFER_SUCCESS: Transfer confirmed (%d/%d) - wallet %d (%s) -> distribution wallet %d (%s), TxHash: %s",
+		currentTransfer, totalTransfers, fromIndex, fromWallet.Address, toIndex, toWallet.Address, result.Hash)
 	return nil
 }
 
@@ -325,8 +374,8 @@ func (st *StressTester) transferWorker(transferTasks <-chan TransferTask, wg *sy
 
 // mintToWallet performs a single mint operation from mint wallet to transfer wallet
 func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWalletIndex, transferWalletIndex int) error {
-	log.Printf("Mint wallet %d minting %d tokens to transfer wallet %d (%s)",
-		mintWalletIndex, MINT_AMOUNT, transferWalletIndex, transferWallet.Address)
+	log.Printf("MINT_START: Mint wallet %d (%s) minting %d tokens to transfer wallet %d (%s)",
+		mintWalletIndex, mintWallet.Address, MINT_AMOUNT, transferWalletIndex, transferWallet.Address)
 
 	// Get mint wallet's current nonce
 	nonce, err := st.getAccountNonce(mintWallet.Address)
@@ -343,9 +392,16 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 		Token:     common.HexToAddress(st.tokenAddress),
 	}
 
+	// Log detailed payload information
+	log.Printf("MINT_PAYLOAD: ChainID=%d, Nonce=%d, From=%s, To=%s, Amount=%d, Token=%s",
+		payload.ChainID, payload.Nonce, mintWallet.Address, payload.Recipient.Hex(),
+		payload.Value.Int64(), payload.Token.Hex())
+
 	// Sign the payload
 	signature, err := st.client.SignMessage(payload, mintWallet.PrivateKey)
 	if err != nil {
+		log.Printf("MINT_ERROR: Failed to sign mint transaction for wallet %d (%s): %v",
+			mintWalletIndex, mintWallet.Address, err)
 		return fmt.Errorf("failed to sign mint transaction: %w", err)
 	}
 
@@ -367,24 +423,30 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 	// Send mint request
 	result, err := st.client.MintToken(st.ctx, req)
 	if err != nil {
+		log.Printf("MINT_ERROR: Failed to submit mint transaction for wallet %d (%s) to wallet %d (%s): %v",
+			mintWalletIndex, mintWallet.Address, transferWalletIndex, transferWallet.Address, err)
 		return fmt.Errorf("failed to mint token: %w", err)
 	}
 
-	log.Printf("Mint transaction sent: %s (mint wallet %d -> transfer wallet %d)",
-		result.Hash, mintWalletIndex, transferWalletIndex)
+	log.Printf("MINT_SUBMITTED: Transaction %s submitted (mint wallet %d (%s) -> transfer wallet %d (%s))",
+		result.Hash, mintWalletIndex, mintWallet.Address, transferWalletIndex, transferWallet.Address)
 
-	// Wait for transaction confirmation
-	if err := st.waitForTransactionReceipt(result.Hash); err != nil {
+	// Wait for transaction confirmation with detailed context
+	if err := st.waitForTransactionReceiptWithContext(result.Hash, mintWallet.Address, transferWallet.Address, "MINT"); err != nil {
+		log.Printf("MINT_TIMEOUT: Failed to confirm mint transaction %s from wallet %d (%s) to wallet %d (%s): %v",
+			result.Hash, mintWalletIndex, mintWallet.Address, transferWalletIndex, transferWallet.Address, err)
 		return fmt.Errorf("failed to confirm mint transaction: %w", err)
 	}
 
-	// Validate nonce increment
-	if err := st.validateNonceIncrement(mintWallet.Address, nonce+1); err != nil {
+	// Validate nonce increment with context
+	if err := st.validateNonceIncrementWithContext(mintWallet.Address, nonce+1, "MINT_WALLET", "MINT"); err != nil {
+		log.Printf("MINT_NONCE_ERROR: Failed to validate nonce increment for mint wallet %d (%s): %v",
+			mintWalletIndex, mintWallet.Address, err)
 		return fmt.Errorf("failed to validate nonce increment after mint operation: %w", err)
 	}
 
-	log.Printf("Mint confirmed: mint wallet %d -> transfer wallet %d",
-		mintWalletIndex, transferWalletIndex)
+	log.Printf("MINT_SUCCESS: Mint confirmed - wallet %d (%s) -> wallet %d (%s), TxHash: %s",
+		mintWalletIndex, mintWallet.Address, transferWalletIndex, transferWallet.Address, result.Hash)
 
 	return nil
 }

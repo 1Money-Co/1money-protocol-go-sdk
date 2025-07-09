@@ -8,6 +8,11 @@ import (
 
 // waitForTransactionReceipt waits for transaction receipt and validates success
 func (st *StressTester) waitForTransactionReceipt(txHash string) error {
+	return st.waitForTransactionReceiptWithContext(txHash, "", "", "")
+}
+
+// waitForTransactionReceiptWithContext waits for transaction receipt with detailed context information
+func (st *StressTester) waitForTransactionReceiptWithContext(txHash, fromWallet, toWallet, txType string) error {
 	timeout := time.After(RECEIPT_CHECK_TIMEOUT)
 	ticker := time.NewTicker(RECEIPT_CHECK_INTERVAL)
 	defer ticker.Stop()
@@ -15,7 +20,18 @@ func (st *StressTester) waitForTransactionReceipt(txHash string) error {
 	for {
 		select {
 		case <-timeout:
-			return fmt.Errorf("timeout waiting for receipt of transaction %s", txHash)
+			errorMsg := fmt.Sprintf("TIMEOUT: Transaction receipt timeout after %v for txHash: %s", RECEIPT_CHECK_TIMEOUT, txHash)
+			if fromWallet != "" {
+				errorMsg += fmt.Sprintf(", From Wallet: %s", fromWallet)
+			}
+			if toWallet != "" {
+				errorMsg += fmt.Sprintf(", To Wallet: %s", toWallet)
+			}
+			if txType != "" {
+				errorMsg += fmt.Sprintf(", Transaction Type: %s", txType)
+			}
+			log.Printf("ERROR: %s", errorMsg)
+			return fmt.Errorf(errorMsg)
 		case <-ticker.C:
 			// Apply rate limiting for GET request
 			if err := st.getRateLimiter.Wait(st.ctx); err != nil {
@@ -31,10 +47,28 @@ func (st *StressTester) waitForTransactionReceipt(txHash string) error {
 
 			if receipt != nil {
 				if receipt.Success {
-					log.Printf("Transaction %s confirmed successfully", txHash)
+					successMsg := fmt.Sprintf("Transaction %s confirmed successfully", txHash)
+					if fromWallet != "" && toWallet != "" {
+						successMsg += fmt.Sprintf(" (From: %s -> To: %s)", fromWallet, toWallet)
+					}
+					if txType != "" {
+						successMsg += fmt.Sprintf(" [%s]", txType)
+					}
+					log.Printf("SUCCESS: %s", successMsg)
 					return nil
 				} else {
-					return fmt.Errorf("transaction %s failed", txHash)
+					failMsg := fmt.Sprintf("transaction %s failed", txHash)
+					if fromWallet != "" {
+						failMsg += fmt.Sprintf(", From Wallet: %s", fromWallet)
+					}
+					if toWallet != "" {
+						failMsg += fmt.Sprintf(", To Wallet: %s", toWallet)
+					}
+					if txType != "" {
+						failMsg += fmt.Sprintf(", Transaction Type: %s", txType)
+					}
+					log.Printf("FAILED: %s", failMsg)
+					return fmt.Errorf(failMsg)
 				}
 			}
 		}
@@ -43,6 +77,11 @@ func (st *StressTester) waitForTransactionReceipt(txHash string) error {
 
 // validateNonceIncrement validates that the nonce has incremented by 1 after a transaction
 func (st *StressTester) validateNonceIncrement(address string, expectedNonce uint64) error {
+	return st.validateNonceIncrementWithContext(address, expectedNonce, "", "")
+}
+
+// validateNonceIncrementWithContext validates nonce increment with detailed context information
+func (st *StressTester) validateNonceIncrementWithContext(address string, expectedNonce uint64, walletType, txType string) error {
 	timeout := time.After(NONCE_VALIDATION_TIMEOUT)
 	ticker := time.NewTicker(NONCE_CHECK_INTERVAL)
 	defer ticker.Stop()
@@ -50,7 +89,16 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 	for {
 		select {
 		case <-timeout:
-			return fmt.Errorf("timeout waiting for nonce validation for address %s", address)
+			errorMsg := fmt.Sprintf("NONCE_TIMEOUT: Nonce validation timeout after %v for address: %s, expected nonce: %d",
+				NONCE_VALIDATION_TIMEOUT, address, expectedNonce)
+			if walletType != "" {
+				errorMsg += fmt.Sprintf(", Wallet Type: %s", walletType)
+			}
+			if txType != "" {
+				errorMsg += fmt.Sprintf(", Transaction Type: %s", txType)
+			}
+			log.Printf("ERROR: %s", errorMsg)
+			return fmt.Errorf(errorMsg)
 		case <-ticker.C:
 			// Apply rate limiting for GET request
 			if err := st.getRateLimiter.Wait(st.ctx); err != nil {
@@ -65,12 +113,24 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 			}
 
 			if accountNonce.Nonce == expectedNonce {
-				log.Printf("Nonce validated for address %s: %d", address, accountNonce.Nonce)
+				successMsg := fmt.Sprintf("Nonce validated for address %s: %d", address, accountNonce.Nonce)
+				if walletType != "" && txType != "" {
+					successMsg += fmt.Sprintf(" [%s - %s]", walletType, txType)
+				}
+				log.Printf("NONCE_SUCCESS: %s", successMsg)
 				return nil
 			}
 
 			if accountNonce.Nonce > expectedNonce {
-				return fmt.Errorf("nonce validation failed for address %s: expected %d, got %d", address, expectedNonce, accountNonce.Nonce)
+				errorMsg := fmt.Sprintf("nonce validation failed for address %s: expected %d, got %d", address, expectedNonce, accountNonce.Nonce)
+				if walletType != "" {
+					errorMsg += fmt.Sprintf(", Wallet Type: %s", walletType)
+				}
+				if txType != "" {
+					errorMsg += fmt.Sprintf(", Transaction Type: %s", txType)
+				}
+				log.Printf("NONCE_ERROR: %s", errorMsg)
+				return fmt.Errorf(errorMsg)
 			}
 		}
 	}
