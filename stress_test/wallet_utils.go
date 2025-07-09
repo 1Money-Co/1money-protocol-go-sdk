@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"fmt"
 	"os"
 
@@ -9,11 +10,33 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// generateWallet creates a new wallet with private key, public key, and address
-func generateWallet() (*Wallet, error) {
-	privateKey, err := crypto.GenerateKey()
+// Deterministic wallet generation constants
+const (
+	WALLET_SEED_BASE = "1money-stress-test-deterministic-seed"
+)
+
+// generateDeterministicPrivateKey generates a deterministic private key based on wallet type and index
+func generateDeterministicPrivateKey(walletType string, index int) (*ecdsa.PrivateKey, error) {
+	// Create a deterministic seed by combining base seed, wallet type, and index
+	seedString := fmt.Sprintf("%s-%s-%d", WALLET_SEED_BASE, walletType, index)
+
+	// Hash the seed to create a 32-byte private key
+	hash := sha256.Sum256([]byte(seedString))
+
+	// Create private key from the hash
+	privateKey, err := crypto.ToECDSA(hash[:])
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate private key: %w", err)
+		return nil, fmt.Errorf("failed to create private key from seed: %w", err)
+	}
+
+	return privateKey, nil
+}
+
+// generateDeterministicWallet creates a deterministic wallet based on wallet type and index
+func generateDeterministicWallet(walletType string, index int) (*Wallet, error) {
+	privateKey, err := generateDeterministicPrivateKey(walletType, index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate deterministic private key: %w", err)
 	}
 
 	publicKey := privateKey.Public()

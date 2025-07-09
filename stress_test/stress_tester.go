@@ -39,11 +39,11 @@ func NewStressTester() (*StressTester, error) {
 
 // Step 1: Create mint wallets
 func (st *StressTester) createMintWallets() error {
-	log.Printf("Creating %d mint wallets...", MINT_WALLETS_COUNT)
+	log.Printf("Creating %d deterministic mint wallets...", MINT_WALLETS_COUNT)
 
 	st.mintWallets = make([]*Wallet, MINT_WALLETS_COUNT)
 	for i := 0; i < MINT_WALLETS_COUNT; i++ {
-		wallet, err := generateWallet()
+		wallet, err := generateDeterministicWallet("mint", i)
 		if err != nil {
 			return fmt.Errorf("failed to create mint wallet %d: %w", i, err)
 		}
@@ -55,17 +55,17 @@ func (st *StressTester) createMintWallets() error {
 		}
 	}
 
-	log.Printf("Successfully created all %d mint wallets", MINT_WALLETS_COUNT)
+	log.Printf("Successfully created all %d deterministic mint wallets", MINT_WALLETS_COUNT)
 	return nil
 }
 
 // Step 2: Create transfer wallets (primary tier)
 func (st *StressTester) createTransferWallets() error {
-	log.Printf("Creating %d primary transfer wallets...", TRANSFER_WALLETS_COUNT)
+	log.Printf("Creating %d deterministic primary transfer wallets...", TRANSFER_WALLETS_COUNT)
 
 	st.transferWallets = make([]*Wallet, TRANSFER_WALLETS_COUNT)
 	for i := 0; i < TRANSFER_WALLETS_COUNT; i++ {
-		wallet, err := generateWallet()
+		wallet, err := generateDeterministicWallet("transfer", i)
 		if err != nil {
 			return fmt.Errorf("failed to create primary transfer wallet %d: %w", i, err)
 		}
@@ -77,17 +77,17 @@ func (st *StressTester) createTransferWallets() error {
 		}
 	}
 
-	log.Printf("Successfully created all %d primary transfer wallets", TRANSFER_WALLETS_COUNT)
+	log.Printf("Successfully created all %d deterministic primary transfer wallets", TRANSFER_WALLETS_COUNT)
 	return nil
 }
 
 // Step 2b: Create distribution wallets (third tier)
 func (st *StressTester) createDistributionWallets() error {
-	log.Printf("Creating %d distribution wallets...", DISTRIBUTION_WALLETS_COUNT)
+	log.Printf("Creating %d deterministic distribution wallets...", DISTRIBUTION_WALLETS_COUNT)
 
 	st.distributionWallets = make([]*Wallet, DISTRIBUTION_WALLETS_COUNT)
 	for i := 0; i < DISTRIBUTION_WALLETS_COUNT; i++ {
-		wallet, err := generateWallet()
+		wallet, err := generateDeterministicWallet("distribution", i)
 		if err != nil {
 			return fmt.Errorf("failed to create distribution wallet %d: %w", i, err)
 		}
@@ -99,7 +99,7 @@ func (st *StressTester) createDistributionWallets() error {
 		}
 	}
 
-	log.Printf("Successfully created all %d distribution wallets", DISTRIBUTION_WALLETS_COUNT)
+	log.Printf("Successfully created all %d deterministic distribution wallets", DISTRIBUTION_WALLETS_COUNT)
 	return nil
 }
 
