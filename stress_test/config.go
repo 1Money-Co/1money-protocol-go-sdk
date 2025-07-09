@@ -68,6 +68,7 @@ type StressTester struct {
 	ctx                 context.Context
 	postRateLimiter     *rate.Limiter // Rate limiter for POST requests
 	getRateLimiter      *rate.Limiter // Rate limiter for GET requests
+	transferCounter     int64         // Atomic counter for tracking transfer progress
 }
 
 // generateTokenSymbol generates a random token symbol with format "1M" + 5 letters + 2 digits

@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/big"
 	"sync"
+	"sync/atomic"
 
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
@@ -284,7 +285,12 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 		return fmt.Errorf("failed to validate nonce increment after transfer operation: %w", err)
 	}
 
-	log.Printf("Transfer confirmed: wallet %d -> distribution wallet %d", fromIndex, toIndex)
+	// Increment transfer counter and get current progress
+	currentTransfer := atomic.AddInt64(&st.transferCounter, 1)
+	totalTransfers := int64(TRANSFER_WALLETS_COUNT * TRANSFER_MULTIPLIER)
+
+	log.Printf("Transfer confirmed (%d/%d): wallet %d -> distribution wallet %d",
+		currentTransfer, totalTransfers, fromIndex, toIndex)
 	return nil
 }
 

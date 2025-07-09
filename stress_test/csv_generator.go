@@ -57,7 +57,7 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 
 		// Prepare CSV row for primary wallet
 		row := []string{
-			wallet.PrivateKey,
+			"0x" + wallet.PrivateKey,
 			st.tokenAddress,
 			strconv.Itoa(int(TOKEN_DECIMALS)),
 			tokenAccount.Balance,
