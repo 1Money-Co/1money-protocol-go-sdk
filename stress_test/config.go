@@ -13,7 +13,7 @@ import (
 const (
 	// Wallet Configuration
 	MINT_WALLETS_COUNT     = 20                                          // Number of mint authority wallets
-	TRANSFER_WALLETS_COUNT = 500                                         // Number of primary transfer recipient wallets
+	TRANSFER_WALLETS_COUNT = 1000                                        // Number of primary transfer recipient wallets
 	WALLETS_PER_MINT       = TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
 
 	// Multi-tier Distribution Configuration

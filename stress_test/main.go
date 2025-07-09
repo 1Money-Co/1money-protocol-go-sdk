@@ -26,11 +26,11 @@ func main() {
 	log.SetOutput(logFile)
 	defer log.SetOutput(originalLogOutput)
 
-	// Helper function to log to both console and file
+	// Helper function to log only to file (same behavior as test method)
 	logToFile := func(format string, args ...interface{}) {
 		message := fmt.Sprintf(format, args...)
 		fileLogger.Println(message)
-		fmt.Println(message) // Also log to console for immediate feedback
+		// No console output - logs only go to file like in test method
 	}
 
 	logToFile("Initializing 1Money Batch Mint Stress Tester...")
@@ -40,10 +40,14 @@ func main() {
 	if err := runCompleteStressTest(logToFile, fileLogger); err != nil {
 		errorMsg := fmt.Sprintf("Batch mint stress test failed: %v", err)
 		fileLogger.Println("FATAL: " + errorMsg)
-		log.Fatal(errorMsg)
+		// Only show critical errors on console, but log details to file
+		fmt.Printf("FATAL: Stress test failed. Check log file for details: %s\n", logFileName)
+		os.Exit(1)
 	}
 
-	// Final log message with file location
+	// Final log message with file location (only to file)
 	logToFile("All logs have been written to: %s", logFileName)
-	fmt.Printf("Complete multi-tier stress test logs saved to: %s\n", logFileName)
+	// Only show completion message on console with log file location
+	fmt.Printf("Complete multi-tier stress test completed successfully!\n")
+	fmt.Printf("Detailed logs saved to: %s\n", logFileName)
 }
