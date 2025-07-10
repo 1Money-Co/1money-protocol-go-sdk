@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-// waitForTransactionReceipt waits for transaction receipt and validates success
-func (st *StressTester) waitForTransactionReceipt(txHash string) error {
-	return st.waitForTransactionReceiptWithContext(txHash, "", "", "")
-}
-
 // waitForTransactionReceiptWithContext waits for transaction receipt with detailed context information
 func (st *StressTester) waitForTransactionReceiptWithContext(txHash, fromWallet, toWallet, txType string) error {
 	timeout := time.After(RECEIPT_CHECK_TIMEOUT)
@@ -31,7 +26,7 @@ func (st *StressTester) waitForTransactionReceiptWithContext(txHash, fromWallet,
 				errorMsg += fmt.Sprintf(", Transaction Type: %s", txType)
 			}
 			log.Printf("ERROR: %s", errorMsg)
-			return fmt.Errorf(errorMsg)
+			return fmt.Errorf("%s", errorMsg)
 		case <-ticker.C:
 			// Apply rate limiting for GET request
 			if err := st.getRateLimiter.Wait(st.ctx); err != nil {
@@ -68,16 +63,11 @@ func (st *StressTester) waitForTransactionReceiptWithContext(txHash, fromWallet,
 						failMsg += fmt.Sprintf(", Transaction Type: %s", txType)
 					}
 					log.Printf("FAILED: %s", failMsg)
-					return fmt.Errorf(failMsg)
+					return fmt.Errorf("%s", failMsg)
 				}
 			}
 		}
 	}
-}
-
-// validateNonceIncrement validates that the nonce has incremented by 1 after a transaction
-func (st *StressTester) validateNonceIncrement(address string, expectedNonce uint64) error {
-	return st.validateNonceIncrementWithContext(address, expectedNonce, "", "")
 }
 
 // validateNonceIncrementWithContext validates nonce increment with detailed context information
@@ -98,7 +88,7 @@ func (st *StressTester) validateNonceIncrementWithContext(address string, expect
 				errorMsg += fmt.Sprintf(", Transaction Type: %s", txType)
 			}
 			log.Printf("ERROR: %s", errorMsg)
-			return fmt.Errorf(errorMsg)
+			return fmt.Errorf("%s", errorMsg)
 		case <-ticker.C:
 			// Apply rate limiting for GET request
 			if err := st.getRateLimiter.Wait(st.ctx); err != nil {
@@ -130,7 +120,7 @@ func (st *StressTester) validateNonceIncrementWithContext(address string, expect
 					errorMsg += fmt.Sprintf(", Transaction Type: %s", txType)
 				}
 				log.Printf("NONCE_ERROR: %s", errorMsg)
-				return fmt.Errorf(errorMsg)
+				return fmt.Errorf("%s", errorMsg)
 			}
 		}
 	}
