@@ -38,8 +38,8 @@ func main() {
 	}
 	defer logger.Close()
 
-	// Initialize node pool
-	nodePool := NewNodePool()
+	// Initialize balanced node pool
+	nodePool := NewBalancedNodePool()
 
 	if *nodeList != "" {
 		// Use custom nodes
@@ -138,11 +138,11 @@ func main() {
 		}
 		
 		if result.Success {
-			Logf("[Sent: %s, Response: %s] [%d/%d] ✅ Wallet #%s: TX %s (%dms)\n",
-				sendTime, responseTime, i+1, len(results), result.WalletIndex, result.TxHash, result.Duration.Milliseconds())
+			Logf("[Sent: %s, Response: %s] [%d/%d-%s](%dms) ✅ Wallet #%s: TX %s\n",
+				sendTime, responseTime, i+1, len(results), result.NodeURL, result.Duration.Milliseconds(), result.WalletIndex, result.TxHash)
 		} else {
-			Logf("[Sent: %s, Response: %s] [%d/%d] ❌ Wallet #%s: %v\n",
-				sendTime, responseTime, i+1, len(results), result.WalletIndex, result.Error)
+			Logf("[Sent: %s, Response: %s] [%d/%d-%s](%dms) ❌ Wallet #%s: %v\n",
+				sendTime, responseTime, i+1, len(results), result.NodeURL, result.Duration.Milliseconds(), result.WalletIndex, result.Error)
 		}
 	}
 
@@ -181,6 +181,9 @@ func main() {
 	
 	// Print detailed statistics report
 	stats.PrintDetailedReport()
+	
+	// Print node distribution statistics
+	nodePool.PrintNodeDistribution()
 
 	if err := WriteResultsToCSV(results); err != nil {
 		Logf("Failed to write results CSV: %v\n", err)
@@ -203,7 +206,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		return results[i].AccountIndex < results[j].AccountIndex
 	})
 
-	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,send_time,response_time,verified,tx_success,verification_error\n")
+	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,send_time,response_time,node_url,verified,tx_success,verification_error\n")
 	for _, result := range results {
 		errorStr := ""
 		if result.Error != nil {
@@ -221,7 +224,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		if !result.ResponseTime.IsZero() {
 			responseTimeStr = result.ResponseTime.Format("2006-01-02 15:04:05.000")
 		}
-		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%s,%s,%t,%t,%s\n",
+		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%s,%s,%s,%t,%t,%s\n",
 			result.WalletIndex,
 			result.FromAddress,
 			result.TxHash,
@@ -230,6 +233,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 			result.Duration.Milliseconds(),
 			sendTimeStr,
 			responseTimeStr,
+			result.NodeURL,
 			result.Verified,
 			result.TxSuccess,
 			verifyErrorStr,
@@ -242,7 +246,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 }
 
 // Additional statistics helpers
-func printNodeUsageStats(nodePool *NodePool) {
+func printNodeUsageStats(nodePool *BalancedNodePool) {
 	Logln("\n┌────────────────── Node Configuration ──────────────────┐")
 	Logf("│ Total Nodes: %-40d │\n", nodePool.Size())
 	Logf("│ POST Rate Limit: %-33d TPS/node │\n", PostRateLimitPerNode)
