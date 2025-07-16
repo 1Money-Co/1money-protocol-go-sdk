@@ -2,265 +2,243 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"fmt"
-	"math/big"
-	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
-
-	onemoney "github.com/1Money-Co/1money-go-sdk"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
-const (
-	// HardcodedChainID is the fixed chain ID for 1Money network
-	// This avoids REST API calls to get chain ID
-	HardcodedChainID = 1212101
-)
-
-type TransactionResult struct {
-	AccountIndex      int
-	WalletIndex       string
-	FromAddress       string
-	TxHash            string
-	Success           bool
-	Error             error
-	Duration          time.Duration
-	SendTime          time.Time    // When the transaction was sent
-	ResponseTime      time.Time    // When the response was received
-	Verified          bool
-	VerificationError error
-	TxSuccess         bool
-	NodeIndex         int          // Which node was used
-	NodeURL           string       // Node URL for logging
-	NodeCount         int64        // Count for this specific node
-}
-
-func SendTransaction(nodePool *BalancedNodePool, rateLimiter PerNodeRateLimiterInterface, account Account, toAddress string, amount string) (*TransactionResult, error) {
+// SendTransactionsMultiNode sends transactions across multiple nodes with per-node rate limiting
+func SendTransactionsMultiNode(
+	nodePool *BalancedNodePool,
+	accounts []Account,
+	toAddress string,
+	amount string,
+	totalRate int,
+) []TransactionResult {
 	startTime := time.Now()
-	result := &TransactionResult{
-		WalletIndex: account.WalletIndex,
+
+	// Get node URLs
+	nodeURLs := nodePool.GetNodes()
+	nodeCount := len(nodeURLs)
+
+	// Create multi-node rate limiter
+	rateLimiter := NewMultiNodeRateLimiter(nodeURLs, totalRate)
+
+	// Calculate expected transactions per node
+	expectedPerNode := len(accounts) / nodeCount
+	remainder := len(accounts) % nodeCount
+
+	Logf("\n=== Transaction Distribution ===\n")
+	Logf("Total accounts: %d\n", len(accounts))
+	Logf("Accounts per node: %d (remainder: %d)\n", expectedPerNode, remainder)
+
+	// Distribute accounts to nodes
+	nodeQueues := make([]chan int, nodeCount)
+	for i := 0; i < nodeCount; i++ {
+		nodeQueues[i] = make(chan int, expectedPerNode+1)
 	}
 
-	// Get client from node pool
-	client, nodeURL, nodeIndex, nodeCount, err := nodePool.GetNextClientForSend()
-	if err != nil {
-		result.SendTime = time.Now() // Mark attempt time
-		result.ResponseTime = time.Now() // Same as send time for immediate failures
-		result.Error = fmt.Errorf("failed to get client from pool: %w", err)
-		result.Duration = time.Since(startTime)
-		result.NodeCount = 0 // No node assigned yet
-		return result, result.Error
+	// Round-robin distribution of accounts to nodes
+	for i, _ := range accounts {
+		nodeIndex := i % nodeCount
+		nodeQueues[nodeIndex] <- i
 	}
-	
-	result.NodeIndex = nodeIndex
-	result.NodeURL = nodePool.GetNodeURL(nodeIndex)
-	result.NodeCount = nodeCount
 
+	// Close all queues
+	for i := 0; i < nodeCount; i++ {
+		close(nodeQueues[i])
+	}
+
+	// Results channel
+	results := make(chan TransactionResult, len(accounts))
+
+	// Create context for cancellation
 	ctx := context.Background()
 
-	// Apply rate limiting for POST request for this specific node
-	if err := rateLimiter.WaitForPost(ctx, nodeIndex); err != nil {
-		result.SendTime = time.Now() // Mark attempt time
-		result.ResponseTime = time.Now() // Same as send time for immediate failures
-		result.Error = fmt.Errorf("rate limit wait failed: %w", err)
-		result.Duration = time.Since(startTime)
-		return result, result.Error
-	}
-
-	privateKeyHex := strings.TrimPrefix(account.PrivateKey, "0x")
-	privateKey, err := crypto.HexToECDSA(privateKeyHex)
-	if err != nil {
-		result.SendTime = time.Now() // Mark attempt time
-		result.ResponseTime = time.Now() // Same as send time for immediate failures
-		result.Error = fmt.Errorf("failed to parse private key: %w", err)
-		result.Duration = time.Since(startTime)
-		return result, result.Error
-	}
-
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		result.SendTime = time.Now() // Mark attempt time
-		result.ResponseTime = time.Now() // Same as send time for immediate failures
-		result.Error = fmt.Errorf("failed to cast public key to ECDSA")
-		result.Duration = time.Since(startTime)
-		return result, result.Error
-	}
-
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	result.FromAddress = fromAddress.Hex()
-
-	// Use hardcoded chainId to avoid API call
-
-	amountBig := new(big.Int)
-	amountBig.SetString(amount, 10)
-
-	payload := onemoney.PaymentPayload{
-		ChainID:   HardcodedChainID,
-		Nonce:     uint64(0),
-		Recipient: common.HexToAddress(toAddress),
-		Value:     amountBig,
-		Token:     common.HexToAddress(account.TokenAddress),
-	}
-
-	signature, err := client.SignMessage(payload, account.PrivateKey)
-	if err != nil {
-		result.SendTime = time.Now() // Mark attempt time
-		result.ResponseTime = time.Now() // Same as send time for immediate failures
-		result.Error = fmt.Errorf("failed to sign payment: %w", err)
-		result.Duration = time.Since(startTime)
-		return result, result.Error
-	}
-
-	paymentReq := &onemoney.PaymentRequest{
-		PaymentPayload: payload,
-		Signature:      *signature,
-	}
-
-	// Capture send time
-	result.SendTime = time.Now()
-	paymentResp, err := client.SendPayment(ctx, paymentReq)
-	result.ResponseTime = time.Now()
-	
-	if err != nil {
-		result.Error = fmt.Errorf("failed to send payment to %s: %w", nodeURL, err)
-		result.Duration = time.Since(startTime)
-		return result, result.Error
-	}
-
-	txHash := paymentResp.Hash
-
-	result.TxHash = txHash
-	result.Success = true
-	result.Duration = time.Since(startTime)
-	return result, nil
-}
-
-func SendTransactionsConcurrently(nodePool *BalancedNodePool, rateLimiter PerNodeRateLimiterInterface, accounts []Account, toAddress string, amount string, concurrency int) []TransactionResult {
+	// WaitGroup for all workers
 	var wg sync.WaitGroup
-	resultsChan := make(chan TransactionResult, len(accounts))
 
-	// Log rate limiting info
-	effectiveConcurrency := rateLimiter.GetEffectivePostConcurrency(concurrency)
-	if effectiveConcurrency != concurrency {
-		Logf("Effective rate limit for transactions: %d TPS\n", effectiveConcurrency)
-	}
-	
-	// Use a smaller worker pool to prevent thundering herd
-	// Workers should be limited to prevent too many concurrent rate limit waits
-	numWorkers := effectiveConcurrency / 10
-	if numWorkers < 10 {
-		numWorkers = 10
-	}
-	if numWorkers > 100 {
-		numWorkers = 100
-	}
-	
-	Logf("Using %d workers for %d TPS rate limit\n", numWorkers, effectiveConcurrency)
-	
-	// Create work queue
-	workQueue := make(chan int, len(accounts))
-	for i := range accounts {
-		workQueue <- i
-	}
-	close(workQueue)
-
-	// Start workers
-	for w := 0; w < numWorkers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range workQueue {
-				result, _ := SendTransaction(nodePool, rateLimiter, accounts[idx], toAddress, amount)
-				result.AccountIndex = idx
-				resultsChan <- *result
-			}
-		}()
+	// Calculate workers per node (minimum 1, maximum 5)
+	workersPerNode := 2
+	if totalRate/nodeCount > 100 {
+		workersPerNode = 3
 	}
 
+	Logf("Workers per node: %d\n", workersPerNode)
+	Logf("===============================\n")
+
+	// Start worker pools for each node
+	for i := 0; i < nodeCount; i++ {
+		nodeRateLimiter := rateLimiter.GetNodeRateLimiter(i)
+		workerPool := NewNodeWorkerPool(i, nodeURLs[i], nodeRateLimiter, workersPerNode)
+
+		// Process transactions for this node
+		workerPool.ProcessTransactions(
+			ctx,
+			nodePool,
+			accounts,
+			toAddress,
+			amount,
+			nodeQueues[i],
+			results,
+			&wg,
+		)
+	}
+
+	// Start progress monitor
+	go monitorProgress(len(accounts), results, startTime)
+
+	// Wait for all workers to complete
 	go func() {
 		wg.Wait()
-		close(resultsChan)
+		close(results)
 	}()
 
-	var results []TransactionResult
-	for result := range resultsChan {
-		results = append(results, result)
+	// Collect results
+	allResults := make([]TransactionResult, 0, len(accounts))
+	for result := range results {
+		allResults = append(allResults, result)
 	}
 
-	return results
+	// Print final statistics
+	rateLimiter.PrintStats()
+
+	return allResults
 }
 
-func VerifyTransaction(client *onemoney.Client, txHash string) (bool, error) {
-	ctx := context.Background()
-	receipt, err := client.GetTransactionReceipt(ctx, txHash)
-	if err != nil {
-		return false, err
+// monitorProgress monitors and logs transaction progress
+func monitorProgress(totalAccounts int, results <-chan TransactionResult, startTime time.Time) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	processed := int32(0)
+	successful := int32(0)
+	failed := int32(0)
+
+	// Count results in background
+	go func() {
+		for result := range results {
+			atomic.AddInt32(&processed, 1)
+			if result.Success {
+				atomic.AddInt32(&successful, 1)
+			} else {
+				atomic.AddInt32(&failed, 1)
+			}
+		}
+	}()
+
+	for range ticker.C {
+		p := atomic.LoadInt32(&processed)
+		s := atomic.LoadInt32(&successful)
+		f := atomic.LoadInt32(&failed)
+
+		if p == int32(totalAccounts) {
+			break
+		}
+
+		elapsed := time.Since(startTime)
+		rate := float64(p) / elapsed.Seconds()
+		remaining := totalAccounts - int(p)
+		eta := time.Duration(float64(remaining) / rate * float64(time.Second))
+
+		Logf("\rProgress: %d/%d (%.1f%%) | Success: %d | Failed: %d | Rate: %.2f TPS | ETA: %v",
+			p, totalAccounts, float64(p)/float64(totalAccounts)*100,
+			s, f, rate, eta.Round(time.Second))
 	}
-	return receipt.Success, nil
 }
 
-func VerifyTransactionsConcurrently(nodePool *BalancedNodePool, rateLimiter PerNodeRateLimiterInterface, results []TransactionResult, concurrency int) {
-	var wg sync.WaitGroup
+// VerifyTransactionsMultiNode verifies transactions with per-node rate limiting
+func VerifyTransactionsMultiNode(
+	nodePool *BalancedNodePool,
+	results []TransactionResult,
+	totalRate int,
+) {
+	// Get node URLs
+	nodeURLs := nodePool.GetNodes()
+	nodeCount := len(nodeURLs)
 
-	// Log rate limiting info
-	effectiveConcurrency := rateLimiter.GetEffectiveGetConcurrency(concurrency)
-	if effectiveConcurrency != concurrency {
-		Logf("Effective rate limit for verification: %d TPS\n", effectiveConcurrency)
-	}
-	
-	// Use a smaller worker pool for verification too
-	numWorkers := effectiveConcurrency / 10
-	if numWorkers < 20 {
-		numWorkers = 20
-	}
-	if numWorkers > 200 {
-		numWorkers = 200
-	}
-	
-	Logf("Using %d workers for verification at %d TPS\n", numWorkers, effectiveConcurrency)
-	
-	// Create work queue for indices to verify
-	workQueue := make(chan int, len(results))
+	// Create multi-node rate limiter for verification
+	rateLimiter := NewMultiNodeRateLimiter(nodeURLs, totalRate)
+
+	// Count transactions to verify
+	toVerify := 0
 	for i := range results {
 		if results[i].Success && results[i].TxHash != "" {
-			workQueue <- i
+			toVerify++
 		}
 	}
-	close(workQueue)
 
-	// Start workers
-	for w := 0; w < numWorkers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range workQueue {
+	Logf("\n=== Verification Configuration ===\n")
+	Logf("Transactions to verify: %d\n", toVerify)
+	Logf("Verification rate: %d TPS total (%d TPS per node)\n", totalRate, totalRate/nodeCount)
 
-				client, _, nodeIndex, err := nodePool.GetNextClientForVerify()
-				if err != nil {
-					results[idx].VerificationError = fmt.Errorf("no client available: %w", err)
-					continue
-				}
-
-				// Apply rate limiting for GET request for this specific node
-				ctx := context.Background()
-				if err := rateLimiter.WaitForGet(ctx, nodeIndex); err != nil {
-					results[idx].VerificationError = fmt.Errorf("rate limit wait failed: %w", err)
-					continue
-				}
-
-				success, err := VerifyTransaction(client, results[idx].TxHash)
-				results[idx].Verified = true
-				results[idx].VerificationError = err
-				if err == nil {
-					results[idx].TxSuccess = success
-				}
-			}
-		}()
+	// Create work queues for each node
+	nodeQueues := make([]chan int, nodeCount)
+	for i := 0; i < nodeCount; i++ {
+		nodeQueues[i] = make(chan int, toVerify/nodeCount+1)
 	}
 
+	// Distribute verification work to nodes (round-robin)
+	nodeIndex := 0
+	for i := range results {
+		if results[i].Success && results[i].TxHash != "" {
+			nodeQueues[nodeIndex] <- i
+			nodeIndex = (nodeIndex + 1) % nodeCount
+		}
+	}
+
+	// Close all queues
+	for i := 0; i < nodeCount; i++ {
+		close(nodeQueues[i])
+	}
+
+	// Create context
+	ctx := context.Background()
+
+	// WaitGroup for all workers
+	var wg sync.WaitGroup
+
+	// Start verification workers for each node
+	workersPerNode := 3
+
+	for i := 0; i < nodeCount; i++ {
+		nodeRateLimiter := rateLimiter.GetNodeRateLimiter(i)
+
+		for w := 0; w < workersPerNode; w++ {
+			wg.Add(1)
+			go func(nodeIdx int) {
+				defer wg.Done()
+
+				for resultIdx := range nodeQueues[nodeIdx] {
+					// Wait for rate limit token
+					if err := nodeRateLimiter.WaitForToken(ctx); err != nil {
+						results[resultIdx].VerificationError = fmt.Errorf("rate limit wait failed: %w", err)
+						continue
+					}
+
+					// Get client for this node
+					client, _ := nodePool.GetClientForNode(nodeIdx)
+					if client == nil {
+						results[resultIdx].VerificationError = fmt.Errorf("no client available for node %d", nodeIdx)
+						continue
+					}
+
+					// Verify transaction
+					success, err := VerifyTransaction(client, results[resultIdx].TxHash)
+					results[resultIdx].Verified = true
+					results[resultIdx].VerificationError = err
+					if err == nil {
+						results[resultIdx].TxSuccess = success
+					}
+				}
+			}(i)
+		}
+	}
+
+	// Wait for all verification to complete
 	wg.Wait()
+
+	// Print verification statistics
+	rateLimiter.PrintStats()
 }

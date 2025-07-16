@@ -107,25 +107,20 @@ func main() {
 	Logf("Loaded %d accounts from CSV\n", len(accounts))
 	
 	Logf("Chain ID: %d (hardcoded)\n", HardcodedChainID)
-	Logf("Rate limits: POST %d TPS/node, GET %d TPS/node\n", PostRateLimitPerNode, GetRateLimitPerNode)
-	Logf("Total rate limits: POST %d TPS, GET %d TPS\n", 
-		nodePool.Size()*PostRateLimitPerNode, nodePool.Size()*GetRateLimitPerNode)
-	Logf("Rate limiter: Strict sequential rate limiting\n")
-	
-	// Print node configuration stats
-	printNodeUsageStats(nodePool)
 	
 	Logln("\nStarting transaction sending...")
 	Logln(strings.Repeat("═", 60))
 
-	// Calculate expected transactions per node
-	expectedPerNode := nodePool.CalculateExpectedTransactionsPerNode(len(accounts))
-	Logf("Expected transactions per node: %d\n", expectedPerNode)
-
 	startTime := time.Now()
-	results := SendTransactionsWithStrictRateLimit(nodePool, accounts, *toAddress, *amount, *concurrency)
+	results := SendTransactionsMultiNode(nodePool, accounts, *toAddress, *amount, *concurrency)
 	sendDuration := time.Since(startTime)
 
+	// Calculate expected per node for logging
+	expectedPerNode := len(accounts) / nodePool.Size()
+	if nodePool.Size() > 0 && len(accounts) % nodePool.Size() > 0 {
+		// Some nodes will have one more
+	}
+	
 	// Log individual results with progress
 	for _, result := range results {
 		sendTime := ""
@@ -157,7 +152,7 @@ func main() {
 		Logln("Note: Using same nodes as configured, respecting GET rate limit (500 TPS/node)")
 		Logln(strings.Repeat("─", 60))
 		verifyStart := time.Now()
-		VerifyTransactionsWithStrictRateLimit(nodePool, results, *concurrency)
+		VerifyTransactionsMultiNode(nodePool, results, *concurrency)
 		verifyDuration := time.Since(verifyStart)
 
 		// Log verification results
@@ -246,13 +241,3 @@ func WriteResultsToCSV(results []TransactionResult) error {
 	return nil
 }
 
-// Additional statistics helpers
-func printNodeUsageStats(nodePool *BalancedNodePool) {
-	Logln("\n┌────────────────── Node Configuration ──────────────────┐")
-	Logf("│ Total Nodes: %-40d │\n", nodePool.Size())
-	Logf("│ POST Rate Limit: %-33d TPS/node │\n", PostRateLimitPerNode)
-	Logf("│ GET Rate Limit: %-34d TPS/node │\n", GetRateLimitPerNode)
-	Logf("│ Max POST TPS: %-36d TPS │\n", nodePool.Size()*PostRateLimitPerNode)
-	Logf("│ Max GET TPS: %-37d TPS │\n", nodePool.Size()*GetRateLimitPerNode)
-	Logln("└────────────────────────────────────────────────────────┘")
-}
