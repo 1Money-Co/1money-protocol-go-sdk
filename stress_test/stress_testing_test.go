@@ -36,8 +36,11 @@ func TestBatchMint(t *testing.T) {
 	logToFile("Initializing 1Money Batch Mint Stress Tester...")
 	logToFile("Log file created: %s", logFileName)
 
-	// Run the complete stress test using shared function (legacy single node)
-	if err := runCompleteStressTestLegacy(logToFile, fileLogger); err != nil {
+	// Run the complete stress test using default testnet node
+	defaultNodeURL := "https://testapi.1moneynetwork.com"
+	nodeURLs := []string{defaultNodeURL}
+	
+	if err := runCompleteStressTest(logToFile, fileLogger, nodeURLs, POST_RATE_LIMIT_TPS, GET_RATE_LIMIT_TPS); err != nil {
 		t.Fatal(err)
 	}
 

@@ -28,11 +28,6 @@ const (
 	MINT_AMOUNT     = 1000000000 * (TRANSFER_MULTIPLIER + 1)  // Amount to mint per operation
 	TRANSFER_AMOUNT = MINT_AMOUNT / (TRANSFER_MULTIPLIER + 1) // Amount to transfer per distribution operation (250)
 
-	// Transaction Validation Configuration (retained for potential future use)
-	// RECEIPT_CHECK_TIMEOUT    = 10 * time.Second       // Timeout for waiting for transaction receipt
-	// RECEIPT_CHECK_INTERVAL   = 500 * time.Millisecond // Interval between receipt checks
-	// NONCE_VALIDATION_TIMEOUT = 10 * time.Second       // Timeout for nonce validation
-	// NONCE_CHECK_INTERVAL     = 500 * time.Millisecond // Interval between nonce checks
 
 	// Rate Limiting Configuration
 	POST_RATE_LIMIT_TPS = 125 // Maximum POST requests per second (configurable)
@@ -71,7 +66,7 @@ type StressTester struct {
 	distributionWallets []*Wallet // Distribution wallets (tier 3)
 	tokenAddress        string
 	ctx                 context.Context
-	rateLimiter         *MultiNodeRateLimiter // Multi-node rate limiter
+	rateLimiter         *MultiNodeRateLimiter // Rate limiter for distributed nodes
 	transferCounter     int64                 // Atomic counter for tracking transfer progress
 	operatorNonceMutex  sync.Mutex            // Mutex for operator wallet nonce management
 	operatorNonce       uint64                // Current operator wallet nonce

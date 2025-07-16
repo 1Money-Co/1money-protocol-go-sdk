@@ -37,45 +37,36 @@ func main() {
 		// No console output - logs only go to file like in test method
 	}
 
-	// Check if multi-node mode is requested
-	if *nodeList != "" {
-		// Multi-node mode
-		logToFile("Initializing 1Money Multi-Node Batch Mint Stress Tester...")
-		logToFile("Log file created: %s", logFileName)
-
-		// Parse node URLs
-		nodeURLs, err := ParseNodeURLs(*nodeList)
-		if err != nil {
-			errorMsg := fmt.Sprintf("Failed to parse node list: %v", err)
-			fileLogger.Println("FATAL: " + errorMsg)
-			fmt.Printf("FATAL: %s\n", errorMsg)
-			os.Exit(1)
-		}
-
-		// Run the multi-node stress test
-		if err := runCompleteStressTest(logToFile, fileLogger, nodeURLs, *postRate, *getRate); err != nil {
-			errorMsg := fmt.Sprintf("Multi-node batch mint stress test failed: %v", err)
-			fileLogger.Println("FATAL: " + errorMsg)
-			fmt.Printf("FATAL: Multi-node stress test failed. Check log file for details: %s\n", logFileName)
-			os.Exit(1)
-		}
-
-		fmt.Printf("Complete multi-node multi-tier stress test completed successfully!\n")
-	} else {
-		// Single node mode (default)
-		logToFile("Initializing 1Money Batch Mint Stress Tester...")
-		logToFile("Log file created: %s", logFileName)
-
-		// Run the complete stress test using shared function
-		if err := runCompleteStressTestLegacy(logToFile, fileLogger); err != nil {
-			errorMsg := fmt.Sprintf("Batch mint stress test failed: %v", err)
-			fileLogger.Println("FATAL: " + errorMsg)
-			fmt.Printf("FATAL: Stress test failed. Check log file for details: %s\n", logFileName)
-			os.Exit(1)
-		}
-
-		fmt.Printf("Complete multi-tier stress test completed successfully!\n")
+	// Node list is required for multi-node stress testing
+	if *nodeList == "" {
+		errorMsg := "Node list is required. Use -nodes flag to specify comma-separated node URLs"
+		fileLogger.Println("FATAL: " + errorMsg)
+		fmt.Printf("FATAL: %s\n", errorMsg)
+		fmt.Printf("Example: ./stress_test -nodes=127.0.0.1:18555,127.0.0.1:18556\n")
+		os.Exit(1)
 	}
+
+	logToFile("Initializing 1Money Multi-Node Batch Mint Stress Tester...")
+	logToFile("Log file created: %s", logFileName)
+
+	// Parse node URLs
+	nodeURLs, err := ParseNodeURLs(*nodeList)
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to parse node list: %v", err)
+		fileLogger.Println("FATAL: " + errorMsg)
+		fmt.Printf("FATAL: %s\n", errorMsg)
+		os.Exit(1)
+	}
+
+	// Run the stress test
+	if err := runCompleteStressTest(logToFile, fileLogger, nodeURLs, *postRate, *getRate); err != nil {
+		errorMsg := fmt.Sprintf("Batch mint stress test failed: %v", err)
+		fileLogger.Println("FATAL: " + errorMsg)
+		fmt.Printf("FATAL: Stress test failed. Check log file for details: %s\n", logFileName)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Complete multi-tier stress test completed successfully!\n")
 
 	// Final log message with file location (only to file)
 	logToFile("All logs have been written to: %s", logFileName)

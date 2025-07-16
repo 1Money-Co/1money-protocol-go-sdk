@@ -9,16 +9,8 @@ import (
 // LogFunc is a function type for logging messages
 type LogFunc func(format string, args ...interface{})
 
-// runCompleteStressTestLegacy executes the complete stress test workflow (single node - legacy compatibility)
-func runCompleteStressTestLegacy(logToFile LogFunc, fileLogger *log.Logger) error {
-	// Use default testnet node
-	defaultNodeURL := "https://testapi.1moneynetwork.com"
-	nodeURLs := []string{defaultNodeURL}
 
-	return runCompleteStressTest(logToFile, fileLogger, nodeURLs, POST_RATE_LIMIT_TPS, GET_RATE_LIMIT_TPS)
-}
-
-// runCompleteStressTestMultiNode executes the complete stress test workflow with multi-node support
+// runCompleteStressTest executes the complete stress test workflow
 func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs []string, totalPostRate int, totalGetRate int) error {
 	// Record overall test start time
 	overallStartTime := time.Now()
@@ -45,8 +37,8 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 		return fmt.Errorf("%s", errorMsg)
 	}
 
-	// Log multi-node configuration
-	logToFile("=== MULTI-NODE CONFIGURATION ===")
+	// Log node configuration
+	logToFile("=== NODE CONFIGURATION ===")
 	logToFile("Number of nodes: %d", len(nodeURLs))
 	for i, url := range nodeURLs {
 		logToFile("Node %d: %s", i+1, url)
@@ -59,7 +51,7 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 	testerStartTime := time.Now()
 	tester, err := NewStressTester(nodeURLs, totalPostRate, totalGetRate)
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to create multi-node stress tester: %v", err)
+		errorMsg := fmt.Sprintf("Failed to create stress tester: %v", err)
 		fileLogger.Println("FATAL: " + errorMsg)
 		return fmt.Errorf("%s", errorMsg)
 	}
@@ -68,13 +60,13 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 	// Record stress test execution time
 	stressTestStartTime := time.Now()
 	if err := tester.RunStressTest(); err != nil {
-		errorMsg := fmt.Sprintf("Multi-node batch mint stress test failed: %v", err)
+		errorMsg := fmt.Sprintf("Batch mint stress test failed: %v", err)
 		fileLogger.Println("FATAL: " + errorMsg)
 		return fmt.Errorf("%s", errorMsg)
 	}
 	stressTestDuration := time.Since(stressTestStartTime)
 
-	logToFile("Multi-node batch mint stress test completed successfully!")
+	logToFile("Batch mint stress test completed successfully!")
 
 	// Generate accounts detail CSV file
 	timestamp := time.Now().Format("20060102_150405")
@@ -144,7 +136,7 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 	executionPercentage := (executionTime.Seconds() / totalDuration.Seconds()) * 100
 	csvPercentage := (csvTime.Seconds() / totalDuration.Seconds()) * 100
 
-	logToFile("=== MULTI-NODE EFFICIENCY ANALYSIS ===")
+	logToFile("=== EFFICIENCY ANALYSIS ===")
 	logToFile("Setup Time: %v (%.1f%% of total)", setupTime, setupPercentage)
 	logToFile("Execution Time: %v (%.1f%% of total)", executionTime, executionPercentage)
 	logToFile("CSV Generation Time: %v (%.1f%% of total)", csvTime, csvPercentage)
@@ -152,17 +144,17 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 	logToFile("Mint Throughput: %.2f mint operations/minute", float64(totalMintOperations)/(stressTestDuration.Minutes()))
 	logToFile("Transfer Throughput: %.2f transfer operations/minute", float64(totalTransferOperations)/(stressTestDuration.Minutes()))
 	logToFile("Token Distribution Efficiency: %.2f tokens/second", float64(totalTokensMinted+totalTokensTransferred)/stressTestDuration.Seconds())
-	logToFile("Multi-tier Concurrency Factor: %.2fx", float64(totalOperations)/float64(totalMintOperations))
-	logToFile("Node Count Multiplier: %dx", len(nodeURLs))
-	logToFile("Effective Operations per Node: %.2f ops/second/node", float64(totalOperations)/stressTestDuration.Seconds()/float64(len(nodeURLs)))
+	logToFile("Tier Concurrency Factor: %.2fx", float64(totalOperations)/float64(totalMintOperations))
+	logToFile("Node Count: %d", len(nodeURLs))
+	logToFile("Operations per Node: %.2f ops/second/node", float64(totalOperations)/stressTestDuration.Seconds()/float64(len(nodeURLs)))
 	logToFile("=== END OF TIMING STATISTICS ===")
 
 	return nil
 }
 
-// RunStressTestMultiNode executes the complete stress test workflow with multi-node support
+// RunStressTest executes the complete stress test workflow
 func (st *StressTester) RunStressTest() error {
-	log.Println("=== Starting 1Money Multi-Tier Batch Mint Stress Test ===")
+	log.Println("=== Starting 1Money Batch Mint Stress Test ===")
 	log.Printf("Configuration:")
 	log.Printf("- Node count: %d", st.nodePool.Size())
 	log.Printf("- Mint wallets: %d", MINT_WALLETS_COUNT)
@@ -197,25 +189,25 @@ func (st *StressTester) RunStressTest() error {
 	}
 	log.Println("✓ Step 2b: Distribution wallets created")
 
-	// Step 3: Create token (multi-node)
+	// Step 3: Create token
 	if err := st.createToken(); err != nil {
 		return fmt.Errorf("step 3 failed: %w", err)
 	}
 	log.Println("✓ Step 3: Token created")
 
-	// Step 4: Grant mint authorities (multi-node)
+	// Step 4: Grant mint authorities
 	if err := st.grantMintAuthorities(); err != nil {
 		return fmt.Errorf("step 4 failed: %w", err)
 	}
 	log.Println("✓ Step 4: Mint authorities granted")
 
-	// Step 5: Perform concurrent minting with multi-tier transfers (multi-node)
+	// Step 5: Perform concurrent minting with multi-tier transfers
 	if err := st.performConcurrentMinting(); err != nil {
 		return fmt.Errorf("step 5 failed: %w", err)
 	}
 	log.Println("✓ Step 5: Concurrent minting and transfers completed")
 
-	log.Println("=== Multi-Tier Stress Test Completed Successfully! ===")
+	log.Println("=== Stress Test Completed Successfully! ===")
 	log.Printf("Token Address: %s", st.tokenAddress)
 	log.Printf("Total mint operations: %d", MINT_WALLETS_COUNT*WALLETS_PER_MINT)
 	log.Printf("Total transfer operations: %d", TRANSFER_WALLETS_COUNT*TRANSFER_MULTIPLIER)
