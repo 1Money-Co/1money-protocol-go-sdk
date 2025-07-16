@@ -7,46 +7,46 @@ import (
 )
 
 type Statistics struct {
-	TotalAccounts      int
-	SuccessfulSends    int
-	FailedSends        int
-	TotalSendDuration  time.Duration
-	SuccessfulVerified int
-	FailedVerified     int
-	NotVerified        int
+	TotalAccounts       int
+	SuccessfulSends     int
+	FailedSends         int
+	TotalSendDuration   time.Duration
+	SuccessfulVerified  int
+	FailedVerified      int
+	NotVerified         int
 	TotalVerifyDuration time.Duration
-	
+
 	// Detailed timings
-	MinSendTime    time.Duration
-	MaxSendTime    time.Duration
-	AvgSendTime    time.Duration
-	
+	MinSendTime time.Duration
+	MaxSendTime time.Duration
+	AvgSendTime time.Duration
+
 	// TPS calculations
 	ActualSendTPS   float64
 	ActualVerifyTPS float64
-	
+
 	// Per-second breakdown
-	SendTPSBySecond    map[int]int
-	VerifyTPSBySecond  map[int]int
+	SendTPSBySecond   map[int]int
+	VerifyTPSBySecond map[int]int
 }
 
 func CalculateStatistics(results []TransactionResult, sendDuration, verifyDuration time.Duration) *Statistics {
 	stats := &Statistics{
-		TotalAccounts:     len(results),
-		TotalSendDuration: sendDuration,
+		TotalAccounts:       len(results),
+		TotalSendDuration:   sendDuration,
 		TotalVerifyDuration: verifyDuration,
-		MinSendTime:      time.Hour, // Initialize with large value
-		SendTPSBySecond:  make(map[int]int),
-		VerifyTPSBySecond: make(map[int]int),
+		MinSendTime:         time.Hour, // Initialize with large value
+		SendTPSBySecond:     make(map[int]int),
+		VerifyTPSBySecond:   make(map[int]int),
 	}
-	
+
 	var totalSendTime time.Duration
-	
+
 	for _, result := range results {
 		if result.Success {
 			stats.SuccessfulSends++
 			totalSendTime += result.Duration
-			
+
 			// Track min/max send times
 			if result.Duration < stats.MinSendTime {
 				stats.MinSendTime = result.Duration
@@ -54,14 +54,14 @@ func CalculateStatistics(results []TransactionResult, sendDuration, verifyDurati
 			if result.Duration > stats.MaxSendTime {
 				stats.MaxSendTime = result.Duration
 			}
-			
+
 			// Calculate which second this transaction was sent
 			secondOffset := int(result.Duration.Seconds())
 			stats.SendTPSBySecond[secondOffset]++
 		} else {
 			stats.FailedSends++
 		}
-		
+
 		// Verification stats
 		if result.Verified {
 			if result.TxSuccess {
@@ -73,18 +73,18 @@ func CalculateStatistics(results []TransactionResult, sendDuration, verifyDurati
 			stats.NotVerified++
 		}
 	}
-	
+
 	// Calculate averages
 	if stats.SuccessfulSends > 0 {
 		stats.AvgSendTime = totalSendTime / time.Duration(stats.SuccessfulSends)
 		stats.ActualSendTPS = float64(stats.SuccessfulSends) / sendDuration.Seconds()
 	}
-	
+
 	if stats.SuccessfulVerified+stats.FailedVerified > 0 {
 		totalVerified := stats.SuccessfulVerified + stats.FailedVerified
 		stats.ActualVerifyTPS = float64(totalVerified) / verifyDuration.Seconds()
 	}
-	
+
 	return stats
 }
 
@@ -92,9 +92,9 @@ func (s *Statistics) PrintDetailedReport() {
 	Logln("\n╔══════════════════════════════════════════════════════════════════╗")
 	Logln("║                    TRANSACTION STATISTICS REPORT                  ║")
 	Logln("╚══════════════════════════════════════════════════════════════════╝")
-	
+
 	// Send Statistics
-	Logln("\n┌─────────────────── Send Statistics ───────────────────┐")
+	Logf("\n┌─────────────────── Send Statistics ───────────────────┐")
 	Logf("│ Total Accounts:        %-30d │\n", s.TotalAccounts)
 	Logf("│ Successful Sends:      %-30d │\n", s.SuccessfulSends)
 	Logf("│ Failed Sends:          %-30d │\n", s.FailedSends)
@@ -104,23 +104,23 @@ func (s *Statistics) PrintDetailedReport() {
 	Logf("│ Min Send Time:         %-26dms │\n", s.MinSendTime.Milliseconds())
 	Logf("│ Max Send Time:         %-26dms │\n", s.MaxSendTime.Milliseconds())
 	Logf("│ Avg Send Time:         %-26dms │\n", s.AvgSendTime.Milliseconds())
-	Logln("├───────────────────────────────────────────────────────┤")
+	Logf("├───────────────────────────────────────────────────────┤")
 	Logf("│ Actual Send TPS:       %-29.2f │\n", s.ActualSendTPS)
-	Logln("└───────────────────────────────────────────────────────┘")
-	
+	Logf("└───────────────────────────────────────────────────────┘")
+
 	// Verification Statistics
 	if s.SuccessfulVerified+s.FailedVerified > 0 {
-		Logln("\n┌─────────────── Verification Statistics ────────────────┐")
+		Logf("\n┌─────────────── Verification Statistics ────────────────┐")
 		Logf("│ Total Verified:        %-30d │\n", s.SuccessfulVerified+s.FailedVerified)
 		Logf("│ On-chain Success:      %-30d │\n", s.SuccessfulVerified)
 		Logf("│ On-chain Failed:       %-30d │\n", s.FailedVerified)
 		Logf("│ Not Verified:          %-30d │\n", s.NotVerified)
-		Logln("├───────────────────────────────────────────────────────┤")
+		Logf("├───────────────────────────────────────────────────────┤")
 		Logf("│ Verification Duration: %-26dms │\n", s.TotalVerifyDuration.Milliseconds())
 		Logf("│ Actual Verify TPS:     %-29.2f │\n", s.ActualVerifyTPS)
-		Logln("└───────────────────────────────────────────────────────┘")
+		Logf("└───────────────────────────────────────────────────────┘")
 	}
-	
+
 	// TPS Distribution (if we have enough data)
 	if len(s.SendTPSBySecond) > 1 {
 		s.printTPSDistribution()
@@ -131,31 +131,31 @@ func (s *Statistics) printTPSDistribution() {
 	Logln("\n┌──────────────── TPS Distribution ─────────────────┐")
 	Logln("│ Second │ Transactions │ TPS                       │")
 	Logln("├────────┼──────────────┼───────────────────────────┤")
-	
+
 	// Sort seconds
 	seconds := make([]int, 0, len(s.SendTPSBySecond))
 	for sec := range s.SendTPSBySecond {
 		seconds = append(seconds, sec)
 	}
 	sort.Ints(seconds)
-	
+
 	// Show first 10 seconds
 	maxRows := 10
 	if len(seconds) < maxRows {
 		maxRows = len(seconds)
 	}
-	
+
 	for i := 0; i < maxRows; i++ {
 		sec := seconds[i]
 		count := s.SendTPSBySecond[sec]
 		bar := generateBar(count, 20)
 		Logf("│ %6d │ %12d │ %-25s │\n", sec, count, bar)
 	}
-	
+
 	if len(seconds) > maxRows {
 		Logf("│  ...   │     ...      │ (showing first %d seconds) │\n", maxRows)
 	}
-	
+
 	Logln("└────────┴──────────────┴───────────────────────────┘")
 }
 
@@ -163,7 +163,7 @@ func generateBar(value, maxWidth int) string {
 	if value == 0 {
 		return ""
 	}
-	
+
 	// Scale to maxWidth
 	barLength := value * maxWidth / 100
 	if barLength < 1 && value > 0 {
@@ -172,12 +172,12 @@ func generateBar(value, maxWidth int) string {
 	if barLength > maxWidth {
 		barLength = maxWidth
 	}
-	
+
 	bar := ""
 	for i := 0; i < barLength; i++ {
 		bar += "█"
 	}
-	
+
 	return fmt.Sprintf("%s %d", bar, value)
 }
 
@@ -186,11 +186,11 @@ func CalculatePercentile(durations []time.Duration, percentile float64) time.Dur
 	if len(durations) == 0 {
 		return 0
 	}
-	
+
 	sort.Slice(durations, func(i, j int) bool {
 		return durations[i] < durations[j]
 	})
-	
+
 	index := int(float64(len(durations)-1) * percentile / 100.0)
 	return durations[index]
 }

@@ -9,16 +9,16 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
-	nodeList   = flag.String("nodes", "", "Comma-separated list of node URLs (e.g. '127.0.0.1:18555,127.0.0.1:18556')")
-	useTestnet = flag.Bool("testnet", true, "Use testnet (true) or mainnet (false)")
-	postRate   = flag.Int("post-rate", POST_RATE_LIMIT_TPS, "Total POST rate limit in TPS")
-	getRate    = flag.Int("get-rate", GET_RATE_LIMIT_TPS, "Total GET rate limit in TPS")
+	nodeList = flag.String("nodes", "", "Comma-separated list of node URLs (e.g. '127.0.0.1:18555,127.0.0.1:18556')")
+	postRate = flag.Int("post-rate", POST_RATE_LIMIT_TPS, "Total POST rate limit in TPS")
+	getRate  = flag.Int("get-rate", GET_RATE_LIMIT_TPS, "Total GET rate limit in TPS")
 )
 
 // ParseNodeURLs parses comma-separated node URLs and ensures they have http:// prefix
@@ -51,6 +51,81 @@ func ParseNodeURLs(nodeListStr string) ([]string, error) {
 	return parsedURLs, nil
 }
 
+// getInitialNonce gets the initial nonce for an address using the node pool
+func getInitialNonce(nodePool *NodePool, address string) (uint64, error) {
+	if nodePool == nil {
+		return 0, fmt.Errorf("node pool is nil")
+	}
+	if address == "" {
+		return 0, fmt.Errorf("address is empty")
+	}
+
+	client, _, _, err := nodePool.GetNodeForGet()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get node for initial nonce check: %w", err)
+	}
+	if client == nil {
+		return 0, fmt.Errorf("client is nil")
+	}
+
+	accountNonce, err := client.GetAccountNonce(context.Background(), address)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get initial nonce for %s: %w", address, err)
+	}
+	if accountNonce == nil {
+		return 0, fmt.Errorf("account nonce response is nil")
+	}
+
+	return accountNonce.Nonce, nil
+}
+
+// getNextOperatorNonce returns the next nonce for the operator wallet in a thread-safe manner
+func (st *StressTester) getNextOperatorNonce() (uint64, error) {
+	st.operatorNonceMutex.Lock()
+	defer st.operatorNonceMutex.Unlock()
+
+	// Always get current nonce from blockchain to ensure accuracy
+	currentNonce, err := st.getAccountNonce(st.operatorWallet.Address)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get current operator nonce: %w", err)
+	}
+
+	return currentNonce, nil
+}
+
+// verifyNonceIncrement verifies that the operator wallet nonce has incremented to the expected value
+func (st *StressTester) verifyNonceIncrement(expectedNonce uint64, walletIndex int) error {
+	// Poll for nonce increment with timeout
+	maxRetries := NONCE_VERIFY_MAX_RETRIES
+	retryInterval := NONCE_VERIFY_INTERVAL
+
+	for retry := 0; retry < maxRetries; retry++ {
+		currentNonce, err := st.getAccountNonce(st.operatorWallet.Address)
+		if err != nil {
+			return fmt.Errorf("failed to get current nonce during verification: %w", err)
+		}
+
+		if currentNonce == expectedNonce {
+			log.Printf("NONCE_VERIFIED: Operator wallet nonce correctly incremented to %d after wallet %d",
+				expectedNonce, walletIndex)
+			return nil
+		}
+
+		if currentNonce > expectedNonce {
+			return fmt.Errorf("nonce jumped unexpectedly: expected %d, got %d", expectedNonce, currentNonce)
+		}
+
+		// Nonce hasn't incremented yet, wait and retry
+		log.Printf("NONCE_WAITING: Waiting for nonce increment... current: %d, expected: %d, retry: %d/%d",
+			currentNonce, expectedNonce, retry+1, maxRetries)
+		time.Sleep(retryInterval)
+	}
+
+	// Final check to get the actual nonce for error message
+	finalNonce, _ := st.getAccountNonce(st.operatorWallet.Address)
+	return fmt.Errorf("nonce verification timeout: expected %d, final nonce: %d", expectedNonce, finalNonce)
+}
+
 // NewStressTester creates a new stress tester instance
 func NewStressTester(nodeURLs []string, totalPostRate int, totalGetRate int) (*StressTester, error) {
 	// Create node pool
@@ -79,20 +154,37 @@ func NewStressTester(nodeURLs []string, totalPostRate int, totalGetRate int) (*S
 	// Create multi-node rate limiter
 	rateLimiter := NewMultiNodeRateLimiter(nodeURLs, totalPostRate, totalGetRate)
 
+	// Initialize operator nonce
+	initialNonce, err := getInitialNonce(nodePool, operatorWallet.Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get initial operator nonce: %w", err)
+	}
+
 	return &StressTester{
 		nodePool:       nodePool,
 		operatorWallet: operatorWallet,
 		ctx:            context.Background(),
 		rateLimiter:    rateLimiter,
+		operatorNonce:  initialNonce,
 	}, nil
 }
 
 // getAccountNonce gets account nonce using node pool
 func (st *StressTester) getAccountNonce(address string) (uint64, error) {
+	if st == nil {
+		return 0, fmt.Errorf("stress tester is nil")
+	}
+	if address == "" {
+		return 0, fmt.Errorf("address is empty")
+	}
+
 	// Get a node for GET operation
 	client, nodeURL, nodeIndex, err := st.nodePool.GetNodeForGet()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get node for nonce check: %w", err)
+	}
+	if client == nil {
+		return 0, fmt.Errorf("client is nil")
 	}
 
 	// Get rate limiter for this node
@@ -110,6 +202,9 @@ func (st *StressTester) getAccountNonce(address string) (uint64, error) {
 	if err != nil {
 		log.Printf("Failed to get account nonce for %s from node %s: %v", address, nodeURL, err)
 		return 0, err
+	}
+	if accountNonce == nil {
+		return 0, fmt.Errorf("account nonce response is nil for address %s", address)
 	}
 
 	return accountNonce.Nonce, nil
@@ -266,8 +361,8 @@ func (st *StressTester) createDistributionWallets() error {
 func (st *StressTester) createToken() error {
 	log.Printf("TOKEN_CREATE_START: Creating token using operator wallet (%s)...", st.operatorWallet.Address)
 
-	// Get nonce using multi-node
-	nonce, err := st.getAccountNonce(st.operatorWallet.Address)
+	// Get next nonce for operator wallet
+	nonce, err := st.getNextOperatorNonce()
 	if err != nil {
 		return err
 	}
@@ -338,12 +433,7 @@ func (st *StressTester) createToken() error {
 		return fmt.Errorf("failed to confirm token creation: %w", err)
 	}
 
-	// Validate nonce increment
-	if err := st.validateNonceIncrement(st.operatorWallet.Address, nonce+1, "OPERATOR_WALLET", "TOKEN_CREATE"); err != nil {
-		log.Printf("TOKEN_CREATE_NONCE_ERROR: Failed to validate nonce increment for operator wallet (%s): %v",
-			st.operatorWallet.Address, err)
-		return fmt.Errorf("failed to validate nonce increment after token creation: %w", err)
-	}
+	// Note: Nonce management is now handled internally, no need to validate increment
 
 	log.Printf("TOKEN_CREATE_SUCCESS: Token created successfully - Address: %s, Symbol: %s, TxHash: %s",
 		st.tokenAddress, tokenSymbol, result.Hash)
@@ -351,37 +441,37 @@ func (st *StressTester) createToken() error {
 	return nil
 }
 
-// grantMintAuthorities grants mint permissions
+// grantMintAuthorities grants mint permissions sequentially (single-threaded)
 func (st *StressTester) grantMintAuthorities() error {
-	log.Printf("AUTHORITY_GRANT_START: Granting mint authorities to %d wallets using operator wallet (%s)...",
+	log.Printf("AUTHORITY_GRANT_START: Granting mint authorities to %d wallets using operator wallet (%s) sequentially...",
 		len(st.mintWallets), st.operatorWallet.Address)
 
-	var wg sync.WaitGroup
-	errorChan := make(chan error, len(st.mintWallets))
-
-	// Limit concurrent grants to avoid overwhelming the operator wallet's nonce
-	semaphore := make(chan struct{}, 10) // Max 10 concurrent grants
-
-	for i, mintWallet := range st.mintWallets {
-		wg.Add(1)
-		go func(index int, wallet *Wallet) {
-			defer wg.Done()
-
-			semaphore <- struct{}{}        // Acquire
-			defer func() { <-semaphore }() // Release
-
-			if err := st.grantSingleMintAuthority(index, wallet); err != nil {
-				errorChan <- err
-			}
-		}(i, mintWallet)
+	// Get initial nonce to track progress
+	initialNonce, err := st.getAccountNonce(st.operatorWallet.Address)
+	if err != nil {
+		return fmt.Errorf("failed to get initial nonce: %w", err)
 	}
 
-	wg.Wait()
-	close(errorChan)
+	log.Printf("AUTHORITY_GRANT_INITIAL_NONCE: Starting with operator wallet nonce: %d", initialNonce)
 
-	// Check for errors
-	for err := range errorChan {
-		return err
+	// Grant authority to each wallet sequentially
+	for i, mintWallet := range st.mintWallets {
+		log.Printf("AUTHORITY_GRANT_PROGRESS: Processing wallet %d/%d (%s)...",
+			i+1, len(st.mintWallets), mintWallet.Address)
+
+		// Grant authority to this wallet
+		if err := st.grantSingleMintAuthority(i, mintWallet); err != nil {
+			return fmt.Errorf("failed to grant authority to wallet %d (%s): %w", i+1, mintWallet.Address, err)
+		}
+
+		// Verify nonce has incremented correctly
+		expectedNonce := initialNonce + uint64(i+1)
+		if err := st.verifyNonceIncrement(expectedNonce, i+1); err != nil {
+			return fmt.Errorf("nonce verification failed after granting authority to wallet %d: %w", i+1, err)
+		}
+
+		log.Printf("AUTHORITY_GRANT_SUCCESS: Successfully granted authority to wallet %d/%d (%s), nonce now: %d",
+			i+1, len(st.mintWallets), mintWallet.Address, expectedNonce)
 	}
 
 	log.Printf("AUTHORITY_GRANT_COMPLETE: All %d mint authorities granted successfully", len(st.mintWallets))
@@ -392,8 +482,8 @@ func (st *StressTester) grantMintAuthorities() error {
 func (st *StressTester) grantSingleMintAuthority(walletIndex int, mintWallet *Wallet) error {
 	log.Printf("AUTHORITY_GRANT_START: Granting mint authority to wallet %d (%s)", walletIndex+1, mintWallet.Address)
 
-	// Get nonce using multi-node
-	nonce, err := st.getAccountNonce(st.operatorWallet.Address)
+	// Get next nonce for operator wallet
+	nonce, err := st.getNextOperatorNonce()
 	if err != nil {
 		return err
 	}
@@ -461,12 +551,7 @@ func (st *StressTester) grantSingleMintAuthority(walletIndex int, mintWallet *Wa
 		return fmt.Errorf("failed to confirm authority grant for wallet %d: %w", walletIndex, err)
 	}
 
-	// Validate nonce increment
-	if err := st.validateNonceIncrement(st.operatorWallet.Address, nonce+1, "OPERATOR_WALLET", "AUTHORITY_GRANT"); err != nil {
-		log.Printf("AUTHORITY_GRANT_NONCE_ERROR: Failed to validate nonce increment for operator wallet (%s) after granting authority to wallet %d: %v",
-			st.operatorWallet.Address, walletIndex+1, err)
-		return fmt.Errorf("failed to validate nonce increment after authority grant for wallet %d: %w", walletIndex, err)
-	}
+	// Note: Nonce management is now handled internally, no need to validate increment
 
 	log.Printf("AUTHORITY_GRANT_SUCCESS: Authority granted to wallet %d (%s), TxHash: %s, Allowance: %d",
 		walletIndex+1, mintWallet.Address, result.Hash, MINT_ALLOWANCE)

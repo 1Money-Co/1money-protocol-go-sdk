@@ -110,17 +110,17 @@ func (np *NodePool) GetNodeForGet() (*onemoney.Client, string, int, error) {
 	return node.Client, node.URL, index, nil
 }
 
-// GetClientForNode returns the client for a specific node index
-func (np *NodePool) GetClientForNode(nodeIndex int) (*onemoney.Client, error) {
-	np.mu.RLock()
-	defer np.mu.RUnlock()
-
-	if nodeIndex < 0 || nodeIndex >= len(np.nodes) {
-		return nil, fmt.Errorf("invalid node index: %d", nodeIndex)
-	}
-
-	return np.nodes[nodeIndex].Client, nil
-}
+// GetClientForNode returns the client for a specific node index (unused but kept for potential future use)
+// func (np *NodePool) GetClientForNode(nodeIndex int) (*onemoney.Client, error) {
+// 	np.mu.RLock()
+// 	defer np.mu.RUnlock()
+//
+// 	if nodeIndex < 0 || nodeIndex >= len(np.nodes) {
+// 		return nil, fmt.Errorf("invalid node index: %d", nodeIndex)
+// 	}
+//
+// 	return np.nodes[nodeIndex].Client, nil
+// }
 
 // Size returns the number of nodes in the pool
 func (np *NodePool) Size() int {

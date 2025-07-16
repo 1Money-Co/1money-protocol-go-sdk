@@ -259,20 +259,20 @@ func (mnrl *MultiNodeRateLimiter) PrintStats() {
 	log.Printf("Target GET rate: %d TPS, Actual GET rate: %.2f TPS", mnrl.totalGetRate, totalActualGetRate)
 }
 
-// NodeWorkerPool manages workers for a specific node
-type NodeWorkerPool struct {
-	nodeIndex   int
-	nodeURL     string
-	rateLimiter *NodeRateLimiter
-	workerCount int
-}
+// NodeWorkerPool manages workers for a specific node (unused but kept for potential future use)
+// type NodeWorkerPool struct {
+// 	nodeIndex   int
+// 	nodeURL     string
+// 	rateLimiter *NodeRateLimiter
+// 	workerCount int
+// }
 
-// NewNodeWorkerPool creates a worker pool for a specific node
-func NewNodeWorkerPool(nodeIndex int, nodeURL string, rateLimiter *NodeRateLimiter, workerCount int) *NodeWorkerPool {
-	return &NodeWorkerPool{
-		nodeIndex:   nodeIndex,
-		nodeURL:     nodeURL,
-		rateLimiter: rateLimiter,
-		workerCount: workerCount,
-	}
-}
+// NewNodeWorkerPool creates a worker pool for a specific node (unused but kept for potential future use)
+// func NewNodeWorkerPool(nodeIndex int, nodeURL string, rateLimiter *NodeRateLimiter, workerCount int) *NodeWorkerPool {
+// 	return &NodeWorkerPool{
+// 		nodeIndex:   nodeIndex,
+// 		nodeURL:     nodeURL,
+// 		rateLimiter: rateLimiter,
+// 		workerCount: workerCount,
+// 	}
+// }

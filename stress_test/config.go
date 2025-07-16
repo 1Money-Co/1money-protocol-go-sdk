@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	// "math/rand"
+	"sync"
 	"time"
 )
 
@@ -28,15 +28,23 @@ const (
 	MINT_AMOUNT     = 1000000000 * (TRANSFER_MULTIPLIER + 1)  // Amount to mint per operation
 	TRANSFER_AMOUNT = MINT_AMOUNT / (TRANSFER_MULTIPLIER + 1) // Amount to transfer per distribution operation (250)
 
-	// Transaction Validation Configuration
-	RECEIPT_CHECK_TIMEOUT    = 10 * time.Second       // Timeout for waiting for transaction receipt
-	RECEIPT_CHECK_INTERVAL   = 500 * time.Millisecond // Interval between receipt checks
-	NONCE_VALIDATION_TIMEOUT = 10 * time.Second       // Timeout for nonce validation
-	NONCE_CHECK_INTERVAL     = 500 * time.Millisecond // Interval between nonce checks
+	// Transaction Validation Configuration (retained for potential future use)
+	// RECEIPT_CHECK_TIMEOUT    = 10 * time.Second       // Timeout for waiting for transaction receipt
+	// RECEIPT_CHECK_INTERVAL   = 500 * time.Millisecond // Interval between receipt checks
+	// NONCE_VALIDATION_TIMEOUT = 10 * time.Second       // Timeout for nonce validation
+	// NONCE_CHECK_INTERVAL     = 500 * time.Millisecond // Interval between nonce checks
 
 	// Rate Limiting Configuration
 	POST_RATE_LIMIT_TPS = 125 // Maximum POST requests per second (configurable)
 	GET_RATE_LIMIT_TPS  = 250 // Maximum GET requests per second (configurable)
+
+	// Nonce Management Configuration
+	NONCE_VERIFY_MAX_RETRIES = 20                     // Maximum retries for nonce verification
+	NONCE_VERIFY_INTERVAL    = 500 * time.Millisecond // Interval between nonce verification retries
+
+	// CSV Generation Configuration
+	CSV_PROGRESS_INTERVAL_WALLETS = 200 // Progress logging interval for wallet CSV generation
+	CSV_PROGRESS_INTERVAL_DIST    = 500 // Progress logging interval for distribution CSV generation
 )
 
 // Wallet represents a wallet with private key, public key, and address
@@ -65,30 +73,13 @@ type StressTester struct {
 	ctx                 context.Context
 	rateLimiter         *MultiNodeRateLimiter // Multi-node rate limiter
 	transferCounter     int64                 // Atomic counter for tracking transfer progress
-}
-
-// generateTokenSymbol generates a random token symbol with format "1M" + 5 letters + 2 digits
-func generateTokenSymbol() string {
-	// const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	// const digits = "0123456789"
-
-	// // Generate 5 random letters
-	// letterPart := make([]byte, 5)
-	// for i := range letterPart {
-	// 	letterPart[i] = letters[rand.Intn(len(letters))]
-	// }
-
-	// // Generate 2 random digits
-	// digitPart := make([]byte, 2)
-	// for i := range digitPart {
-	// 	digitPart[i] = digits[rand.Intn(len(digits))]
-	// }
-
-	// return "1USD" + string(letterPart) + string(digitPart)
-	return "1USD"
+	operatorNonceMutex  sync.Mutex            // Mutex for operator wallet nonce management
+	operatorNonce       uint64                // Current operator wallet nonce
 }
 
 // GetTokenSymbol returns a dynamically generated token symbol for each test run
 func GetTokenSymbol() string {
-	return generateTokenSymbol()
+	// Use timestamp to ensure uniqueness
+	timestamp := time.Now().Format("150405") // HHMMSS format
+	return "1USD" + timestamp
 }

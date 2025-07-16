@@ -87,8 +87,8 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 		}
 
 		processedCount++
-		// Log progress every 200 wallets
-		if processedCount%200 == 0 {
+		// Log progress every CSV_PROGRESS_INTERVAL_WALLETS wallets
+		if processedCount%CSV_PROGRESS_INTERVAL_WALLETS == 0 {
 			log.Printf("Processed %d/%d total wallets for CSV generation", processedCount, totalWallets)
 		}
 	}
@@ -147,8 +147,8 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 		}
 
 		processedCount++
-		// Log progress every 500 wallets for distribution tier
-		if processedCount%500 == 0 {
+		// Log progress every CSV_PROGRESS_INTERVAL_DIST wallets for distribution tier
+		if processedCount%CSV_PROGRESS_INTERVAL_DIST == 0 {
 			log.Printf("Processed %d/%d total wallets for CSV generation", processedCount, totalWallets)
 		}
 	}
