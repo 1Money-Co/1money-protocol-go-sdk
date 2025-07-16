@@ -88,9 +88,19 @@ All console output is automatically saved to a timestamped log file in the curre
 
 After all transactions are sent, the tool automatically:
 1. Waits 10 seconds for transactions to be processed
-2. Queries transaction receipts using `getTransactionByReceipt`
-3. Verifies each transaction's on-chain success status
-4. Reports verification results and updates the CSV output
+2. Queries transaction receipts using `getTransactionByReceipt` from the **same configured nodes**
+3. Respects GET rate limit (500 TPS per node) during verification
+4. Verifies each transaction's on-chain success status
+5. Reports verification results and updates the CSV output
+
+### Detailed Statistics
+
+The tool provides comprehensive statistics including:
+- **Node Configuration**: Shows configured nodes and rate limits
+- **Send Statistics**: Success rate, timing details, actual TPS
+- **Verification Statistics**: On-chain success/failure counts
+- **TPS Distribution**: Per-second transaction distribution
+- **Accurate TPS Calculation**: Based on actual successful transactions
 
 ## Multi-Node Support
 

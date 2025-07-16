@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -113,71 +114,62 @@ func main() {
 	Logf("Total rate limits: POST %d TPS, GET %d TPS\n", 
 		nodePool.Size()*PostRateLimitPerNode, nodePool.Size()*GetRateLimitPerNode)
 	
-	Logln("Starting transaction sending...")
+	// Print node configuration stats
+	printNodeUsageStats(nodePool)
+	
+	Logln("\nStarting transaction sending...")
+	Logln(strings.Repeat("═", 60))
 
 	startTime := time.Now()
 	results := SendTransactionsConcurrently(nodePool, rateLimiter, accounts, *toAddress, *amount, *concurrency)
-	totalDuration := time.Since(startTime)
+	sendDuration := time.Since(startTime)
 
-	successCount := 0
-	failCount := 0
-	var totalTxTime time.Duration
-
-	for _, result := range results {
+	// Log individual results with progress
+	for i, result := range results {
 		if result.Success {
-			successCount++
-			totalTxTime += result.Duration
-			Logf("✅ Account %s (Wallet #%s): TX %s (%.2fs)\n",
-				result.FromAddress, result.WalletIndex, result.TxHash, result.Duration.Seconds())
+			Logf("[%d/%d] ✅ Wallet #%s: TX %s (%.3fs)\n",
+				i+1, len(results), result.WalletIndex, result.TxHash, result.Duration.Seconds())
 		} else {
-			failCount++
-			Logf("❌ Account %s (Wallet #%s): %v\n",
-				result.FromAddress, result.WalletIndex, result.Error)
+			Logf("[%d/%d] ❌ Wallet #%s: %v\n",
+				i+1, len(results), result.WalletIndex, result.Error)
 		}
 	}
 
-	Logln("\n=== Summary ===")
-	Logf("Total Accounts: %d\n", len(accounts))
-	Logf("Successful: %d\n", successCount)
-	Logf("Failed: %d\n", failCount)
-	Logf("Success Rate: %.2f%%\n", float64(successCount)/float64(len(accounts))*100)
-	Logf("Total Time: %.2fs\n", totalDuration.Seconds())
-	if successCount > 0 {
-		Logf("Avg TX Time: %.2fs\n", totalTxTime.Seconds()/float64(successCount))
-		Logf("TPS: %.2f\n", float64(successCount)/totalDuration.Seconds())
-	}
-
-	if successCount > 0 {
+	// Calculate initial statistics
+	stats := CalculateStatistics(results, sendDuration, 0)
+	
+	if stats.SuccessfulSends > 0 {
 		Logln("\n⏳ Waiting 10 seconds before verifying transactions...")
 		time.Sleep(10 * time.Second)
 
 		Logln("\n🔍 Verifying transaction receipts...")
+		Logln("Note: Using same nodes as configured, respecting GET rate limit (500 TPS/node)")
+		Logln(strings.Repeat("─", 60))
 		verifyStart := time.Now()
 		VerifyTransactionsConcurrently(nodePool, rateLimiter, results, *concurrency)
 		verifyDuration := time.Since(verifyStart)
 
+		// Log verification results
 		verifiedCount := 0
-		txSuccessCount := 0
-		for _, result := range results {
+		for i, result := range results {
 			if result.Verified {
 				verifiedCount++
 				if result.TxSuccess {
-					txSuccessCount++
-					Logf("✅ TX %s: Confirmed successful\n", result.TxHash)
+					Logf("[%d/%d] ✅ TX %s: Confirmed successful\n", verifiedCount, stats.SuccessfulSends, result.TxHash)
 				} else {
-					Logf("❌ TX %s: Transaction failed on chain\n", result.TxHash)
+					Logf("[%d/%d] ❌ TX %s: Failed on chain\n", verifiedCount, stats.SuccessfulSends, result.TxHash)
 				}
 			} else if result.Success && result.VerificationError != nil {
-				Logf("⚠️  TX %s: Verification error: %v\n", result.TxHash, result.VerificationError)
+				Logf("[%d/%d] ⚠️  TX %s: Verification error: %v\n", i+1, stats.SuccessfulSends, result.TxHash, result.VerificationError)
 			}
 		}
-
-		Logln("\n=== Verification Summary ===")
-		Logf("Verified: %d/%d\n", verifiedCount, successCount)
-		Logf("On-chain Success: %d\n", txSuccessCount)
-		Logf("On-chain Failed: %d\n", verifiedCount-txSuccessCount)
-		Logf("Verification Time: %.2fs\n", verifyDuration.Seconds())
+		
+		// Recalculate statistics with verification data
+		stats = CalculateStatistics(results, sendDuration, verifyDuration)
 	}
+	
+	// Print detailed statistics report
+	stats.PrintDetailedReport()
 
 	if err := WriteResultsToCSV(results); err != nil {
 		Logf("Failed to write results CSV: %v\n", err)
@@ -226,4 +218,15 @@ func WriteResultsToCSV(results []TransactionResult) error {
 	absPath, _ := filepath.Abs(filename)
 	Logf("Results written to: %s\n", absPath)
 	return nil
+}
+
+// Additional statistics helpers
+func printNodeUsageStats(nodePool *NodePool) {
+	Logln("\n┌────────────────── Node Configuration ──────────────────┐")
+	Logf("│ Total Nodes: %-40d │\n", nodePool.Size())
+	Logf("│ POST Rate Limit: %-33d TPS/node │\n", PostRateLimitPerNode)
+	Logf("│ GET Rate Limit: %-34d TPS/node │\n", GetRateLimitPerNode)
+	Logf("│ Max POST TPS: %-36d TPS │\n", nodePool.Size()*PostRateLimitPerNode)
+	Logf("│ Max GET TPS: %-37d TPS │\n", nodePool.Size()*GetRateLimitPerNode)
+	Logln("└────────────────────────────────────────────────────────┘")
 }
