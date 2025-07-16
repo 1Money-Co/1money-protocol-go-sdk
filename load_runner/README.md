@@ -120,6 +120,14 @@ The load runner respects server-side rate limits to prevent overwhelming the nod
 - **POST requests** (transactions): 250 TPS per node
 - **GET requests** (verification): 500 TPS per node
 
+#### Smooth Traffic Distribution
+
+The load runner uses a smooth rate limiter that distributes requests evenly across time:
+- Divides each second into 20 intervals of 50ms each
+- Distributes allowed requests evenly across these intervals
+- Prevents burst traffic at the beginning of each second
+- Ensures stable transaction flow within sliding windows
+
 #### Automatic Concurrency Adjustment
 
 When the requested concurrency exceeds the rate limits, it's automatically capped:

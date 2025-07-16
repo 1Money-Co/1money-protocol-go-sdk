@@ -106,14 +106,15 @@ func main() {
 
 	Logf("Loaded %d accounts from CSV\n", len(accounts))
 	
-	// Create rate limiter based on node count
-	rateLimiter := NewGlobalRateLimiter(nodePool.Size())
+	// Create smooth rate limiter based on node count
+	rateLimiter := NewSmoothGlobalRateLimiter(nodePool.Size())
 	defer rateLimiter.Close()
 	
 	Logf("Chain ID: %d (hardcoded)\n", HardcodedChainID)
 	Logf("Rate limits: POST %d TPS/node, GET %d TPS/node\n", PostRateLimitPerNode, GetRateLimitPerNode)
 	Logf("Total rate limits: POST %d TPS, GET %d TPS\n", 
 		nodePool.Size()*PostRateLimitPerNode, nodePool.Size()*GetRateLimitPerNode)
+	Logf("Rate limiter: Smooth distribution with 50ms intervals (20 intervals/second)\n")
 	
 	// Print node configuration stats
 	printNodeUsageStats(nodePool)
@@ -127,20 +128,21 @@ func main() {
 
 	// Log individual results with progress
 	for i, result := range results {
+		sendTime := ""
+		responseTime := ""
+		if !result.SendTime.IsZero() {
+			sendTime = result.SendTime.Format("15:04:05.000")
+		}
+		if !result.ResponseTime.IsZero() {
+			responseTime = result.ResponseTime.Format("15:04:05.000")
+		}
+		
 		if result.Success {
-			sendTime := ""
-			responseTime := ""
-			if !result.SendTime.IsZero() {
-				sendTime = result.SendTime.Format("15:04:05.000")
-			}
-			if !result.ResponseTime.IsZero() {
-				responseTime = result.ResponseTime.Format("15:04:05.000")
-			}
-			Logf("[%d/%d] ✅ Wallet #%s: TX %s (%dms) [Sent: %s, Response: %s]\n",
-				i+1, len(results), result.WalletIndex, result.TxHash, result.Duration.Milliseconds(), sendTime, responseTime)
+			Logf("[Sent: %s, Response: %s] [%d/%d] ✅ Wallet #%s: TX %s (%dms)\n",
+				sendTime, responseTime, i+1, len(results), result.WalletIndex, result.TxHash, result.Duration.Milliseconds())
 		} else {
-			Logf("[%d/%d] ❌ Wallet #%s: %v\n",
-				i+1, len(results), result.WalletIndex, result.Error)
+			Logf("[Sent: %s, Response: %s] [%d/%d] ❌ Wallet #%s: %v\n",
+				sendTime, responseTime, i+1, len(results), result.WalletIndex, result.Error)
 		}
 	}
 

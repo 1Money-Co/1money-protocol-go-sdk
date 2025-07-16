@@ -26,11 +26,10 @@ func InitLogger() (*Logger, error) {
 		return nil, fmt.Errorf("failed to create log file: %w", err)
 	}
 	
-	logger := log.New(logFile, "", log.LstdFlags)
-	
+	// Create logger with custom format including milliseconds
 	globalLogger = &Logger{
 		file:   logFile,
-		logger: logger,
+		logger: log.New(logFile, "", 0), // No default flags, we'll format manually
 	}
 	
 	absPath, _ := filepath.Abs(logFilename)
@@ -42,13 +41,17 @@ func InitLogger() (*Logger, error) {
 func (l *Logger) Printf(format string, v ...interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.logger.Printf(format, v...)
+	timestamp := time.Now().Format("2006/01/02 15:04:05.000")
+	msg := fmt.Sprintf(format, v...)
+	l.logger.Printf("%s %s", timestamp, msg)
 }
 
 func (l *Logger) Println(v ...interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.logger.Println(v...)
+	timestamp := time.Now().Format("2006/01/02 15:04:05.000")
+	msg := fmt.Sprintln(v...)
+	l.logger.Printf("%s %s", timestamp, msg)
 }
 
 func (l *Logger) Close() error {

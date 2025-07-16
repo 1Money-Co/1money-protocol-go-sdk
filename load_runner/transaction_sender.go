@@ -35,7 +35,7 @@ type TransactionResult struct {
 	TxSuccess         bool
 }
 
-func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account Account, toAddress string, amount string) (*TransactionResult, error) {
+func SendTransaction(nodePool *NodePool, rateLimiter RateLimiterInterface, account Account, toAddress string, amount string) (*TransactionResult, error) {
 	startTime := time.Now()
 	result := &TransactionResult{
 		WalletIndex: account.WalletIndex,
@@ -44,6 +44,8 @@ func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account
 	// Get client from node pool
 	client, nodeURL, err := nodePool.GetNextClient()
 	if err != nil {
+		result.SendTime = time.Now() // Mark attempt time
+		result.ResponseTime = time.Now() // Same as send time for immediate failures
 		result.Error = fmt.Errorf("failed to get client from pool: %w", err)
 		result.Duration = time.Since(startTime)
 		return result, result.Error
@@ -53,6 +55,8 @@ func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account
 
 	// Apply rate limiting for POST request
 	if err := rateLimiter.WaitForPost(ctx); err != nil {
+		result.SendTime = time.Now() // Mark attempt time
+		result.ResponseTime = time.Now() // Same as send time for immediate failures
 		result.Error = fmt.Errorf("rate limit wait failed: %w", err)
 		result.Duration = time.Since(startTime)
 		return result, result.Error
@@ -61,6 +65,8 @@ func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account
 	privateKeyHex := strings.TrimPrefix(account.PrivateKey, "0x")
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
+		result.SendTime = time.Now() // Mark attempt time
+		result.ResponseTime = time.Now() // Same as send time for immediate failures
 		result.Error = fmt.Errorf("failed to parse private key: %w", err)
 		result.Duration = time.Since(startTime)
 		return result, result.Error
@@ -69,6 +75,8 @@ func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
+		result.SendTime = time.Now() // Mark attempt time
+		result.ResponseTime = time.Now() // Same as send time for immediate failures
 		result.Error = fmt.Errorf("failed to cast public key to ECDSA")
 		result.Duration = time.Since(startTime)
 		return result, result.Error
@@ -92,6 +100,8 @@ func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account
 
 	signature, err := client.SignMessage(payload, account.PrivateKey)
 	if err != nil {
+		result.SendTime = time.Now() // Mark attempt time
+		result.ResponseTime = time.Now() // Same as send time for immediate failures
 		result.Error = fmt.Errorf("failed to sign payment: %w", err)
 		result.Duration = time.Since(startTime)
 		return result, result.Error
@@ -122,7 +132,7 @@ func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account
 	return result, nil
 }
 
-func SendTransactionsConcurrently(nodePool *NodePool, rateLimiter *GlobalRateLimiter, accounts []Account, toAddress string, amount string, concurrency int) []TransactionResult {
+func SendTransactionsConcurrently(nodePool *NodePool, rateLimiter RateLimiterInterface, accounts []Account, toAddress string, amount string, concurrency int) []TransactionResult {
 	var wg sync.WaitGroup
 	resultsChan := make(chan TransactionResult, len(accounts))
 
@@ -168,7 +178,7 @@ func VerifyTransaction(client *onemoney.Client, txHash string) (bool, error) {
 	return receipt.Success, nil
 }
 
-func VerifyTransactionsConcurrently(nodePool *NodePool, rateLimiter *GlobalRateLimiter, results []TransactionResult, concurrency int) {
+func VerifyTransactionsConcurrently(nodePool *NodePool, rateLimiter RateLimiterInterface, results []TransactionResult, concurrency int) {
 	var wg sync.WaitGroup
 
 	// Apply effective concurrency based on rate limits
