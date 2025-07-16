@@ -66,10 +66,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Complete multi-tier stress test completed successfully!\n")
+	fmt.Printf("✓ Stress test completed successfully!\n")
 
 	// Final log message with file location (only to file)
 	logToFile("All logs have been written to: %s", logFileName)
 	// Show completion message on console with log file location
-	fmt.Printf("Detailed logs saved to: %s\n", logFileName)
+	fmt.Printf("Logs: %s\n", logFileName)
 }

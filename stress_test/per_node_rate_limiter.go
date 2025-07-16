@@ -171,12 +171,8 @@ func NewMultiNodeRateLimiter(nodeURLs []string, totalPostRate int, totalGetRate 
 
 	nodeLimiters := make([]*NodeRateLimiter, nodeCount)
 
-	log.Printf("\n=== Rate Limiter Configuration ===")
-	log.Printf("Total requested POST rate: %d TPS", totalPostRate)
-	log.Printf("Total requested GET rate: %d TPS", totalGetRate)
-	log.Printf("Number of nodes: %d", nodeCount)
-	log.Printf("Base POST rate per node: %d TPS", basePostRate)
-	log.Printf("Base GET rate per node: %d TPS", baseGetRate)
+	log.Printf("Rate Limiter: %d nodes, POST: %d TPS (%d/node), GET: %d TPS (%d/node)",
+		nodeCount, totalPostRate, basePostRate, totalGetRate, baseGetRate)
 
 	// Create individual rate limiters for each node
 	for i, nodeURL := range nodeURLs {
@@ -193,13 +189,9 @@ func NewMultiNodeRateLimiter(nodeURLs []string, totalPostRate int, totalGetRate 
 
 		nodeLimiters[i] = NewNodeRateLimiter(nodeURL, i, nodePostRate, nodeGetRate)
 
-		postInterval := time.Second / time.Duration(nodePostRate)
-		getInterval := time.Second / time.Duration(nodeGetRate)
-
-		log.Printf("Node %d (%s): POST %d TPS (1 token every %v), GET %d TPS (1 token every %v)",
-			i, nodeURL, nodePostRate, postInterval, nodeGetRate, getInterval)
+		// Node i rate configuration logged internally
 	}
-	log.Printf("==================================\n")
+	// Rate limiter initialized
 
 	return &MultiNodeRateLimiter{
 		nodeLimiters:  nodeLimiters,
@@ -219,9 +211,9 @@ func (mnrl *MultiNodeRateLimiter) GetNodeRateLimiter(nodeIndex int) *NodeRateLim
 
 // PrintStats prints statistics for all nodes
 func (mnrl *MultiNodeRateLimiter) PrintStats() {
-	log.Println("\n┌─────────────────── Rate Limiter Statistics ───────────────────┐")
-	log.Println("│ Node │ URL                  │ POST Tokens │ GET Tokens │ Elapsed  │ POST TPS │ GET TPS │")
-	log.Println("├──────┼──────────────────────┼─────────────┼────────────┼──────────┼──────────┼─────────┤")
+	log.Println("\nRate Limiter Stats:")
+	log.Println("Node | URL            | POST | GET  | Time  | POST TPS | GET TPS")
+	log.Println("-----|----------------|------|------|-------|---------|--------")
 
 	totalPostTokens := int64(0)
 	totalGetTokens := int64(0)
@@ -241,21 +233,19 @@ func (mnrl *MultiNodeRateLimiter) PrintStats() {
 			url = url[:17] + "..."
 		}
 
-		log.Printf("│ %4d │ %-20s │ %11d │ %10d │ %8.2fs │ %8.2f │ %7.2f │",
+		log.Printf("%4d | %-14s | %4d | %4d | %5.1fs | %7.1f | %6.1f",
 			i, url, postTokens, getTokens, elapsed.Seconds(), postRate, getRate)
 	}
 
-	log.Println("├──────┼──────────────────────┼─────────────┼────────────┼──────────┼──────────┼─────────┤")
+	log.Println("-----|----------------|------|------|-------|---------|--------")
 
 	totalActualPostRate := float64(totalPostTokens) / maxElapsed.Seconds()
 	totalActualGetRate := float64(totalGetTokens) / maxElapsed.Seconds()
 
-	log.Printf("│ TOTAL│                      │ %11d │ %10d │ %8.2fs │ %8.2f │ %7.2f │",
+	log.Printf("TOTAL|                | %4d | %4d | %5.1fs | %7.1f | %6.1f",
 		totalPostTokens, totalGetTokens, maxElapsed.Seconds(), totalActualPostRate, totalActualGetRate)
 
-	log.Println("└──────┴──────────────────────┴─────────────┴────────────┴──────────┴──────────┴─────────┘")
-
-	log.Printf("\nTarget POST rate: %d TPS, Actual POST rate: %.2f TPS", mnrl.totalPostRate, totalActualPostRate)
-	log.Printf("Target GET rate: %d TPS, Actual GET rate: %.2f TPS", mnrl.totalGetRate, totalActualGetRate)
+	log.Printf("\nActual rates - POST: %.1f/%d TPS, GET: %.1f/%d TPS", 
+		totalActualPostRate, mnrl.totalPostRate, totalActualGetRate, mnrl.totalGetRate)
 }
 

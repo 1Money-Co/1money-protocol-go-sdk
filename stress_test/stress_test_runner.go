@@ -154,65 +154,47 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 
 // RunStressTest executes the complete stress test workflow
 func (st *StressTester) RunStressTest() error {
-	log.Println("=== Starting 1Money Batch Mint Stress Test ===")
-	log.Printf("Configuration:")
-	log.Printf("- Node count: %d", st.nodePool.Size())
-	log.Printf("- Mint wallets: %d", MINT_WALLETS_COUNT)
-	log.Printf("- Primary transfer wallets: %d", TRANSFER_WALLETS_COUNT)
-	log.Printf("- Distribution wallets: %d", DISTRIBUTION_WALLETS_COUNT)
-	log.Printf("- Transfer multiplier: %d", TRANSFER_MULTIPLIER)
-	log.Printf("- Transfer workers: %d", TRANSFER_WORKERS_COUNT)
-	log.Printf("- Wallets per mint: %d", WALLETS_PER_MINT)
-	log.Printf("- Mint allowance: %d", MINT_ALLOWANCE)
-	log.Printf("- Mint amount per operation: %d", MINT_AMOUNT)
-	log.Printf("- Transfer amount per operation: %d", TRANSFER_AMOUNT)
-	log.Printf("- Token symbol: %s", GetTokenSymbol())
-	log.Printf("- Token name: %s", TOKEN_NAME)
-	log.Printf("- Chain ID: %d", CHAIN_ID)
-	log.Println()
+	log.Printf("Starting stress test: %d nodes, %d mint wallets, %d transfers", 
+		st.nodePool.Size(), MINT_WALLETS_COUNT, TRANSFER_WALLETS_COUNT)
 
 	// Step 1: Create mint wallets
 	if err := st.createMintWallets(); err != nil {
 		return fmt.Errorf("step 1 failed: %w", err)
 	}
-	log.Println("✓ Step 1: Mint wallets created")
+	log.Println("✓ Mint wallets created")
 
 	// Step 2: Create primary transfer wallets
 	if err := st.createTransferWallets(); err != nil {
 		return fmt.Errorf("step 2 failed: %w", err)
 	}
-	log.Println("✓ Step 2: Primary transfer wallets created")
+	log.Println("✓ Transfer wallets created")
 
 	// Step 2b: Create distribution wallets
 	if err := st.createDistributionWallets(); err != nil {
 		return fmt.Errorf("step 2b failed: %w", err)
 	}
-	log.Println("✓ Step 2b: Distribution wallets created")
+	log.Println("✓ Distribution wallets created")
 
 	// Step 3: Create token
 	if err := st.createToken(); err != nil {
 		return fmt.Errorf("step 3 failed: %w", err)
 	}
-	log.Println("✓ Step 3: Token created")
+	log.Println("✓ Token created")
 
 	// Step 4: Grant mint authorities
 	if err := st.grantMintAuthorities(); err != nil {
 		return fmt.Errorf("step 4 failed: %w", err)
 	}
-	log.Println("✓ Step 4: Mint authorities granted")
+	log.Println("✓ Authorities granted")
 
 	// Step 5: Perform concurrent minting with multi-tier transfers
 	if err := st.performConcurrentMinting(); err != nil {
 		return fmt.Errorf("step 5 failed: %w", err)
 	}
-	log.Println("✓ Step 5: Concurrent minting and transfers completed")
+	log.Println("✓ Minting and transfers completed")
 
-	log.Println("=== Stress Test Completed Successfully! ===")
-	log.Printf("Token Address: %s", st.tokenAddress)
-	log.Printf("Total mint operations: %d", MINT_WALLETS_COUNT*WALLETS_PER_MINT)
-	log.Printf("Total transfer operations: %d", TRANSFER_WALLETS_COUNT*TRANSFER_MULTIPLIER)
-	log.Printf("Total tokens minted: %d", MINT_WALLETS_COUNT*WALLETS_PER_MINT*MINT_AMOUNT)
-	log.Printf("Total tokens distributed: %d", TRANSFER_WALLETS_COUNT*TRANSFER_MULTIPLIER*TRANSFER_AMOUNT)
+	log.Printf("✓ Test completed! Token: %s, Mints: %d, Transfers: %d",
+		st.tokenAddress, MINT_WALLETS_COUNT*WALLETS_PER_MINT, TRANSFER_WALLETS_COUNT*TRANSFER_MULTIPLIER)
 
 	return nil
 }

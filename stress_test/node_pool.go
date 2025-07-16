@@ -146,9 +146,9 @@ func (np *NodePool) PrintDistribution() {
 	np.mu.RLock()
 	defer np.mu.RUnlock()
 
-	log.Println("\n┌─────────────── Node Distribution Statistics ───────────────┐")
-	log.Println("│ Node │ URL                     │ Mints │ Transfers │ GETs  │")
-	log.Println("├──────┼─────────────────────────┼───────┼───────────┼───────┤")
+	log.Println("\nNode Distribution:")
+	log.Println("Node | URL                  | Mints | Transfers | GETs")
+	log.Println("-----|----------------------|-------|-----------|-----")
 
 	totalMints := int64(0)
 	totalTransfers := int64(0)
@@ -168,12 +168,11 @@ func (np *NodePool) PrintDistribution() {
 			url = url[:20] + "..."
 		}
 
-		log.Printf("│ %4d │ %-23s │ %5d │ %9d │ %5d │",
+		log.Printf("%4d | %-20s | %5d | %9d | %5d",
 			i, url, mints, transfers, gets)
 	}
 
-	log.Println("├──────┼─────────────────────────┼───────┼───────────┼───────┤")
-	log.Printf("│ TOTAL│                         │ %5d │ %9d │ %5d │",
+	log.Println("-----|----------------------|-------|-----------|-----")
+	log.Printf("TOTAL|                      | %5d | %9d | %5d",
 		totalMints, totalTransfers, totalGets)
-	log.Println("└──────┴─────────────────────────┴───────┴───────────┴───────┘")
 }
