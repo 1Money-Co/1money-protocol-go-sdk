@@ -28,10 +28,16 @@ echo
 
 go mod download
 
+# Build if binary doesn't exist
+if [ ! -f ./load_runner ]; then
+    echo "Building load_runner..."
+    go build -o load_runner .
+fi
+
 echo "🚀 Starting load test..."
 echo
 
-go run main.go csv_reader.go transaction_sender.go -to "$TARGET_ADDRESS" "$@"
+./load_runner -to "$TARGET_ADDRESS" "$@"
 
 if [ $? -eq 0 ]; then
     echo

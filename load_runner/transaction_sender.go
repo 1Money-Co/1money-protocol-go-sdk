@@ -15,13 +15,16 @@ import (
 )
 
 type TransactionResult struct {
-	AccountIndex int
-	WalletIndex  string
-	FromAddress  string
-	TxHash       string
-	Success      bool
-	Error        error
-	Duration     time.Duration
+	AccountIndex      int
+	WalletIndex       string
+	FromAddress       string
+	TxHash            string
+	Success           bool
+	Error             error
+	Duration          time.Duration
+	Verified          bool
+	VerificationError error
+	TxSuccess         bool
 }
 
 func SendTransaction(client *onemoney.Client, account Account, toAddress string, amount string) (*TransactionResult, error) {
@@ -125,4 +128,40 @@ func SendTransactionsConcurrently(client *onemoney.Client, accounts []Account, t
 	}
 
 	return results
+}
+
+func VerifyTransaction(client *onemoney.Client, txHash string) (bool, error) {
+	ctx := context.Background()
+	receipt, err := client.GetTransactionReceipt(ctx, txHash)
+	if err != nil {
+		return false, err
+	}
+	return receipt.Success, nil
+}
+
+func VerifyTransactionsConcurrently(client *onemoney.Client, results []TransactionResult, concurrency int) {
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, concurrency)
+
+	for i := range results {
+		if !results[i].Success || results[i].TxHash == "" {
+			continue
+		}
+
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			success, err := VerifyTransaction(client, results[idx].TxHash)
+			results[idx].Verified = true
+			results[idx].VerificationError = err
+			if err == nil {
+				results[idx].TxSuccess = success
+			}
+		}(i)
+	}
+
+	wg.Wait()
 }

@@ -56,9 +56,22 @@ go run . -to <target_address> [flags]
 ## Output
 
 The tool provides:
-- Real-time transaction status for each account
+- Log file with all output (`load_runner_YYYYMMDD_HHMMSS.log`)
 - Summary statistics (success rate, TPS, average transaction time)
+- Automatic transaction verification after 10 seconds
 - CSV file with detailed results (`load_results_YYYYMMDD_HHMMSS.csv`)
+
+### Logging
+
+All console output is automatically saved to a timestamped log file in the current directory. Only the log file location is printed to the console.
+
+### Transaction Verification
+
+After all transactions are sent, the tool automatically:
+1. Waits 10 seconds for transactions to be processed
+2. Queries transaction receipts using `getTransactionByReceipt`
+3. Verifies each transaction's on-chain success status
+4. Reports verification results and updates the CSV output
 
 ## CSV Input Format
 
