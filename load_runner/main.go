@@ -128,8 +128,16 @@ func main() {
 	// Log individual results with progress
 	for i, result := range results {
 		if result.Success {
-			Logf("[%d/%d] ✅ Wallet #%s: TX %s (%.3fs)\n",
-				i+1, len(results), result.WalletIndex, result.TxHash, result.Duration.Seconds())
+			sendTime := ""
+			responseTime := ""
+			if !result.SendTime.IsZero() {
+				sendTime = result.SendTime.Format("15:04:05.000")
+			}
+			if !result.ResponseTime.IsZero() {
+				responseTime = result.ResponseTime.Format("15:04:05.000")
+			}
+			Logf("[%d/%d] ✅ Wallet #%s: TX %s (%dms) [Sent: %s, Response: %s]\n",
+				i+1, len(results), result.WalletIndex, result.TxHash, result.Duration.Milliseconds(), sendTime, responseTime)
 		} else {
 			Logf("[%d/%d] ❌ Wallet #%s: %v\n",
 				i+1, len(results), result.WalletIndex, result.Error)
@@ -193,7 +201,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		return results[i].AccountIndex < results[j].AccountIndex
 	})
 
-	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,verified,tx_success,verification_error\n")
+	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,send_time,response_time,verified,tx_success,verification_error\n")
 	for _, result := range results {
 		errorStr := ""
 		if result.Error != nil {
@@ -203,13 +211,23 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		if result.VerificationError != nil {
 			verifyErrorStr = result.VerificationError.Error()
 		}
-		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%t,%t,%s\n",
+		sendTimeStr := ""
+		responseTimeStr := ""
+		if !result.SendTime.IsZero() {
+			sendTimeStr = result.SendTime.Format("2006-01-02 15:04:05.000")
+		}
+		if !result.ResponseTime.IsZero() {
+			responseTimeStr = result.ResponseTime.Format("2006-01-02 15:04:05.000")
+		}
+		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%s,%s,%t,%t,%s\n",
 			result.WalletIndex,
 			result.FromAddress,
 			result.TxHash,
 			result.Success,
 			errorStr,
 			result.Duration.Milliseconds(),
+			sendTimeStr,
+			responseTimeStr,
 			result.Verified,
 			result.TxSuccess,
 			verifyErrorStr,

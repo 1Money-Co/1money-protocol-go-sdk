@@ -28,6 +28,8 @@ type TransactionResult struct {
 	Success           bool
 	Error             error
 	Duration          time.Duration
+	SendTime          time.Time    // When the transaction was sent
+	ResponseTime      time.Time    // When the response was received
 	Verified          bool
 	VerificationError error
 	TxSuccess         bool
@@ -100,7 +102,11 @@ func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account
 		Signature:      *signature,
 	}
 
+	// Capture send time
+	result.SendTime = time.Now()
 	paymentResp, err := client.SendPayment(ctx, paymentReq)
+	result.ResponseTime = time.Now()
+	
 	if err != nil {
 		result.Error = fmt.Errorf("failed to send payment to %s: %w", nodeURL, err)
 		result.Duration = time.Since(startTime)
