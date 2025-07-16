@@ -42,30 +42,18 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 	log.Printf("Processing primary transfer wallets...")
 	for i, wallet := range st.transferWallets {
 		// Get a node for GET operation
-		client, nodeURL, nodeIndex, err := st.nodePool.GetNodeForGet()
+		client, _, _, err := st.nodePool.GetNodeForGet()
 		if err != nil {
 			log.Printf("Failed to get node for balance check (primary wallet %d): %v", i+1, err)
 			continue
 		}
 
-		// Get rate limiter for this node
-		nodeRateLimiter := st.rateLimiter.GetNodeRateLimiter(nodeIndex)
-		if nodeRateLimiter == nil {
-			log.Printf("No rate limiter for node %d", nodeIndex)
-			continue
-		}
-
-		// Apply rate limiting for GET request
-		if err := nodeRateLimiter.WaitForGetToken(st.ctx); err != nil {
-			log.Printf("Rate limiting failed for GetTokenAccount (primary wallet %d) on node %s: %v", i+1, nodeURL, err)
-			continue
-		}
+		// Skip rate limiting for CSV generation to speed up
 
 		// Get token account balance
 		tokenAccount, err := client.GetTokenAccount(st.ctx, wallet.Address, st.tokenAddress)
 		if err != nil {
-			log.Printf("Warning: Failed to get balance for primary wallet %d (%s) from node %s: %v",
-				i+1, wallet.Address, nodeURL, err)
+			// Failed to get balance
 			// Continue with zero balance if account doesn't exist or has error
 			tokenAccount = &onemoney.TokenAccountResponse{Balance: "0"}
 		}
@@ -97,31 +85,18 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 	log.Printf("Processing distribution wallets...")
 	for i, wallet := range st.distributionWallets {
 		// Get a node for GET operation
-		client, nodeURL, nodeIndex, err := st.nodePool.GetNodeForGet()
+		client, _, _, err := st.nodePool.GetNodeForGet()
 		if err != nil {
 			log.Printf("Failed to get node for balance check (distribution wallet %d): %v", i+1, err)
 			continue
 		}
 
-		// Get rate limiter for this node
-		nodeRateLimiter := st.rateLimiter.GetNodeRateLimiter(nodeIndex)
-		if nodeRateLimiter == nil {
-			log.Printf("No rate limiter for node %d", nodeIndex)
-			continue
-		}
-
-		// Apply rate limiting for GET request
-		if err := nodeRateLimiter.WaitForGetToken(st.ctx); err != nil {
-			log.Printf("Rate limiting failed for GetTokenAccount (distribution wallet %d) on node %s: %v",
-				i+1, nodeURL, err)
-			continue
-		}
+		// Skip rate limiting for CSV generation to speed up
 
 		// Get token account balance
 		tokenAccount, err := client.GetTokenAccount(st.ctx, wallet.Address, st.tokenAddress)
 		if err != nil {
-			log.Printf("Warning: Failed to get balance for distribution wallet %d (%s) from node %s: %v",
-				i+1, wallet.Address, nodeURL, err)
+			// Failed to get balance
 			// Continue with zero balance if account doesn't exist or has error
 			tokenAccount = &onemoney.TokenAccountResponse{Balance: "0"}
 		}
@@ -147,15 +122,13 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 		}
 
 		processedCount++
-		// Log progress every CSV_PROGRESS_INTERVAL_DIST wallets for distribution tier
-		if processedCount%CSV_PROGRESS_INTERVAL_DIST == 0 {
-			log.Printf("Processed %d/%d total wallets for CSV generation", processedCount, totalWallets)
+		// Log progress at 25%, 50%, 75%
+		if processedCount == totalWallets/4 || processedCount == totalWallets/2 || processedCount == 3*totalWallets/4 {
+			log.Printf("CSV generation: %d/%d", processedCount, totalWallets)
 		}
 	}
 
-	log.Printf("Successfully generated multi-tier accounts detail CSV: %s", csvFileName)
-	log.Printf("CSV contains %d total account records (%d primary + %d distribution)",
-		totalWallets, len(st.transferWallets), len(st.distributionWallets))
+	log.Printf("✓ CSV generated: %s (%d entries)", csvFileName, processedCount)
 
 	return nil
 }

@@ -115,7 +115,8 @@ func (st *StressTester) verifyNonceIncrement(expectedNonce uint64, walletIndex i
 		}
 
 		// Nonce hasn't incremented yet, wait and retry
-		if retry == 0 || retry%5 == 0 {
+		// Log only at 50% and max retries
+		if retry == maxRetries/2 || retry == maxRetries-1 {
 			log.Printf("Waiting for nonce %d→%d (retry %d/%d)", currentNonce, expectedNonce, retry+1, maxRetries)
 		}
 		time.Sleep(retryInterval)
@@ -238,7 +239,8 @@ func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress str
 			if retryCount >= maxRetries {
 				return fmt.Errorf("transaction receipt timeout after %d retries", maxRetries)
 			}
-			if retryCount == 1 || retryCount%10 == 0 {
+			// Log only at 50% and max retries
+			if retryCount == maxRetries/2 || retryCount == maxRetries-1 {
 				log.Printf("Waiting for tx %s... (retry %d/%d)", txHash[:8]+"...", retryCount, maxRetries)
 			}
 			time.Sleep(500 * time.Millisecond)
@@ -246,9 +248,7 @@ func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress str
 		}
 
 		if receipt.Success {
-			if retryCount > 0 {
-				log.Printf("✓ Transaction confirmed after %d retries", retryCount)
-			}
+			// Transaction confirmed
 			return nil
 		} else {
 			return fmt.Errorf("transaction failed: %s", txHash)
@@ -289,9 +289,7 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 		}
 
 		if accountNonce.Nonce == expectedNonce {
-			if retryCount > 0 {
-				log.Printf("✓ Nonce validated after %d retries", retryCount)
-			}
+			// Nonce validated
 			return nil
 		}
 
@@ -305,7 +303,8 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 				maxRetries, accountNonce.Nonce, expectedNonce)
 		}
 
-		if retryCount == 1 || retryCount%10 == 0 {
+		// Log only at 50% and max retries
+		if retryCount == maxRetries/2 || retryCount == maxRetries-1 {
 			log.Printf("Nonce wait: %d→%d (retry %d/%d)", accountNonce.Nonce, expectedNonce, retryCount, maxRetries)
 		}
 		time.Sleep(500 * time.Millisecond)
@@ -414,7 +413,7 @@ func (st *StressTester) createToken() error {
 		IsPrivate:       false,
 	}
 
-	// Debug: Token creation details logged internally
+	// Token creation payload
 
 	signature, err := client.SignMessage(payload, st.operatorWallet.PrivateKey)
 	if err != nil {
@@ -450,7 +449,7 @@ func (st *StressTester) createToken() error {
 	}
 
 	st.tokenAddress = result.Token
-	log.Printf("Token %s submitted (tx: %s...)", tokenSymbol, result.Hash[:8])
+	// Token submission logged internally
 
 	// Wait for transaction confirmation
 	if err := st.waitForTransactionReceipt(result.Hash, st.operatorWallet.Address, st.tokenAddress, "TOKEN_CREATE"); err != nil {
@@ -529,7 +528,7 @@ func (st *StressTester) grantSingleMintAuthority(walletIndex int, mintWallet *Wa
 		Value:            big.NewInt(MINT_ALLOWANCE),
 	}
 
-	// Debug: Authority grant details logged internally
+	// Authority grant payload
 
 	signature, err := client.SignMessage(payload, st.operatorWallet.PrivateKey)
 	if err != nil {
@@ -563,7 +562,7 @@ func (st *StressTester) grantSingleMintAuthority(walletIndex int, mintWallet *Wa
 		return fmt.Errorf("failed to grant authority to wallet %d: %w", walletIndex, err)
 	}
 
-	// Authority submitted for wallet walletIndex+1
+	// Authority grant in progress
 
 	// Wait for transaction confirmation
 	if err := st.waitForTransactionReceipt(result.Hash, st.operatorWallet.Address, mintWallet.Address, "AUTHORITY_GRANT"); err != nil {
@@ -603,7 +602,7 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 		Token:     common.HexToAddress(st.tokenAddress),
 	}
 
-	// Debug: Mint details logged internally
+	// Mint payload
 
 	// Sign the payload
 	signature, err := client.SignMessage(payload, mintWallet.PrivateKey)
@@ -640,7 +639,7 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 		return fmt.Errorf("failed to mint token: %w", err)
 	}
 
-	// Mint submitted: mintWalletIndex -> transferWalletIndex
+	// Mint in progress
 
 	// Wait for transaction confirmation
 	if err := st.waitForTransactionReceipt(result.Hash, mintWallet.Address, transferWallet.Address, "MINT"); err != nil {
@@ -685,7 +684,7 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 		Token:     common.HexToAddress(st.tokenAddress),
 	}
 
-	// Debug: Transfer details logged internally
+	// Transfer payload
 
 	// Sign the payload
 	signature, err := client.SignMessage(payload, fromWallet.PrivateKey)
@@ -722,7 +721,7 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 		return fmt.Errorf("failed to send transfer: %w", err)
 	}
 
-	// Transfer submitted: fromIndex -> toIndex
+	// Transfer in progress
 
 	// Wait for transaction confirmation
 	if err := st.waitForTransactionReceipt(result.Hash, fromWallet.Address, toWallet.Address, "TRANSFER"); err != nil {
