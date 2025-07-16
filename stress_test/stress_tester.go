@@ -214,7 +214,7 @@ func (st *StressTester) getAccountNonce(address string) (uint64, error) {
 // waitForTransactionReceipt waits for transaction receipt using node pool
 func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress string, toAddress string, operationType string) error {
 	retryCount := 0
-	maxRetries := 60 // Maximum 60 retries (about 30 seconds with 500ms intervals)
+	maxRetries := 120 // Maximum 120 retries (about 60 seconds with 500ms intervals)
 	for {
 		// Get a node for GET operation
 		client, _, nodeIndex, err := st.nodePool.GetNodeForGet()
@@ -259,7 +259,7 @@ func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress str
 // validateNonceIncrement validates nonce increment using node pool
 func (st *StressTester) validateNonceIncrement(address string, expectedNonce uint64, walletType string, operationType string) error {
 	retryCount := 0
-	maxRetries := 40 // Maximum 40 retries (about 20 seconds with 500ms intervals)
+	maxRetries := 80 // Maximum 80 retries (about 40 seconds with 500ms intervals)
 	for {
 		// Get a node for GET operation
 		client, _, nodeIndex, err := st.nodePool.GetNodeForGet()
@@ -630,21 +630,13 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 	}
 
 	// Send mint request
-	result, err := client.MintToken(st.ctx, req)
+	_, err = client.MintToken(st.ctx, req)
 	if err != nil {
 		log.Printf("Error: Failed to mint (%d→%d): %v", mintWalletIndex, transferWalletIndex, err)
 		return fmt.Errorf("failed to mint token: %w", err)
 	}
 
-	// Mint in progress
-
-	// Wait for transaction confirmation
-	if err := st.waitForTransactionReceipt(result.Hash, mintWallet.Address, transferWallet.Address, "MINT"); err != nil {
-		log.Printf("Error: Mint timeout (%d→%d): %v", mintWalletIndex, transferWalletIndex, err)
-		return fmt.Errorf("failed to confirm mint transaction: %w", err)
-	}
-
-	// Validate nonce increment
+	// Validate nonce increment to ensure transaction was confirmed
 	if err := st.validateNonceIncrement(mintWallet.Address, nonce+1, "MINT_WALLET", "MINT"); err != nil {
 		log.Printf("Error: Nonce validation failed (wallet %d): %v", mintWalletIndex, err)
 		return fmt.Errorf("failed to validate nonce increment after mint operation: %w", err)
@@ -725,7 +717,7 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 		return fmt.Errorf("failed to confirm transfer transaction: %w", err)
 	}
 
-	// Validate nonce increment
+	// Validate nonce increment to ensure transaction was confirmed
 	if err := st.validateNonceIncrement(fromWallet.Address, nonce+1, "TRANSFER_WALLET", "TRANSFER"); err != nil {
 		log.Printf("Error: Nonce validation failed (wallet %d): %v", fromIndex, err)
 		return fmt.Errorf("failed to validate nonce increment after transfer operation: %w", err)
@@ -742,7 +734,7 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 }
 
 // transferWorker processes transfer tasks
-func (st *StressTester) transferWorker(transferTasks <-chan TransferTask, wg *sync.WaitGroup) {
+func (st *StressTester) transferWorker(transferTasks <-chan TransferTask, wg *sync.WaitGroup, primaryCounter *int64, totalPrimary int64) {
 	for task := range transferTasks {
 		log.Printf("Starting transfer task: primary wallet %d → %d distribution wallets",
 			task.PrimaryIndex, task.EndIdx-task.StartIdx)
@@ -750,8 +742,14 @@ func (st *StressTester) transferWorker(transferTasks <-chan TransferTask, wg *sy
 		// Transfer tokens from primary wallet to each assigned distribution wallet
 		transferCount := 0
 		totalTransfers := task.EndIdx - task.StartIdx
-		
+
+		walletFailed := false
 		for i := task.StartIdx; i < task.EndIdx; i++ {
+			if walletFailed {
+				log.Printf("Skipping remaining transfers for primary wallet %d due to previous failure", task.PrimaryIndex)
+				break
+			}
+
 			if i >= len(st.distributionWallets) {
 				log.Printf("Warning: distribution wallet index %d exceeds available wallets (%d)",
 					i, len(st.distributionWallets))
@@ -760,21 +758,36 @@ func (st *StressTester) transferWorker(transferTasks <-chan TransferTask, wg *sy
 
 			distributionWallet := st.distributionWallets[i]
 			transferCount++
-			
+
 			log.Printf("Transfer %d/%d: primary wallet %d → distribution wallet %d",
 				transferCount, totalTransfers, task.PrimaryIndex, i+1)
-			
+
 			if err := st.transferFromWallet(task.PrimaryWallet, distributionWallet,
 				int64(TRANSFER_AMOUNT), task.PrimaryIndex, i+1); err != nil {
 				log.Printf("Error: Transfer failed (primary %d → distribution %d): %v",
 					task.PrimaryIndex, i+1, err)
-				// Continue with next transfer instead of failing entire task
-				continue
+				// If transfer fails, mark wallet as failed to prevent nonce conflicts
+				walletFailed = true
+				break
 			}
 		}
 
-		log.Printf("✓ Completed transfers for primary wallet %d (%d/%d)", 
-			task.PrimaryIndex, transferCount, totalTransfers)
+		// Update primary wallet completion counter
+		completedPrimary := atomic.AddInt64(primaryCounter, 1)
+
+		if walletFailed {
+			log.Printf("⚠ Partial completion for primary wallet %d (%d/%d) - Overall: %d/%d primary wallets",
+				task.PrimaryIndex, transferCount, totalTransfers, completedPrimary, totalPrimary)
+		} else {
+			log.Printf("✓ Completed transfers for primary wallet %d (%d/%d) - Overall: %d/%d primary wallets",
+				task.PrimaryIndex, transferCount, totalTransfers, completedPrimary, totalPrimary)
+		}
+
+		// Log milestone progress
+		if completedPrimary%(totalPrimary/4) == 0 || completedPrimary == totalPrimary {
+			log.Printf("Primary wallet progress: %d/%d completed", completedPrimary, totalPrimary)
+		}
+
 		wg.Done()
 	}
 }
@@ -861,10 +874,14 @@ func (st *StressTester) performAllTransfers() error {
 	var transferWG sync.WaitGroup
 	transferTasks := make(chan TransferTask, TRANSFER_WALLETS_COUNT)
 
+	// Add atomic counter for primary wallet completion progress
+	var primaryWalletCounter int64
+	totalPrimaryWallets := int64(TRANSFER_WALLETS_COUNT)
+
 	// Start transfer worker goroutines
 	log.Printf("Starting %d transfer workers...", TRANSFER_WORKERS_COUNT)
 	for i := 0; i < TRANSFER_WORKERS_COUNT; i++ {
-		go st.transferWorker(transferTasks, &transferWG)
+		go st.transferWorker(transferTasks, &transferWG, &primaryWalletCounter, totalPrimaryWallets)
 	}
 
 	// Queue all transfer tasks

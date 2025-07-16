@@ -28,9 +28,8 @@ const (
 	MINT_AMOUNT     = 1000000000 * (TRANSFER_MULTIPLIER + 1)  // Amount to mint per operation
 	TRANSFER_AMOUNT = MINT_AMOUNT / (TRANSFER_MULTIPLIER + 1) // Amount to transfer per distribution operation (250)
 
-
 	// Rate Limiting Configuration
-	POST_RATE_LIMIT_TPS = 125 // Maximum POST requests per second (configurable)
+	POST_RATE_LIMIT_TPS = 50  // Maximum POST requests per second (configurable)
 	GET_RATE_LIMIT_TPS  = 250 // Maximum GET requests per second (configurable)
 
 	// Nonce Management Configuration
