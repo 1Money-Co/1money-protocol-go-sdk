@@ -27,8 +27,8 @@ const (
 	CHAIN_ID       = 1212101
 
 	// Mint Configuration
-	MINT_ALLOWANCE  = 10000000                                // Allowance granted to each mint wallet
-	MINT_AMOUNT     = 1000 * (TRANSFER_MULTIPLIER + 1)        // Amount to mint per operation
+	MINT_ALLOWANCE  = 1000000000000000000                     // Allowance granted to each mint wallet
+	MINT_AMOUNT     = 1000000000 * (TRANSFER_MULTIPLIER + 1)  // Amount to mint per operation
 	TRANSFER_AMOUNT = MINT_AMOUNT / (TRANSFER_MULTIPLIER + 1) // Amount to transfer per distribution operation (250)
 
 	// Transaction Validation Configuration
@@ -89,7 +89,7 @@ func generateTokenSymbol() string {
 	// }
 
 	// return "1USD" + string(letterPart) + string(digitPart)
-	return "1USD" 
+	return "1USD"
 }
 
 // GetTokenSymbol returns a dynamically generated token symbol for each test run
