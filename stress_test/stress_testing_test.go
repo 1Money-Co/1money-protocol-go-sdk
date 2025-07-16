@@ -21,10 +21,15 @@ func TestBatchMint(t *testing.T) {
 	// Create custom logger that writes to file
 	fileLogger := log.New(logFile, "", log.LstdFlags|log.Lmicroseconds)
 
-	// Redirect default log output to file
+	// Redirect default log output to file with microseconds
 	originalLogOutput := log.Writer()
+	originalLogFlags := log.Flags()
 	log.SetOutput(logFile)
-	defer log.SetOutput(originalLogOutput)
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	defer func() {
+		log.SetOutput(originalLogOutput)
+		log.SetFlags(originalLogFlags)
+	}()
 
 	// Helper function to log to both test output and file
 	logToFile := func(format string, args ...interface{}) {

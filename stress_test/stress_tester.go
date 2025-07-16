@@ -467,8 +467,7 @@ func (st *StressTester) createToken() error {
 
 // grantMintAuthorities grants mint permissions sequentially (single-threaded)
 func (st *StressTester) grantMintAuthorities() error {
-	log.Printf("AUTHORITY_GRANT_START: Granting mint authorities to %d wallets using operator wallet (%s) sequentially...",
-		len(st.mintWallets), st.operatorWallet.Address)
+	log.Printf("Granting mint authorities to %d wallets...", len(st.mintWallets))
 
 	// Get initial nonce to track progress
 	initialNonce, err := st.getAccountNonce(st.operatorWallet.Address)
@@ -476,12 +475,11 @@ func (st *StressTester) grantMintAuthorities() error {
 		return fmt.Errorf("failed to get initial nonce: %w", err)
 	}
 
-	log.Printf("AUTHORITY_GRANT_INITIAL_NONCE: Starting with operator wallet nonce: %d", initialNonce)
+	// Initial nonce: initialNonce
 
 	// Grant authority to each wallet sequentially
 	for i, mintWallet := range st.mintWallets {
-		log.Printf("AUTHORITY_GRANT_PROGRESS: Processing wallet %d/%d (%s)...",
-			i+1, len(st.mintWallets), mintWallet.Address)
+		// Processing wallet i+1
 
 		// Grant authority to this wallet
 		if err := st.grantSingleMintAuthority(i, mintWallet); err != nil {
@@ -494,11 +492,12 @@ func (st *StressTester) grantMintAuthorities() error {
 			return fmt.Errorf("nonce verification failed after granting authority to wallet %d: %w", i+1, err)
 		}
 
-		log.Printf("AUTHORITY_GRANT_SUCCESS: Successfully granted authority to wallet %d/%d (%s), nonce now: %d",
-			i+1, len(st.mintWallets), mintWallet.Address, expectedNonce)
+		if i+1 == len(st.mintWallets)/2 || i+1 == len(st.mintWallets) {
+			log.Printf("Granted authorities: %d/%d", i+1, len(st.mintWallets))
+		}
 	}
 
-	log.Printf("AUTHORITY_GRANT_COMPLETE: All %d mint authorities granted successfully", len(st.mintWallets))
+	log.Printf("✓ Granted %d mint authorities", len(st.mintWallets))
 	return nil
 }
 
@@ -805,8 +804,7 @@ func (st *StressTester) performConcurrentMinting() error {
 				endIdx = len(st.transferWallets)
 			}
 
-			log.Printf("Mint wallet %d (%s) minting to primary wallets %d-%d",
-				walletIndex+1, wallet.Address, startIdx+1, endIdx)
+			// Starting mint operations for wallet walletIndex+1
 
 			// Perform mint operations to assigned transfer wallets
 			for j := startIdx; j < endIdx; j++ {
@@ -836,7 +834,7 @@ func (st *StressTester) performConcurrentMinting() error {
 				transferTasks <- transferTask
 			}
 
-			log.Printf("Mint wallet %d completed all minting operations", walletIndex+1)
+			// Mint wallet walletIndex+1 completed
 		}(i, mintWallet)
 	}
 
