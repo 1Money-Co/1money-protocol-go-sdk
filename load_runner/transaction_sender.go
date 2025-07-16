@@ -14,6 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+const (
+	// HardcodedChainID is the fixed chain ID for 1Money network
+	// This avoids REST API calls to get chain ID
+	HardcodedChainID = 1212101
+)
+
 type TransactionResult struct {
 	AccountIndex      int
 	WalletIndex       string
@@ -69,18 +75,13 @@ func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 	result.FromAddress = fromAddress.Hex()
 
-	chainIDResp, err := client.GetChainId(ctx)
-	if err != nil {
-		result.Error = fmt.Errorf("failed to get chain ID: %w", err)
-		result.Duration = time.Since(startTime)
-		return result, result.Error
-	}
+	// Use hardcoded chainId to avoid API call
 
 	amountBig := new(big.Int)
 	amountBig.SetString(amount, 10)
 
 	payload := onemoney.PaymentPayload{
-		ChainID:   uint64(chainIDResp.ChainId),
+		ChainID:   HardcodedChainID,
 		Nonce:     uint64(0),
 		Recipient: common.HexToAddress(toAddress),
 		Value:     amountBig,
@@ -118,7 +119,7 @@ func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account
 func SendTransactionsConcurrently(nodePool *NodePool, rateLimiter *GlobalRateLimiter, accounts []Account, toAddress string, amount string, concurrency int) []TransactionResult {
 	var wg sync.WaitGroup
 	resultsChan := make(chan TransactionResult, len(accounts))
-	
+
 	// Apply effective concurrency based on rate limits
 	effectiveConcurrency := rateLimiter.GetEffectivePostConcurrency(concurrency)
 	if effectiveConcurrency != concurrency {
@@ -163,7 +164,7 @@ func VerifyTransaction(client *onemoney.Client, txHash string) (bool, error) {
 
 func VerifyTransactionsConcurrently(nodePool *NodePool, rateLimiter *GlobalRateLimiter, results []TransactionResult, concurrency int) {
 	var wg sync.WaitGroup
-	
+
 	// Apply effective concurrency based on rate limits
 	effectiveConcurrency := rateLimiter.GetEffectiveGetConcurrency(concurrency)
 	if effectiveConcurrency != concurrency {
@@ -187,14 +188,14 @@ func VerifyTransactionsConcurrently(nodePool *NodePool, rateLimiter *GlobalRateL
 				results[idx].VerificationError = fmt.Errorf("no client available")
 				return
 			}
-			
+
 			// Apply rate limiting for GET request
 			ctx := context.Background()
 			if err := rateLimiter.WaitForGet(ctx); err != nil {
 				results[idx].VerificationError = fmt.Errorf("rate limit wait failed: %w", err)
 				return
 			}
-			
+
 			success, err := VerifyTransaction(client, results[idx].TxHash)
 			results[idx].Verified = true
 			results[idx].VerificationError = err

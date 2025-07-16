@@ -110,6 +110,7 @@ func main() {
 	rateLimiter := NewGlobalRateLimiter(nodePool.Size())
 	defer rateLimiter.Close()
 	
+	Logf("Chain ID: %d (hardcoded)\n", HardcodedChainID)
 	Logf("Rate limits: POST %d TPS/node, GET %d TPS/node\n", PostRateLimitPerNode, GetRateLimitPerNode)
 	Logf("Total rate limits: POST %d TPS, GET %d TPS\n", 
 		nodePool.Size()*PostRateLimitPerNode, nodePool.Size()*GetRateLimitPerNode)
