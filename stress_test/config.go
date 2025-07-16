@@ -33,13 +33,13 @@ const (
 
 	// Transaction Validation Configuration
 	RECEIPT_CHECK_TIMEOUT    = 10 * time.Second       // Timeout for waiting for transaction receipt
-	RECEIPT_CHECK_INTERVAL   = 200 * time.Millisecond // Interval between receipt checks
+	RECEIPT_CHECK_INTERVAL   = 500 * time.Millisecond // Interval between receipt checks
 	NONCE_VALIDATION_TIMEOUT = 10 * time.Second       // Timeout for nonce validation
-	NONCE_CHECK_INTERVAL     = 200 * time.Millisecond // Interval between nonce checks
+	NONCE_CHECK_INTERVAL     = 500 * time.Millisecond // Interval between nonce checks
 
 	// Rate Limiting Configuration
-	POST_RATE_LIMIT_TPS = 250 // Maximum POST requests per second (configurable)
-	GET_RATE_LIMIT_TPS  = 500 // Maximum GET requests per second (configurable)
+	POST_RATE_LIMIT_TPS = 125 // Maximum POST requests per second (configurable)
+	GET_RATE_LIMIT_TPS  = 250 // Maximum GET requests per second (configurable)
 )
 
 // Wallet represents a wallet with private key, public key, and address

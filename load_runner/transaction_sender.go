@@ -86,8 +86,15 @@ func SendTransactionsMultiNode(
 		)
 	}
 
+	// Create a separate channel for progress monitoring
+	progressChan := make(chan TransactionResult, len(accounts))
+	
 	// Start progress monitor
-	go monitorProgress(len(accounts), results, startTime)
+	progressDone := make(chan bool)
+	go func() {
+		monitorProgress(len(accounts), progressChan, startTime)
+		close(progressDone)
+	}()
 
 	// Wait for all workers to complete
 	go func() {
@@ -95,11 +102,21 @@ func SendTransactionsMultiNode(
 		close(results)
 	}()
 
-	// Collect results
+	// Collect results and forward to progress monitor
 	allResults := make([]TransactionResult, 0, len(accounts))
 	for result := range results {
 		allResults = append(allResults, result)
+		// Send copy to progress monitor
+		select {
+		case progressChan <- result:
+		default:
+			// If progress channel is full, skip (shouldn't happen with buffer)
+		}
 	}
+	
+	// Close progress channel and wait for monitor to finish
+	close(progressChan)
+	<-progressDone
 
 	// Print final statistics
 	rateLimiter.PrintStats()
@@ -116,6 +133,9 @@ func monitorProgress(totalAccounts int, results <-chan TransactionResult, startT
 	successful := int32(0)
 	failed := int32(0)
 
+	// Create a channel to signal when counting is done
+	countingDone := make(chan bool)
+	
 	// Count results in background
 	go func() {
 		for result := range results {
@@ -126,25 +146,42 @@ func monitorProgress(totalAccounts int, results <-chan TransactionResult, startT
 				atomic.AddInt32(&failed, 1)
 			}
 		}
+		close(countingDone)
 	}()
 
-	for range ticker.C {
-		p := atomic.LoadInt32(&processed)
-		s := atomic.LoadInt32(&successful)
-		f := atomic.LoadInt32(&failed)
+	// Monitor progress until all are processed
+	for {
+		select {
+		case <-ticker.C:
+			p := atomic.LoadInt32(&processed)
+			s := atomic.LoadInt32(&successful)
+			f := atomic.LoadInt32(&failed)
 
-		if p == int32(totalAccounts) {
-			break
+			elapsed := time.Since(startTime)
+			rate := float64(p) / elapsed.Seconds()
+			
+			if p < int32(totalAccounts) {
+				remaining := totalAccounts - int(p)
+				eta := time.Duration(float64(remaining) / rate * float64(time.Second))
+				
+				Logf("Progress: %d/%d (%.1f%%) | Success: %d | Failed: %d | Rate: %.2f TPS | ETA: %v\n",
+					p, totalAccounts, float64(p)/float64(totalAccounts)*100,
+					s, f, rate, eta.Round(time.Second))
+			}
+		case <-countingDone:
+			// Print final progress
+			p := atomic.LoadInt32(&processed)
+			s := atomic.LoadInt32(&successful)
+			f := atomic.LoadInt32(&failed)
+			
+			elapsed := time.Since(startTime)
+			rate := float64(p) / elapsed.Seconds()
+			
+			Logf("Progress: %d/%d (%.1f%%) | Success: %d | Failed: %d | Rate: %.2f TPS | Completed\n",
+				p, totalAccounts, float64(p)/float64(totalAccounts)*100,
+				s, f, rate)
+			return
 		}
-
-		elapsed := time.Since(startTime)
-		rate := float64(p) / elapsed.Seconds()
-		remaining := totalAccounts - int(p)
-		eta := time.Duration(float64(remaining) / rate * float64(time.Second))
-
-		Logf("\rProgress: %d/%d (%.1f%%) | Success: %d | Failed: %d | Rate: %.2f TPS | ETA: %v",
-			p, totalAccounts, float64(p)/float64(totalAccounts)*100,
-			s, f, rate, eta.Round(time.Second))
 	}
 }
 
