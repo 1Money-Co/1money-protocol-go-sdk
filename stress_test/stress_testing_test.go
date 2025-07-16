@@ -36,8 +36,8 @@ func TestBatchMint(t *testing.T) {
 	logToFile("Initializing 1Money Batch Mint Stress Tester...")
 	logToFile("Log file created: %s", logFileName)
 
-	// Run the complete stress test using shared function
-	if err := runCompleteStressTest(logToFile, fileLogger); err != nil {
+	// Run the complete stress test using shared function (legacy single node)
+	if err := runCompleteStressTestLegacy(logToFile, fileLogger); err != nil {
 		t.Fatal(err)
 	}
 

@@ -4,9 +4,6 @@ import (
 	"context"
 	// "math/rand"
 	"time"
-
-	onemoney "github.com/1Money-Co/1money-go-sdk"
-	"golang.org/x/time/rate"
 )
 
 // Configurable Constants - Modify these values as needed for different stress test scenarios
@@ -59,16 +56,15 @@ type TransferTask struct {
 
 // StressTester manages the stress testing operations
 type StressTester struct {
-	client              *onemoney.Client
+	nodePool            *NodePool
 	operatorWallet      *Wallet
 	mintWallets         []*Wallet
 	transferWallets     []*Wallet // Primary transfer wallets (tier 2)
 	distributionWallets []*Wallet // Distribution wallets (tier 3)
 	tokenAddress        string
 	ctx                 context.Context
-	postRateLimiter     *rate.Limiter // Rate limiter for POST requests
-	getRateLimiter      *rate.Limiter // Rate limiter for GET requests
-	transferCounter     int64         // Atomic counter for tracking transfer progress
+	rateLimiter         *MultiNodeRateLimiter // Multi-node rate limiter
+	transferCounter     int64                 // Atomic counter for tracking transfer progress
 }
 
 // generateTokenSymbol generates a random token symbol with format "1M" + 5 letters + 2 digits

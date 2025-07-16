@@ -29,3 +29,5 @@ __debug_bin
 # Log files and CSV outputs from stress tests
 /stress_test/*.log
 /stress_test/*.csv
+stress_test/stress_test
+stress_test/stress_test
