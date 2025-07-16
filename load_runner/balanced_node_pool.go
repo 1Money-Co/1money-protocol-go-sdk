@@ -59,22 +59,23 @@ func (np *BalancedNodePool) AddNode(url string) error {
 
 // GetNextClientForSend returns the next client for sending transactions
 // Uses strict round-robin to ensure even distribution
-func (np *BalancedNodePool) GetNextClientForSend() (*onemoney.Client, string, int, error) {
+// Returns: client, nodeURL, nodeIndex, nodeCount (for this specific node)
+func (np *BalancedNodePool) GetNextClientForSend() (*onemoney.Client, string, int, int64, error) {
 	np.mu.RLock()
 	defer np.mu.RUnlock()
 
 	if len(np.nodes) == 0 {
-		return nil, "", 0, fmt.Errorf("no nodes available in pool")
+		return nil, "", 0, 0, fmt.Errorf("no nodes available in pool")
 	}
 
 	// Strict round-robin selection
 	counter := atomic.AddUint64(&np.sendCounter, 1)
 	index := int((counter - 1) % uint64(len(np.nodes)))
 	
-	// Increment send count for this node
-	atomic.AddInt64(&np.nodes[index].SendCount, 1)
+	// Increment send count for this node and get the new count
+	nodeCount := atomic.AddInt64(&np.nodes[index].SendCount, 1)
 	
-	return np.nodes[index].Client, np.nodes[index].URL, index, nil
+	return np.nodes[index].Client, np.nodes[index].URL, index, nodeCount, nil
 }
 
 // GetNextClientForVerify returns the next client for verifying transactions
@@ -173,4 +174,17 @@ func (np *BalancedNodePool) GetNodeURL(index int) string {
 	url = strings.TrimPrefix(url, "http://")
 	url = strings.TrimPrefix(url, "https://")
 	return url
+}
+
+// CalculateExpectedTransactionsPerNode calculates how many transactions each node should handle
+func (np *BalancedNodePool) CalculateExpectedTransactionsPerNode(totalTransactions int) int {
+	np.mu.RLock()
+	defer np.mu.RUnlock()
+	
+	if len(np.nodes) == 0 {
+		return 0
+	}
+	
+	// Calculate expected transactions per node (rounded up)
+	return (totalTransactions + len(np.nodes) - 1) / len(np.nodes)
 }

@@ -106,8 +106,9 @@ func main() {
 
 	Logf("Loaded %d accounts from CSV\n", len(accounts))
 	
-	// Create smooth rate limiter based on node count
-	rateLimiter := NewSmoothGlobalRateLimiter(nodePool.Size())
+	// Create smooth rate limiter based on node count and requested concurrency
+	// For verification, we use the same concurrency as sending
+	rateLimiter := NewSmoothGlobalRateLimiter(nodePool.Size(), *concurrency, *concurrency)
 	defer rateLimiter.Close()
 	
 	Logf("Chain ID: %d (hardcoded)\n", HardcodedChainID)
@@ -122,12 +123,16 @@ func main() {
 	Logln("\nStarting transaction sending...")
 	Logln(strings.Repeat("═", 60))
 
+	// Calculate expected transactions per node
+	expectedPerNode := nodePool.CalculateExpectedTransactionsPerNode(len(accounts))
+	Logf("Expected transactions per node: %d\n", expectedPerNode)
+
 	startTime := time.Now()
 	results := SendTransactionsConcurrently(nodePool, rateLimiter, accounts, *toAddress, *amount, *concurrency)
 	sendDuration := time.Since(startTime)
 
 	// Log individual results with progress
-	for i, result := range results {
+	for _, result := range results {
 		sendTime := ""
 		responseTime := ""
 		if !result.SendTime.IsZero() {
@@ -139,10 +144,10 @@ func main() {
 		
 		if result.Success {
 			Logf("[Sent: %s, Response: %s] [%d/%d-%s](%dms) ✅ Wallet #%s: TX %s\n",
-				sendTime, responseTime, i+1, len(results), result.NodeURL, result.Duration.Milliseconds(), result.WalletIndex, result.TxHash)
+				sendTime, responseTime, result.NodeCount, expectedPerNode, result.NodeURL, result.Duration.Milliseconds(), result.WalletIndex, result.TxHash)
 		} else {
 			Logf("[Sent: %s, Response: %s] [%d/%d-%s](%dms) ❌ Wallet #%s: %v\n",
-				sendTime, responseTime, i+1, len(results), result.NodeURL, result.Duration.Milliseconds(), result.WalletIndex, result.Error)
+				sendTime, responseTime, result.NodeCount, expectedPerNode, result.NodeURL, result.Duration.Milliseconds(), result.WalletIndex, result.Error)
 		}
 	}
 
@@ -206,7 +211,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		return results[i].AccountIndex < results[j].AccountIndex
 	})
 
-	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,send_time,response_time,node_url,verified,tx_success,verification_error\n")
+	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,send_time,response_time,node_url,node_count,verified,tx_success,verification_error\n")
 	for _, result := range results {
 		errorStr := ""
 		if result.Error != nil {
@@ -224,7 +229,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		if !result.ResponseTime.IsZero() {
 			responseTimeStr = result.ResponseTime.Format("2006-01-02 15:04:05.000")
 		}
-		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%s,%s,%s,%t,%t,%s\n",
+		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%s,%s,%s,%d,%t,%t,%s\n",
 			result.WalletIndex,
 			result.FromAddress,
 			result.TxHash,
@@ -234,6 +239,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 			sendTimeStr,
 			responseTimeStr,
 			result.NodeURL,
+			result.NodeCount,
 			result.Verified,
 			result.TxSuccess,
 			verifyErrorStr,

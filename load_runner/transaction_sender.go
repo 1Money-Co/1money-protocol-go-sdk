@@ -35,6 +35,7 @@ type TransactionResult struct {
 	TxSuccess         bool
 	NodeIndex         int          // Which node was used
 	NodeURL           string       // Node URL for logging
+	NodeCount         int64        // Count for this specific node
 }
 
 func SendTransaction(nodePool *BalancedNodePool, rateLimiter RateLimiterInterface, account Account, toAddress string, amount string) (*TransactionResult, error) {
@@ -44,17 +45,19 @@ func SendTransaction(nodePool *BalancedNodePool, rateLimiter RateLimiterInterfac
 	}
 
 	// Get client from node pool
-	client, nodeURL, nodeIndex, err := nodePool.GetNextClientForSend()
+	client, nodeURL, nodeIndex, nodeCount, err := nodePool.GetNextClientForSend()
 	if err != nil {
 		result.SendTime = time.Now() // Mark attempt time
 		result.ResponseTime = time.Now() // Same as send time for immediate failures
 		result.Error = fmt.Errorf("failed to get client from pool: %w", err)
 		result.Duration = time.Since(startTime)
+		result.NodeCount = 0 // No node assigned yet
 		return result, result.Error
 	}
 	
 	result.NodeIndex = nodeIndex
 	result.NodeURL = nodePool.GetNodeURL(nodeIndex)
+	result.NodeCount = nodeCount
 
 	ctx := context.Background()
 

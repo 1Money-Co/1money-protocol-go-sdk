@@ -26,8 +26,12 @@ type SmoothRateLimiter struct {
 func NewSmoothRateLimiter(ratePerSecond int) *SmoothRateLimiter {
 	intervalsPerSec := 20 // 50ms intervals
 	tokensPerInterval := ratePerSecond / intervalsPerSec
-	if tokensPerInterval < 1 {
+	// Handle remainder tokens
+	remainderTokens := ratePerSecond % intervalsPerSec
+	
+	if tokensPerInterval == 0 && ratePerSecond > 0 {
 		tokensPerInterval = 1
+		intervalsPerSec = ratePerSecond // Adjust intervals if rate is very low
 	}
 	
 	rl := &SmoothRateLimiter{
@@ -41,6 +45,9 @@ func NewSmoothRateLimiter(ratePerSecond int) *SmoothRateLimiter {
 	}
 	
 	rl.cond = sync.NewCond(&rl.mu)
+	
+	Logf("Rate limiter created: %d TPS = %d tokens per %dms interval (remainder: %d)\n", 
+		ratePerSecond, tokensPerInterval, 1000/intervalsPerSec, remainderTokens)
 	
 	// Start the token distributor
 	rl.wg.Add(1)
@@ -126,10 +133,34 @@ type SmoothGlobalRateLimiter struct {
 }
 
 // NewSmoothGlobalRateLimiter creates a global rate limiter with smooth distribution
-func NewSmoothGlobalRateLimiter(nodeCount int) *SmoothGlobalRateLimiter {
+// Uses the minimum of requested concurrency and maximum allowed rate
+func NewSmoothGlobalRateLimiter(nodeCount int, requestedPostConcurrency int, requestedGetConcurrency int) *SmoothGlobalRateLimiter {
+	// Calculate maximum allowed rates
+	maxPostRate := nodeCount * PostRateLimitPerNode
+	maxGetRate := nodeCount * GetRateLimitPerNode
+	
+	// Use the minimum of requested and maximum allowed
+	effectivePostRate := requestedPostConcurrency
+	if effectivePostRate > maxPostRate {
+		Logf("POST concurrency %d exceeds max allowed (%d nodes × %d TPS = %d). Using %d TPS\n", 
+			requestedPostConcurrency, nodeCount, PostRateLimitPerNode, maxPostRate, maxPostRate)
+		effectivePostRate = maxPostRate
+	} else {
+		Logf("Using requested POST rate: %d TPS (max allowed: %d TPS)\n", effectivePostRate, maxPostRate)
+	}
+	
+	effectiveGetRate := requestedGetConcurrency
+	if effectiveGetRate > maxGetRate {
+		Logf("GET concurrency %d exceeds max allowed (%d nodes × %d TPS = %d). Using %d TPS\n", 
+			requestedGetConcurrency, nodeCount, GetRateLimitPerNode, maxGetRate, maxGetRate)
+		effectiveGetRate = maxGetRate
+	} else {
+		Logf("Using requested GET rate: %d TPS (max allowed: %d TPS)\n", effectiveGetRate, maxGetRate)
+	}
+	
 	return &SmoothGlobalRateLimiter{
-		postLimiter: NewSmoothRateLimiter(nodeCount * PostRateLimitPerNode),
-		getLimiter:  NewSmoothRateLimiter(nodeCount * GetRateLimitPerNode),
+		postLimiter: NewSmoothRateLimiter(effectivePostRate),
+		getLimiter:  NewSmoothRateLimiter(effectiveGetRate),
 		nodeCount:   nodeCount,
 	}
 }
