@@ -10,13 +10,8 @@ import (
 const (
 	// Wallet Configuration
 	MINT_WALLETS_COUNT     = 20                                          // Number of mint authority wallets
-	TRANSFER_WALLETS_COUNT = 1000                                        // Number of primary transfer recipient wallets
+	TRANSFER_WALLETS_COUNT = 10000                                       // Number of primary transfer recipient wallets
 	WALLETS_PER_MINT       = TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
-
-	// Multi-tier Distribution Configuration
-	TRANSFER_MULTIPLIER        = 10                                           // Number of distribution wallets per primary wallet
-	DISTRIBUTION_WALLETS_COUNT = TRANSFER_WALLETS_COUNT * TRANSFER_MULTIPLIER // Total distribution wallets (8000)
-	TRANSFER_WORKERS_COUNT     = 100                                          // Number of concurrent transfer worker goroutines
 
 	// Token Configuration
 	TOKEN_NAME     = "Stress Test Token"
@@ -24,9 +19,8 @@ const (
 	CHAIN_ID       = 1212101
 
 	// Mint Configuration
-	MINT_ALLOWANCE  = 1000000000000000000                     // Allowance granted to each mint wallet
-	MINT_AMOUNT     = 1000000000 * (TRANSFER_MULTIPLIER + 1)  // Amount to mint per operation
-	TRANSFER_AMOUNT = MINT_AMOUNT / (TRANSFER_MULTIPLIER + 1) // Amount to transfer per distribution operation (250)
+	MINT_ALLOWANCE = 1000000000000000000 // Allowance granted to each mint wallet
+	MINT_AMOUNT    = 1000000000          // Amount to mint per operation
 
 	// Rate Limiting Configuration
 	POST_RATE_LIMIT_TPS = 50  // Maximum POST requests per second (configurable)
@@ -48,27 +42,17 @@ type Wallet struct {
 	Address    string
 }
 
-// TransferTask represents a task for transferring tokens from a primary wallet to distribution wallets
-type TransferTask struct {
-	PrimaryWallet *Wallet // The primary wallet that received minted tokens
-	StartIdx      int     // Starting index in distributionWallets array
-	EndIdx        int     // Ending index in distributionWallets array
-	PrimaryIndex  int     // Index of the primary wallet for logging purposes
-}
-
 // StressTester manages the stress testing operations
 type StressTester struct {
-	nodePool            *NodePool
-	operatorWallet      *Wallet
-	mintWallets         []*Wallet
-	transferWallets     []*Wallet // Primary transfer wallets (tier 2)
-	distributionWallets []*Wallet // Distribution wallets (tier 3)
-	tokenAddress        string
-	ctx                 context.Context
-	rateLimiter         *MultiNodeRateLimiter // Rate limiter for distributed nodes
-	transferCounter     int64                 // Atomic counter for tracking transfer progress
-	operatorNonceMutex  sync.Mutex            // Mutex for operator wallet nonce management
-	operatorNonce       uint64                // Current operator wallet nonce
+	nodePool           *NodePool
+	operatorWallet     *Wallet
+	mintWallets        []*Wallet
+	transferWallets    []*Wallet // Primary transfer wallets (tier 2)
+	tokenAddress       string
+	ctx                context.Context
+	rateLimiter        *MultiNodeRateLimiter // Rate limiter for distributed nodes
+	operatorNonceMutex sync.Mutex            // Mutex for operator wallet nonce management
+	operatorNonce      uint64                // Current operator wallet nonce
 }
 
 // GetTokenSymbol returns a dynamically generated token symbol for each test run

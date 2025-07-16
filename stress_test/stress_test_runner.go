@@ -23,19 +23,6 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 		return fmt.Errorf("%s", errorMsg)
 	}
 
-	if TRANSFER_WALLETS_COUNT*TRANSFER_MULTIPLIER != DISTRIBUTION_WALLETS_COUNT {
-		errorMsg := fmt.Sprintf("Configuration error: TRANSFER_WALLETS_COUNT (%d) * TRANSFER_MULTIPLIER (%d) must equal DISTRIBUTION_WALLETS_COUNT (%d)",
-			TRANSFER_WALLETS_COUNT, TRANSFER_MULTIPLIER, DISTRIBUTION_WALLETS_COUNT)
-		fileLogger.Println("FATAL: " + errorMsg)
-		return fmt.Errorf("%s", errorMsg)
-	}
-
-	if MINT_AMOUNT%TRANSFER_MULTIPLIER != 0 {
-		errorMsg := fmt.Sprintf("Configuration error: MINT_AMOUNT (%d) must be divisible by TRANSFER_MULTIPLIER (%d) for even distribution",
-			MINT_AMOUNT, TRANSFER_MULTIPLIER)
-		fileLogger.Println("FATAL: " + errorMsg)
-		return fmt.Errorf("%s", errorMsg)
-	}
 
 	// Log node configuration
 	logToFile("=== NODE CONFIGURATION ===")
@@ -94,34 +81,22 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 
 	// Performance metrics
 	totalMintOperations := MINT_WALLETS_COUNT * WALLETS_PER_MINT
-	totalTransferOperations := TRANSFER_WALLETS_COUNT * TRANSFER_MULTIPLIER
-	totalOperations := totalMintOperations + totalTransferOperations
 	totalTokensMinted := totalMintOperations * MINT_AMOUNT
-	totalTokensTransferred := totalTransferOperations * TRANSFER_AMOUNT
 
 	logToFile("=== PERFORMANCE METRICS ===")
 	logToFile("Total Mint Operations: %d", totalMintOperations)
-	logToFile("Total Transfer Operations: %d", totalTransferOperations)
-	logToFile("Total Combined Operations: %d", totalOperations)
 	logToFile("Total Tokens Minted: %d", totalTokensMinted)
-	logToFile("Total Tokens Transferred: %d", totalTokensTransferred)
-	logToFile("Combined Operations per Second: %.2f", float64(totalOperations)/stressTestDuration.Seconds())
 	logToFile("Mint Operations per Second: %.2f", float64(totalMintOperations)/stressTestDuration.Seconds())
-	logToFile("Transfer Operations per Second: %.2f", float64(totalTransferOperations)/stressTestDuration.Seconds())
-	logToFile("Tokens Processed per Second: %.2f", float64(totalTokensMinted+totalTokensTransferred)/stressTestDuration.Seconds())
-	logToFile("Average Time per Combined Operation: %v", time.Duration(int64(stressTestDuration)/int64(totalOperations)))
+	logToFile("Tokens Minted per Second: %.2f", float64(totalTokensMinted)/stressTestDuration.Seconds())
+	logToFile("Average Time per Mint Operation: %v", time.Duration(int64(stressTestDuration)/int64(totalMintOperations)))
 	logToFile("")
 
 	// Configuration summary
 	logToFile("=== TEST CONFIGURATION ===")
 	logToFile("Mint Wallets Count: %d", MINT_WALLETS_COUNT)
 	logToFile("Primary Transfer Wallets Count: %d", TRANSFER_WALLETS_COUNT)
-	logToFile("Distribution Wallets Count: %d", DISTRIBUTION_WALLETS_COUNT)
-	logToFile("Transfer Multiplier: %d", TRANSFER_MULTIPLIER)
-	logToFile("Transfer Workers Count: %d", TRANSFER_WORKERS_COUNT)
 	logToFile("Wallets per Mint: %d", WALLETS_PER_MINT)
 	logToFile("Mint Amount per Operation: %d", MINT_AMOUNT)
-	logToFile("Transfer Amount per Operation: %d", TRANSFER_AMOUNT)
 	logToFile("Token Symbol: %s", GetTokenSymbol())
 	logToFile("Chain ID: %d", CHAIN_ID)
 	logToFile("POST Rate Limit: %d TPS (total)", totalPostRate)
@@ -140,13 +115,10 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 	logToFile("Setup Time: %v (%.1f%% of total)", setupTime, setupPercentage)
 	logToFile("Execution Time: %v (%.1f%% of total)", executionTime, executionPercentage)
 	logToFile("CSV Generation Time: %v (%.1f%% of total)", csvTime, csvPercentage)
-	logToFile("Combined Throughput: %.2f operations/minute", float64(totalOperations)/(stressTestDuration.Minutes()))
 	logToFile("Mint Throughput: %.2f mint operations/minute", float64(totalMintOperations)/(stressTestDuration.Minutes()))
-	logToFile("Transfer Throughput: %.2f transfer operations/minute", float64(totalTransferOperations)/(stressTestDuration.Minutes()))
-	logToFile("Token Distribution Efficiency: %.2f tokens/second", float64(totalTokensMinted+totalTokensTransferred)/stressTestDuration.Seconds())
-	logToFile("Tier Concurrency Factor: %.2fx", float64(totalOperations)/float64(totalMintOperations))
+	logToFile("Token Minting Efficiency: %.2f tokens/second", float64(totalTokensMinted)/stressTestDuration.Seconds())
 	logToFile("Node Count: %d", len(nodeURLs))
-	logToFile("Operations per Node: %.2f ops/second/node", float64(totalOperations)/stressTestDuration.Seconds()/float64(len(nodeURLs)))
+	logToFile("Mint Operations per Node: %.2f ops/second/node", float64(totalMintOperations)/stressTestDuration.Seconds()/float64(len(nodeURLs)))
 	logToFile("=== END OF TIMING STATISTICS ===")
 
 	return nil
@@ -154,7 +126,7 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 
 // RunStressTest executes the complete stress test workflow
 func (st *StressTester) RunStressTest() error {
-	log.Printf("Starting stress test: %d nodes, %d mint wallets, %d transfers", 
+	log.Printf("Starting stress test: %d nodes, %d mint wallets, %d target wallets", 
 		st.nodePool.Size(), MINT_WALLETS_COUNT, TRANSFER_WALLETS_COUNT)
 
 	// Preparation: Create wallets
@@ -167,11 +139,6 @@ func (st *StressTester) RunStressTest() error {
 		return fmt.Errorf("failed to create transfer wallets: %w", err)
 	}
 	log.Println("✓ Transfer wallets created")
-
-	if err := st.createDistributionWallets(); err != nil {
-		return fmt.Errorf("failed to create distribution wallets: %w", err)
-	}
-	log.Println("✓ Distribution wallets created")
 
 	// Create token
 	if err := st.createToken(); err != nil {
@@ -186,14 +153,14 @@ func (st *StressTester) RunStressTest() error {
 	}
 	log.Println("✓ Phase 1: All authorities granted")
 
-	// Phase 2 & 3: Perform minting and transfers
+	// Phase 2: Perform minting operations
 	if err := st.performConcurrentMinting(); err != nil {
-		return fmt.Errorf("minting/transfer phases failed: %w", err)
+		return fmt.Errorf("minting phase failed: %w", err)
 	}
 	log.Println("✓ All phases completed")
 
-	log.Printf("✓ Test completed! Token: %s, Mints: %d, Transfers: %d",
-		st.tokenAddress, MINT_WALLETS_COUNT*WALLETS_PER_MINT, TRANSFER_WALLETS_COUNT*TRANSFER_MULTIPLIER)
+	log.Printf("✓ Test completed! Token: %s, Mints: %d",
+		st.tokenAddress, MINT_WALLETS_COUNT*WALLETS_PER_MINT)
 
 	return nil
 }
