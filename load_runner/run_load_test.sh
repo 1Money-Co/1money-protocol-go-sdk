@@ -13,10 +13,13 @@ if [ -z "$1" ]; then
     echo "  -concurrency <n> Number of concurrent transactions (default: 10)"
     echo "  -max <n>         Maximum accounts to process (default: all)"
     echo "  -mainnet         Use mainnet instead of testnet"
+    echo "  -nodes <list>    Comma-separated list of node URLs (min 1, max 13)"
     echo
-    echo "Example:"
+    echo "Examples:"
     echo "  ./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890"
     echo "  ./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -concurrency 20 -max 100"
+    echo "  ./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -nodes \"192.168.1.10:8080\""
+    echo "  ./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -nodes \"192.168.1.10:8080,192.168.1.10:8081,192.168.1.10:8082,192.168.1.10:8083\""
     exit 1
 fi
 

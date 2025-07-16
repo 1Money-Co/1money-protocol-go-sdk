@@ -27,10 +27,27 @@ type TransactionResult struct {
 	TxSuccess         bool
 }
 
-func SendTransaction(client *onemoney.Client, account Account, toAddress string, amount string) (*TransactionResult, error) {
+func SendTransaction(nodePool *NodePool, rateLimiter *GlobalRateLimiter, account Account, toAddress string, amount string) (*TransactionResult, error) {
 	startTime := time.Now()
 	result := &TransactionResult{
 		WalletIndex: account.WalletIndex,
+	}
+
+	// Get client from node pool
+	client, nodeURL, err := nodePool.GetNextClient()
+	if err != nil {
+		result.Error = fmt.Errorf("failed to get client from pool: %w", err)
+		result.Duration = time.Since(startTime)
+		return result, result.Error
+	}
+
+	ctx := context.Background()
+
+	// Apply rate limiting for POST request
+	if err := rateLimiter.WaitForPost(ctx); err != nil {
+		result.Error = fmt.Errorf("rate limit wait failed: %w", err)
+		result.Duration = time.Since(startTime)
+		return result, result.Error
 	}
 
 	privateKeyHex := strings.TrimPrefix(account.PrivateKey, "0x")
@@ -51,8 +68,6 @@ func SendTransaction(client *onemoney.Client, account Account, toAddress string,
 
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 	result.FromAddress = fromAddress.Hex()
-
-	ctx := context.Background()
 
 	chainIDResp, err := client.GetChainId(ctx)
 	if err != nil {
@@ -86,12 +101,13 @@ func SendTransaction(client *onemoney.Client, account Account, toAddress string,
 
 	paymentResp, err := client.SendPayment(ctx, paymentReq)
 	if err != nil {
-		result.Error = fmt.Errorf("failed to send payment: %w", err)
+		result.Error = fmt.Errorf("failed to send payment to %s: %w", nodeURL, err)
 		result.Duration = time.Since(startTime)
 		return result, result.Error
 	}
 
 	txHash := paymentResp.Hash
+	Logf("Transaction %s sent to node: %s\n", txHash, nodeURL)
 
 	result.TxHash = txHash
 	result.Success = true
@@ -99,10 +115,16 @@ func SendTransaction(client *onemoney.Client, account Account, toAddress string,
 	return result, nil
 }
 
-func SendTransactionsConcurrently(client *onemoney.Client, accounts []Account, toAddress string, amount string, concurrency int) []TransactionResult {
+func SendTransactionsConcurrently(nodePool *NodePool, rateLimiter *GlobalRateLimiter, accounts []Account, toAddress string, amount string, concurrency int) []TransactionResult {
 	var wg sync.WaitGroup
 	resultsChan := make(chan TransactionResult, len(accounts))
-	semaphore := make(chan struct{}, concurrency)
+	
+	// Apply effective concurrency based on rate limits
+	effectiveConcurrency := rateLimiter.GetEffectivePostConcurrency(concurrency)
+	if effectiveConcurrency != concurrency {
+		Logf("Effective concurrency for transactions: %d\n", effectiveConcurrency)
+	}
+	semaphore := make(chan struct{}, effectiveConcurrency)
 
 	for i, account := range accounts {
 		wg.Add(1)
@@ -111,7 +133,7 @@ func SendTransactionsConcurrently(client *onemoney.Client, accounts []Account, t
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
-			result, _ := SendTransaction(client, acc, toAddress, amount)
+			result, _ := SendTransaction(nodePool, rateLimiter, acc, toAddress, amount)
 			result.AccountIndex = idx
 			resultsChan <- *result
 		}(i, account)
@@ -139,9 +161,15 @@ func VerifyTransaction(client *onemoney.Client, txHash string) (bool, error) {
 	return receipt.Success, nil
 }
 
-func VerifyTransactionsConcurrently(client *onemoney.Client, results []TransactionResult, concurrency int) {
+func VerifyTransactionsConcurrently(nodePool *NodePool, rateLimiter *GlobalRateLimiter, results []TransactionResult, concurrency int) {
 	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, concurrency)
+	
+	// Apply effective concurrency based on rate limits
+	effectiveConcurrency := rateLimiter.GetEffectiveGetConcurrency(concurrency)
+	if effectiveConcurrency != concurrency {
+		Logf("Effective concurrency for verification: %d\n", effectiveConcurrency)
+	}
+	semaphore := make(chan struct{}, effectiveConcurrency)
 
 	for i := range results {
 		if !results[i].Success || results[i].TxHash == "" {
@@ -154,6 +182,19 @@ func VerifyTransactionsConcurrently(client *onemoney.Client, results []Transacti
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
+			client, _, _ := nodePool.GetNextClient()
+			if client == nil {
+				results[idx].VerificationError = fmt.Errorf("no client available")
+				return
+			}
+			
+			// Apply rate limiting for GET request
+			ctx := context.Background()
+			if err := rateLimiter.WaitForGet(ctx); err != nil {
+				results[idx].VerificationError = fmt.Errorf("rate limit wait failed: %w", err)
+				return
+			}
+			
 			success, err := VerifyTransaction(client, results[idx].TxHash)
 			results[idx].Verified = true
 			results[idx].VerificationError = err

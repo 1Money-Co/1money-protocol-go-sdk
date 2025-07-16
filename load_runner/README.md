@@ -32,6 +32,7 @@ Options:
   -concurrency <n> Number of concurrent transactions (default: 10)
   -max <n>         Maximum accounts to process (default: all)
   -mainnet         Use mainnet instead of testnet
+  -nodes <list>    Comma-separated list of node URLs (min 1, max 13)
 ```
 
 Examples:
@@ -44,6 +45,24 @@ Examples:
 
 # Use mainnet
 ./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -mainnet
+
+# Use single node
+./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -nodes "192.168.1.10:8080"
+
+# Use custom nodes - same IP with different ports
+./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -nodes "192.168.1.10:8080,192.168.1.10:8081,192.168.1.10:8082,192.168.1.10:8083"
+
+# Use custom nodes - different IPs with same port
+./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -nodes "192.168.1.10:8080,192.168.1.11:8080,192.168.1.12:8080,192.168.1.13:8080"
+
+# Use custom nodes - mixed configuration
+./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -nodes "localhost:8080,localhost:8081,node1.com:9000,192.168.1.100:8545"
+
+# Use custom nodes with full URLs
+./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -nodes "http://node1:8080,http://node2:8081,https://node3:443,https://node4:443"
+
+# High concurrency with rate limiting (2 nodes, concurrency will be capped at 500 TPS)
+./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -nodes "node1:8080,node2:8080" -concurrency 1000
 ```
 
 ### Direct Go Run
@@ -72,6 +91,49 @@ After all transactions are sent, the tool automatically:
 2. Queries transaction receipts using `getTransactionByReceipt`
 3. Verifies each transaction's on-chain success status
 4. Reports verification results and updates the CSV output
+
+## Multi-Node Support
+
+The load runner supports distributing transactions across multiple nodes (1-13 nodes) for better performance and load distribution.
+
+**Note**: The current 1money-go-sdk doesn't support custom API URLs directly. The multi-node architecture is implemented, but all clients will use the default SDK URL (http://127.0.0.1:18555). To enable true multi-node support, the SDK needs to be modified (see `sdk_modification_suggestion.go`).
+
+### Rate Limiting
+
+The load runner respects server-side rate limits to prevent overwhelming the nodes:
+
+- **POST requests** (transactions): 250 TPS per node
+- **GET requests** (verification): 500 TPS per node
+
+#### Automatic Concurrency Adjustment
+
+When the requested concurrency exceeds the rate limits, it's automatically capped:
+- Maximum transaction concurrency = `node_count × 250`
+- Maximum verification concurrency = `node_count × 500`
+
+For example:
+- With 2 nodes and `-concurrency 600`: Effective concurrency = 500 (2 × 250)
+- With 4 nodes and `-concurrency 2000`: Effective concurrency = 1000 (4 × 250)
+
+### Node Configuration
+
+1. **Using Custom Nodes**: Provide a comma-separated list of node URLs via the `-nodes` flag
+   - Format: `IP:PORT` or `HOSTNAME:PORT` or full URLs
+   - Minimum: 1 node
+   - Maximum: 13 nodes
+   - Example: `-nodes "192.168.1.10:8080"` (single node)
+   - Example: `-nodes "192.168.1.10:8080,192.168.1.11:8080,192.168.1.12:8080,192.168.1.13:8080"` (multiple nodes)
+
+2. **Default Nodes**: If no custom nodes are specified:
+   - Testnet: Uses 4 default testnet nodes
+   - Mainnet: Uses 4 default mainnet nodes
+
+### Load Distribution
+
+Transactions are distributed across nodes using round-robin scheduling:
+- Each transaction is sent to the next available node
+- Ensures even distribution of load
+- Transaction verification also uses round-robin across nodes
 
 ## CSV Input Format
 

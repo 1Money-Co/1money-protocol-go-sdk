@@ -1,0 +1,36 @@
+# Example node configuration
+# Format: IP:PORT or HOSTNAME:PORT
+# Minimum 1 node, maximum 13 nodes
+
+# Example 1: Single node configuration
+192.168.1.10:8080
+
+# Example 2: Same IP/domain with different ports
+192.168.1.10:8080
+192.168.1.10:8081
+192.168.1.10:8082
+192.168.1.10:8083
+
+# Example 3: Different IPs with same port
+192.168.1.10:8080
+192.168.1.11:8080
+192.168.1.12:8080
+192.168.1.13:8080
+
+# Example 4: Different domains with different ports
+node1.1money.local:8080
+node2.1money.local:8081
+node3.1money.local:8082
+node4.1money.local:8083
+
+# Example 5: Mixed configuration
+localhost:8080
+localhost:8081
+node1.example.com:9000
+192.168.1.100:8545
+
+# Example 6: With full URLs (http/https)
+http://192.168.1.20:8080
+http://192.168.1.20:8081
+https://api1.1money.com:443
+https://api2.1money.com:443

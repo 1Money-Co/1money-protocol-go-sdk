@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
-
-	onemoney "github.com/1Money-Co/1money-go-sdk"
 )
 
 var (
@@ -19,6 +17,7 @@ var (
 	concurrency = flag.Int("concurrency", 10, "Number of concurrent transactions")
 	useTestnet  = flag.Bool("testnet", true, "Use testnet (true) or mainnet (false)")
 	maxAccounts = flag.Int("max", 0, "Maximum number of accounts to process (0 = all)")
+	nodeList    = flag.String("nodes", "", "Comma-separated list of node URLs (e.g. '192.168.1.1:8080,192.168.1.2:8080')")
 )
 
 func main() {
@@ -38,13 +37,49 @@ func main() {
 	}
 	defer logger.Close()
 
-	var client *onemoney.Client
-	if *useTestnet {
-		client = onemoney.NewTestClient()
-		Logln("Using Test Network")
+	// Initialize node pool
+	nodePool := NewNodePool()
+
+	if *nodeList != "" {
+		// Use custom nodes
+		nodeURLs, err := ParseNodeURLs(*nodeList)
+		if err != nil {
+			log.Fatalf("Failed to parse node list: %v", err)
+		}
+
+		for _, url := range nodeURLs {
+			if err := nodePool.AddNode(url); err != nil {
+				log.Fatalf("Failed to add node %s: %v", url, err)
+			}
+		}
+		Logf("Using %d custom nodes\n", nodePool.Size())
 	} else {
-		client = onemoney.NewClient()
-		Logln("Using Main Network")
+		// Use default test/main network nodes
+		if *useTestnet {
+			// Add default testnet nodes (you can configure these)
+			defaultNodes := []string{
+				"https://testapi.1moneynetwork.com",
+				"https://testapi2.1moneynetwork.com",
+				"https://testapi3.1moneynetwork.com",
+				"https://testapi4.1moneynetwork.com",
+			}
+			for _, url := range defaultNodes {
+				nodePool.AddNode(url)
+			}
+			Logln("Using Test Network nodes")
+		} else {
+			// Add default mainnet nodes
+			defaultNodes := []string{
+				"https://api.1moneynetwork.com",
+				"https://api2.1moneynetwork.com",
+				"https://api3.1moneynetwork.com",
+				"https://api4.1moneynetwork.com",
+			}
+			for _, url := range defaultNodes {
+				nodePool.AddNode(url)
+			}
+			Logln("Using Main Network nodes")
+		}
 	}
 
 	Logln("\n=== 1Money Load Runner ===")
@@ -52,7 +87,12 @@ func main() {
 	Logf("Target Address: %s\n", *toAddress)
 	Logf("Amount per TX: %s\n", *amount)
 	Logf("Concurrency: %d\n", *concurrency)
-	Logln("=======================\n")
+	Logf("Node Count: %d\n", nodePool.Size())
+	Logln("Nodes:")
+	for i, node := range nodePool.GetNodes() {
+		Logf("  [%d] %s\n", i+1, node)
+	}
+	Logln("=======================")
 
 	accounts, err := ReadAccountsFromCSV(*csvFile)
 	if err != nil {
@@ -64,10 +104,19 @@ func main() {
 	}
 
 	Logf("Loaded %d accounts from CSV\n", len(accounts))
-	Logln("Starting transaction sending...\n")
+	
+	// Create rate limiter based on node count
+	rateLimiter := NewGlobalRateLimiter(nodePool.Size())
+	defer rateLimiter.Close()
+	
+	Logf("Rate limits: POST %d TPS/node, GET %d TPS/node\n", PostRateLimitPerNode, GetRateLimitPerNode)
+	Logf("Total rate limits: POST %d TPS, GET %d TPS\n", 
+		nodePool.Size()*PostRateLimitPerNode, nodePool.Size()*GetRateLimitPerNode)
+	
+	Logln("Starting transaction sending...")
 
 	startTime := time.Now()
-	results := SendTransactionsConcurrently(client, accounts, *toAddress, *amount, *concurrency)
+	results := SendTransactionsConcurrently(nodePool, rateLimiter, accounts, *toAddress, *amount, *concurrency)
 	totalDuration := time.Since(startTime)
 
 	successCount := 0
@@ -102,9 +151,9 @@ func main() {
 		Logln("\n⏳ Waiting 10 seconds before verifying transactions...")
 		time.Sleep(10 * time.Second)
 
-		Logln("\n🔍 Verifying transaction receipts...\n")
+		Logln("\n🔍 Verifying transaction receipts...")
 		verifyStart := time.Now()
-		VerifyTransactionsConcurrently(client, results, *concurrency)
+		VerifyTransactionsConcurrently(nodePool, rateLimiter, results, *concurrency)
 		verifyDuration := time.Since(verifyStart)
 
 		verifiedCount := 0
@@ -161,7 +210,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		if result.VerificationError != nil {
 			verifyErrorStr = result.VerificationError.Error()
 		}
-		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%.0f,%t,%t,%s\n",
+		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%t,%t,%s\n",
 			result.WalletIndex,
 			result.FromAddress,
 			result.TxHash,
