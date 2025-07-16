@@ -388,7 +388,7 @@ func (st *StressTester) createDistributionWallets() error {
 
 // createToken creates token using operator wallet
 func (st *StressTester) createToken() error {
-	log.Printf("TOKEN_CREATE_START: Creating token using operator wallet (%s)...", st.operatorWallet.Address)
+	log.Printf("Creating token %s...", GetTokenSymbol())
 
 	// Get next nonce for operator wallet
 	nonce, err := st.getNextOperatorNonce()
@@ -417,8 +417,7 @@ func (st *StressTester) createToken() error {
 
 	signature, err := client.SignMessage(payload, st.operatorWallet.PrivateKey)
 	if err != nil {
-		log.Printf("TOKEN_CREATE_ERROR: Failed to sign token creation for operator wallet (%s): %v",
-			st.operatorWallet.Address, err)
+		log.Printf("Error: Failed to sign token: %v", err)
 		return fmt.Errorf("failed to sign token creation: %w", err)
 	}
 
@@ -453,8 +452,7 @@ func (st *StressTester) createToken() error {
 
 	// Wait for transaction confirmation
 	if err := st.waitForTransactionReceipt(result.Hash, st.operatorWallet.Address, st.tokenAddress, "TOKEN_CREATE"); err != nil {
-		log.Printf("TOKEN_CREATE_TIMEOUT: Failed to confirm token creation transaction %s for operator wallet (%s): %v",
-			result.Hash, st.operatorWallet.Address, err)
+		log.Printf("Error: Token creation timeout: %v", err)
 		return fmt.Errorf("failed to confirm token creation: %w", err)
 	}
 
@@ -659,8 +657,7 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 
 // transferFromWallet performs token transfer
 func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount int64, fromIndex, toIndex int) error {
-	log.Printf("TRANSFER_START: Transferring %d tokens from wallet %d (%s) to distribution wallet %d (%s)",
-		amount, fromIndex, fromWallet.Address, toIndex, toWallet.Address)
+	// Starting transfer from wallet fromIndex to toIndex
 
 	// Get sender wallet's current nonce
 	nonce, err := st.getAccountNonce(fromWallet.Address)
@@ -724,15 +721,13 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 
 	// Wait for transaction confirmation
 	if err := st.waitForTransactionReceipt(result.Hash, fromWallet.Address, toWallet.Address, "TRANSFER"); err != nil {
-		log.Printf("TRANSFER_TIMEOUT: Failed to confirm transfer transaction %s from wallet %d (%s) to wallet %d (%s): %v",
-			result.Hash, fromIndex, fromWallet.Address, toIndex, toWallet.Address, err)
+		log.Printf("Error: Transfer timeout (%d→%d): %v", fromIndex, toIndex, err)
 		return fmt.Errorf("failed to confirm transfer transaction: %w", err)
 	}
 
 	// Validate nonce increment
 	if err := st.validateNonceIncrement(fromWallet.Address, nonce+1, "TRANSFER_WALLET", "TRANSFER"); err != nil {
-		log.Printf("TRANSFER_NONCE_ERROR: Failed to validate nonce increment for transfer wallet %d (%s): %v",
-			fromIndex, fromWallet.Address, err)
+		log.Printf("Error: Nonce validation failed (wallet %d): %v", fromIndex, err)
 		return fmt.Errorf("failed to validate nonce increment after transfer operation: %w", err)
 	}
 
@@ -740,18 +735,22 @@ func (st *StressTester) transferFromWallet(fromWallet, toWallet *Wallet, amount 
 	currentTransfer := atomic.AddInt64(&st.transferCounter, 1)
 	totalTransfers := int64(TRANSFER_WALLETS_COUNT * TRANSFER_MULTIPLIER)
 
-	log.Printf("TRANSFER_SUCCESS: Transfer confirmed (%d/%d) - wallet %d (%s) -> distribution wallet %d (%s), TxHash: %s",
-		currentTransfer, totalTransfers, fromIndex, fromWallet.Address, toIndex, toWallet.Address, result.Hash)
+	if currentTransfer%(totalTransfers/4) == 0 || currentTransfer == totalTransfers {
+		log.Printf("Transfers: %d/%d", currentTransfer, totalTransfers)
+	}
 	return nil
 }
 
 // transferWorker processes transfer tasks
 func (st *StressTester) transferWorker(transferTasks <-chan TransferTask, wg *sync.WaitGroup) {
 	for task := range transferTasks {
-		log.Printf("Processing transfer task for primary wallet %d to %d distribution wallets",
+		log.Printf("Starting transfer task: primary wallet %d → %d distribution wallets",
 			task.PrimaryIndex, task.EndIdx-task.StartIdx)
 
 		// Transfer tokens from primary wallet to each assigned distribution wallet
+		transferCount := 0
+		totalTransfers := task.EndIdx - task.StartIdx
+		
 		for i := task.StartIdx; i < task.EndIdx; i++ {
 			if i >= len(st.distributionWallets) {
 				log.Printf("Warning: distribution wallet index %d exceeds available wallets (%d)",
@@ -760,36 +759,58 @@ func (st *StressTester) transferWorker(transferTasks <-chan TransferTask, wg *sy
 			}
 
 			distributionWallet := st.distributionWallets[i]
+			transferCount++
+			
+			log.Printf("Transfer %d/%d: primary wallet %d → distribution wallet %d",
+				transferCount, totalTransfers, task.PrimaryIndex, i+1)
+			
 			if err := st.transferFromWallet(task.PrimaryWallet, distributionWallet,
 				int64(TRANSFER_AMOUNT), task.PrimaryIndex, i+1); err != nil {
-				log.Printf("Error transferring from primary wallet %d to distribution wallet %d: %v",
+				log.Printf("Error: Transfer failed (primary %d → distribution %d): %v",
 					task.PrimaryIndex, i+1, err)
 				// Continue with next transfer instead of failing entire task
 				continue
 			}
 		}
 
-		log.Printf("Completed transfer task for primary wallet %d", task.PrimaryIndex)
+		log.Printf("✓ Completed transfers for primary wallet %d (%d/%d)", 
+			task.PrimaryIndex, transferCount, totalTransfers)
 		wg.Done()
 	}
 }
 
-// performConcurrentMinting performs concurrent minting
+// performConcurrentMinting performs minting and transfers in sequential phases
 func (st *StressTester) performConcurrentMinting() error {
-	log.Println("Starting concurrent minting operations with multi-tier distribution...")
-
-	var mintWG sync.WaitGroup
-	var transferWG sync.WaitGroup
-	errorChan := make(chan error, MINT_WALLETS_COUNT+TRANSFER_WALLETS_COUNT)
-
-	// Create buffered channel for transfer tasks
-	transferTasks := make(chan TransferTask, TRANSFER_WALLETS_COUNT)
-
-	// Start transfer worker goroutines
-	log.Printf("Starting %d transfer workers...", TRANSFER_WORKERS_COUNT)
-	for i := 0; i < TRANSFER_WORKERS_COUNT; i++ {
-		go st.transferWorker(transferTasks, &transferWG)
+	// Phase 2: Perform all mint operations
+	log.Println("Phase 2: Starting mint operations...")
+	if err := st.performAllMints(); err != nil {
+		return fmt.Errorf("mint phase failed: %w", err)
 	}
+	log.Println("✓ Phase 2: All mints completed")
+
+	// Phase 3: Perform all transfers
+	log.Println("Phase 3: Starting transfer operations...")
+	if err := st.performAllTransfers(); err != nil {
+		return fmt.Errorf("transfer phase failed: %w", err)
+	}
+	log.Println("✓ Phase 3: All transfers completed")
+
+	// Print statistics
+	st.rateLimiter.PrintStats()
+	st.nodePool.PrintDistribution()
+
+	log.Println("✓ All operations completed successfully!")
+	return nil
+}
+
+// performAllMints executes all mint operations concurrently
+func (st *StressTester) performAllMints() error {
+	var mintWG sync.WaitGroup
+	errorChan := make(chan error, MINT_WALLETS_COUNT*WALLETS_PER_MINT)
+
+	// Add atomic counter for mint progress
+	var mintCounter int64
+	totalMints := MINT_WALLETS_COUNT * WALLETS_PER_MINT
 
 	// Launch one goroutine per mint wallet
 	for i, mintWallet := range st.mintWallets {
@@ -804,8 +825,6 @@ func (st *StressTester) performConcurrentMinting() error {
 				endIdx = len(st.transferWallets)
 			}
 
-			// Starting mint operations for wallet walletIndex+1
-
 			// Perform mint operations to assigned transfer wallets
 			for j := startIdx; j < endIdx; j++ {
 				transferWallet := st.transferWallets[j]
@@ -816,36 +835,17 @@ func (st *StressTester) performConcurrentMinting() error {
 					return
 				}
 
-				// After successful mint, immediately queue transfer task
-				transferStartIdx := j * TRANSFER_MULTIPLIER
-				transferEndIdx := transferStartIdx + TRANSFER_MULTIPLIER
-				if transferEndIdx > len(st.distributionWallets) {
-					transferEndIdx = len(st.distributionWallets)
+				// Update mint progress
+				currentMint := atomic.AddInt64(&mintCounter, 1)
+				if currentMint%(int64(totalMints)/4) == 0 || currentMint == int64(totalMints) {
+					log.Printf("Minting: %d/%d", currentMint, totalMints)
 				}
-
-				transferTask := TransferTask{
-					PrimaryWallet: transferWallet,
-					StartIdx:      transferStartIdx,
-					EndIdx:        transferEndIdx,
-					PrimaryIndex:  j + 1,
-				}
-
-				transferWG.Add(1)
-				transferTasks <- transferTask
 			}
-
-			// Mint wallet walletIndex+1 completed
 		}(i, mintWallet)
 	}
 
 	// Wait for all minting operations to complete
 	mintWG.Wait()
-	log.Println("All minting operations completed, waiting for transfers...")
-
-	// Close transfer tasks channel and wait for all transfers to complete
-	close(transferTasks)
-	transferWG.Wait()
-
 	close(errorChan)
 
 	// Check for any errors
@@ -853,12 +853,44 @@ func (st *StressTester) performConcurrentMinting() error {
 		return err
 	}
 
-	// Print rate limiter statistics
-	st.rateLimiter.PrintStats()
+	return nil
+}
 
-	// Print node distribution statistics
-	st.nodePool.PrintDistribution()
+// performAllTransfers executes all transfer operations concurrently
+func (st *StressTester) performAllTransfers() error {
+	var transferWG sync.WaitGroup
+	transferTasks := make(chan TransferTask, TRANSFER_WALLETS_COUNT)
 
-	log.Println("All concurrent minting and transfer operations completed successfully!")
+	// Start transfer worker goroutines
+	log.Printf("Starting %d transfer workers...", TRANSFER_WORKERS_COUNT)
+	for i := 0; i < TRANSFER_WORKERS_COUNT; i++ {
+		go st.transferWorker(transferTasks, &transferWG)
+	}
+
+	// Queue all transfer tasks
+	for i, transferWallet := range st.transferWallets {
+		transferStartIdx := i * TRANSFER_MULTIPLIER
+		transferEndIdx := transferStartIdx + TRANSFER_MULTIPLIER
+		if transferEndIdx > len(st.distributionWallets) {
+			transferEndIdx = len(st.distributionWallets)
+		}
+
+		transferTask := TransferTask{
+			PrimaryWallet: transferWallet,
+			StartIdx:      transferStartIdx,
+			EndIdx:        transferEndIdx,
+			PrimaryIndex:  i + 1,
+		}
+
+		transferWG.Add(1)
+		transferTasks <- transferTask
+	}
+
+	// Close the channel to signal workers to stop after processing all tasks
+	close(transferTasks)
+
+	// Wait for all transfers to complete
+	transferWG.Wait()
+
 	return nil
 }

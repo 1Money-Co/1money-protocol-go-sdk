@@ -157,41 +157,40 @@ func (st *StressTester) RunStressTest() error {
 	log.Printf("Starting stress test: %d nodes, %d mint wallets, %d transfers", 
 		st.nodePool.Size(), MINT_WALLETS_COUNT, TRANSFER_WALLETS_COUNT)
 
-	// Step 1: Create mint wallets
+	// Preparation: Create wallets
 	if err := st.createMintWallets(); err != nil {
-		return fmt.Errorf("step 1 failed: %w", err)
+		return fmt.Errorf("failed to create mint wallets: %w", err)
 	}
 	log.Println("✓ Mint wallets created")
 
-	// Step 2: Create primary transfer wallets
 	if err := st.createTransferWallets(); err != nil {
-		return fmt.Errorf("step 2 failed: %w", err)
+		return fmt.Errorf("failed to create transfer wallets: %w", err)
 	}
 	log.Println("✓ Transfer wallets created")
 
-	// Step 2b: Create distribution wallets
 	if err := st.createDistributionWallets(); err != nil {
-		return fmt.Errorf("step 2b failed: %w", err)
+		return fmt.Errorf("failed to create distribution wallets: %w", err)
 	}
 	log.Println("✓ Distribution wallets created")
 
-	// Step 3: Create token
+	// Create token
 	if err := st.createToken(); err != nil {
-		return fmt.Errorf("step 3 failed: %w", err)
+		return fmt.Errorf("failed to create token: %w", err)
 	}
 	log.Println("✓ Token created")
 
-	// Step 4: Grant mint authorities
+	// Phase 1: Grant all authorities first
+	log.Println("Phase 1: Granting authorities...")
 	if err := st.grantMintAuthorities(); err != nil {
-		return fmt.Errorf("step 4 failed: %w", err)
+		return fmt.Errorf("phase 1 failed: %w", err)
 	}
-	log.Println("✓ Authorities granted")
+	log.Println("✓ Phase 1: All authorities granted")
 
-	// Step 5: Perform concurrent minting with multi-tier transfers
+	// Phase 2 & 3: Perform minting and transfers
 	if err := st.performConcurrentMinting(); err != nil {
-		return fmt.Errorf("step 5 failed: %w", err)
+		return fmt.Errorf("minting/transfer phases failed: %w", err)
 	}
-	log.Println("✓ Minting and transfers completed")
+	log.Println("✓ All phases completed")
 
 	log.Printf("✓ Test completed! Token: %s, Mints: %d, Transfers: %d",
 		st.tokenAddress, MINT_WALLETS_COUNT*WALLETS_PER_MINT, TRANSFER_WALLETS_COUNT*TRANSFER_MULTIPLIER)
