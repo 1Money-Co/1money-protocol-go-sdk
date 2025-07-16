@@ -38,7 +38,7 @@ type TransactionResult struct {
 	NodeCount         int64        // Count for this specific node
 }
 
-func SendTransaction(nodePool *BalancedNodePool, rateLimiter RateLimiterInterface, account Account, toAddress string, amount string) (*TransactionResult, error) {
+func SendTransaction(nodePool *BalancedNodePool, rateLimiter PerNodeRateLimiterInterface, account Account, toAddress string, amount string) (*TransactionResult, error) {
 	startTime := time.Now()
 	result := &TransactionResult{
 		WalletIndex: account.WalletIndex,
@@ -61,8 +61,8 @@ func SendTransaction(nodePool *BalancedNodePool, rateLimiter RateLimiterInterfac
 
 	ctx := context.Background()
 
-	// Apply rate limiting for POST request
-	if err := rateLimiter.WaitForPost(ctx); err != nil {
+	// Apply rate limiting for POST request for this specific node
+	if err := rateLimiter.WaitForPost(ctx, nodeIndex); err != nil {
 		result.SendTime = time.Now() // Mark attempt time
 		result.ResponseTime = time.Now() // Same as send time for immediate failures
 		result.Error = fmt.Errorf("rate limit wait failed: %w", err)
@@ -139,28 +139,46 @@ func SendTransaction(nodePool *BalancedNodePool, rateLimiter RateLimiterInterfac
 	return result, nil
 }
 
-func SendTransactionsConcurrently(nodePool *BalancedNodePool, rateLimiter RateLimiterInterface, accounts []Account, toAddress string, amount string, concurrency int) []TransactionResult {
+func SendTransactionsConcurrently(nodePool *BalancedNodePool, rateLimiter PerNodeRateLimiterInterface, accounts []Account, toAddress string, amount string, concurrency int) []TransactionResult {
 	var wg sync.WaitGroup
 	resultsChan := make(chan TransactionResult, len(accounts))
 
-	// Apply effective concurrency based on rate limits
+	// Log rate limiting info
 	effectiveConcurrency := rateLimiter.GetEffectivePostConcurrency(concurrency)
 	if effectiveConcurrency != concurrency {
-		Logf("Effective concurrency for transactions: %d\n", effectiveConcurrency)
+		Logf("Effective rate limit for transactions: %d TPS\n", effectiveConcurrency)
 	}
-	semaphore := make(chan struct{}, effectiveConcurrency)
+	
+	// Use a smaller worker pool to prevent thundering herd
+	// Workers should be limited to prevent too many concurrent rate limit waits
+	numWorkers := effectiveConcurrency / 10
+	if numWorkers < 10 {
+		numWorkers = 10
+	}
+	if numWorkers > 100 {
+		numWorkers = 100
+	}
+	
+	Logf("Using %d workers for %d TPS rate limit\n", numWorkers, effectiveConcurrency)
+	
+	// Create work queue
+	workQueue := make(chan int, len(accounts))
+	for i := range accounts {
+		workQueue <- i
+	}
+	close(workQueue)
 
-	for i, account := range accounts {
+	// Start workers
+	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
-		go func(idx int, acc Account) {
+		go func() {
 			defer wg.Done()
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-
-			result, _ := SendTransaction(nodePool, rateLimiter, acc, toAddress, amount)
-			result.AccountIndex = idx
-			resultsChan <- *result
-		}(i, account)
+			for idx := range workQueue {
+				result, _ := SendTransaction(nodePool, rateLimiter, accounts[idx], toAddress, amount)
+				result.AccountIndex = idx
+				resultsChan <- *result
+			}
+		}()
 	}
 
 	go func() {
@@ -185,47 +203,63 @@ func VerifyTransaction(client *onemoney.Client, txHash string) (bool, error) {
 	return receipt.Success, nil
 }
 
-func VerifyTransactionsConcurrently(nodePool *BalancedNodePool, rateLimiter RateLimiterInterface, results []TransactionResult, concurrency int) {
+func VerifyTransactionsConcurrently(nodePool *BalancedNodePool, rateLimiter PerNodeRateLimiterInterface, results []TransactionResult, concurrency int) {
 	var wg sync.WaitGroup
 
-	// Apply effective concurrency based on rate limits
+	// Log rate limiting info
 	effectiveConcurrency := rateLimiter.GetEffectiveGetConcurrency(concurrency)
 	if effectiveConcurrency != concurrency {
-		Logf("Effective concurrency for verification: %d\n", effectiveConcurrency)
+		Logf("Effective rate limit for verification: %d TPS\n", effectiveConcurrency)
 	}
-	semaphore := make(chan struct{}, effectiveConcurrency)
-
+	
+	// Use a smaller worker pool for verification too
+	numWorkers := effectiveConcurrency / 10
+	if numWorkers < 20 {
+		numWorkers = 20
+	}
+	if numWorkers > 200 {
+		numWorkers = 200
+	}
+	
+	Logf("Using %d workers for verification at %d TPS\n", numWorkers, effectiveConcurrency)
+	
+	// Create work queue for indices to verify
+	workQueue := make(chan int, len(results))
 	for i := range results {
-		if !results[i].Success || results[i].TxHash == "" {
-			continue
+		if results[i].Success && results[i].TxHash != "" {
+			workQueue <- i
 		}
+	}
+	close(workQueue)
 
+	// Start workers
+	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
-		go func(idx int) {
+		go func() {
 			defer wg.Done()
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
+			for idx := range workQueue {
 
-			client, _, _, err := nodePool.GetNextClientForVerify()
-			if err != nil {
-				results[idx].VerificationError = fmt.Errorf("no client available: %w", err)
-				return
-			}
+				client, _, nodeIndex, err := nodePool.GetNextClientForVerify()
+				if err != nil {
+					results[idx].VerificationError = fmt.Errorf("no client available: %w", err)
+					continue
+				}
 
-			// Apply rate limiting for GET request
-			ctx := context.Background()
-			if err := rateLimiter.WaitForGet(ctx); err != nil {
-				results[idx].VerificationError = fmt.Errorf("rate limit wait failed: %w", err)
-				return
-			}
+				// Apply rate limiting for GET request for this specific node
+				ctx := context.Background()
+				if err := rateLimiter.WaitForGet(ctx, nodeIndex); err != nil {
+					results[idx].VerificationError = fmt.Errorf("rate limit wait failed: %w", err)
+					continue
+				}
 
-			success, err := VerifyTransaction(client, results[idx].TxHash)
-			results[idx].Verified = true
-			results[idx].VerificationError = err
-			if err == nil {
-				results[idx].TxSuccess = success
+				success, err := VerifyTransaction(client, results[idx].TxHash)
+				results[idx].Verified = true
+				results[idx].VerificationError = err
+				if err == nil {
+					results[idx].TxSuccess = success
+				}
 			}
-		}(i)
+		}()
 	}
 
 	wg.Wait()

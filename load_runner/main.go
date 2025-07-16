@@ -106,16 +106,11 @@ func main() {
 
 	Logf("Loaded %d accounts from CSV\n", len(accounts))
 	
-	// Create smooth rate limiter based on node count and requested concurrency
-	// For verification, we use the same concurrency as sending
-	rateLimiter := NewSmoothGlobalRateLimiter(nodePool.Size(), *concurrency, *concurrency)
-	defer rateLimiter.Close()
-	
 	Logf("Chain ID: %d (hardcoded)\n", HardcodedChainID)
 	Logf("Rate limits: POST %d TPS/node, GET %d TPS/node\n", PostRateLimitPerNode, GetRateLimitPerNode)
 	Logf("Total rate limits: POST %d TPS, GET %d TPS\n", 
 		nodePool.Size()*PostRateLimitPerNode, nodePool.Size()*GetRateLimitPerNode)
-	Logf("Rate limiter: Smooth distribution with 50ms intervals (20 intervals/second)\n")
+	Logf("Rate limiter: Strict sequential rate limiting\n")
 	
 	// Print node configuration stats
 	printNodeUsageStats(nodePool)
@@ -128,7 +123,7 @@ func main() {
 	Logf("Expected transactions per node: %d\n", expectedPerNode)
 
 	startTime := time.Now()
-	results := SendTransactionsConcurrently(nodePool, rateLimiter, accounts, *toAddress, *amount, *concurrency)
+	results := SendTransactionsWithStrictRateLimit(nodePool, accounts, *toAddress, *amount, *concurrency)
 	sendDuration := time.Since(startTime)
 
 	// Log individual results with progress
@@ -162,7 +157,7 @@ func main() {
 		Logln("Note: Using same nodes as configured, respecting GET rate limit (500 TPS/node)")
 		Logln(strings.Repeat("─", 60))
 		verifyStart := time.Now()
-		VerifyTransactionsConcurrently(nodePool, rateLimiter, results, *concurrency)
+		VerifyTransactionsWithStrictRateLimit(nodePool, results, *concurrency)
 		verifyDuration := time.Since(verifyStart)
 
 		// Log verification results

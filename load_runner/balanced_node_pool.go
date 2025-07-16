@@ -176,6 +176,27 @@ func (np *BalancedNodePool) GetNodeURL(index int) string {
 	return url
 }
 
+// GetClientForNode returns the client for a specific node index
+func (np *BalancedNodePool) GetClientForNode(index int) (*onemoney.Client, string) {
+	np.mu.RLock()
+	defer np.mu.RUnlock()
+	
+	if index < 0 || index >= len(np.nodes) {
+		return nil, ""
+	}
+	
+	return np.nodes[index].Client, np.nodes[index].URL
+}
+
+// IncrementNodeCount increments and returns the send count for a specific node
+func (np *BalancedNodePool) IncrementNodeCount(index int) int64 {
+	if index < 0 || index >= len(np.nodes) {
+		return 0
+	}
+	
+	return atomic.AddInt64(&np.nodes[index].SendCount, 1)
+}
+
 // CalculateExpectedTransactionsPerNode calculates how many transactions each node should handle
 func (np *BalancedNodePool) CalculateExpectedTransactionsPerNode(totalTransactions int) int {
 	np.mu.RLock()
