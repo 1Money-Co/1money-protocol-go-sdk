@@ -11,7 +11,7 @@ type LogFunc func(format string, args ...interface{})
 
 
 // runCompleteStressTest executes the complete stress test workflow
-func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs []string, totalPostRate int, totalGetRate int) error {
+func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs []string, totalPostRate int, totalGetRate int, csvRateLimit int) error {
 	// Record overall test start time
 	overallStartTime := time.Now()
 
@@ -32,11 +32,12 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 	}
 	logToFile("Total POST rate: %d TPS (%.2f TPS per node)", totalPostRate, float64(totalPostRate)/float64(len(nodeURLs)))
 	logToFile("Total GET rate: %d TPS (%.2f TPS per node)", totalGetRate, float64(totalGetRate)/float64(len(nodeURLs)))
+	logToFile("CSV balance query rate: %d QPS", csvRateLimit)
 	logToFile("")
 
 	// Record tester creation time
 	testerStartTime := time.Now()
-	tester, err := NewStressTester(nodeURLs, totalPostRate, totalGetRate)
+	tester, err := NewStressTester(nodeURLs, totalPostRate, totalGetRate, csvRateLimit)
 	if err != nil {
 		errorMsg := fmt.Sprintf("Failed to create stress tester: %v", err)
 		fileLogger.Println("FATAL: " + errorMsg)
@@ -101,6 +102,7 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 	logToFile("Chain ID: %d", CHAIN_ID)
 	logToFile("POST Rate Limit: %d TPS (total)", totalPostRate)
 	logToFile("GET Rate Limit: %d TPS (total)", totalGetRate)
+	logToFile("CSV Balance Query Rate: %d QPS", csvRateLimit)
 	logToFile("")
 
 	// Multi-node efficiency analysis

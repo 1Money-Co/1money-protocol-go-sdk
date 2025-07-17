@@ -64,7 +64,7 @@ func main() {
 	}
 
 	// Run the stress test
-	if err := runCompleteStressTest(logToFile, fileLogger, nodeURLs, *postRate, *getRate); err != nil {
+	if err := runCompleteStressTest(logToFile, fileLogger, nodeURLs, *postRate, *getRate, *csvRate); err != nil {
 		errorMsg := fmt.Sprintf("Batch mint stress test failed: %v", err)
 		fileLogger.Println("FATAL: " + errorMsg)
 		fmt.Printf("FATAL: Stress test failed. Check log file for details: %s\n", logFileName)

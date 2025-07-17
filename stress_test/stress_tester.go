@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	onemoney "github.com/1Money-Co/1money-go-sdk"
@@ -19,6 +18,7 @@ var (
 	nodeList = flag.String("nodes", "", "Comma-separated list of node URLs (e.g. '127.0.0.1:18555,127.0.0.1:18556')")
 	postRate = flag.Int("post-rate", POST_RATE_LIMIT_TPS, "Total POST rate limit in TPS")
 	getRate  = flag.Int("get-rate", GET_RATE_LIMIT_TPS, "Total GET rate limit in TPS")
+	csvRate  = flag.Int("csv-rate", CSV_BALANCE_QUERY_RATE_LIMIT, "Balance query rate limit for CSV generation in QPS")
 )
 
 // ParseNodeURLs parses comma-separated node URLs and ensures they have http:// prefix
@@ -70,6 +70,7 @@ func getInitialNonce(nodePool *NodePool, address string) (uint64, error) {
 
 	accountNonce, err := client.GetAccountNonce(context.Background(), address)
 	if err != nil {
+		log.Printf("❌ API ERROR: GetAccountNonce failed | Purpose: Initial nonce fetch | Address: %s | Error: %v", address, err)
 		return 0, fmt.Errorf("failed to get initial nonce for %s: %w", address, err)
 	}
 	if accountNonce == nil {
@@ -128,7 +129,7 @@ func (st *StressTester) verifyNonceIncrement(expectedNonce uint64, walletIndex i
 }
 
 // NewStressTester creates a new stress tester instance
-func NewStressTester(nodeURLs []string, totalPostRate int, totalGetRate int) (*StressTester, error) {
+func NewStressTester(nodeURLs []string, totalPostRate int, totalGetRate int, csvRateLimit int) (*StressTester, error) {
 	// Create node pool
 	nodePool := NewNodePool()
 
@@ -167,6 +168,7 @@ func NewStressTester(nodeURLs []string, totalPostRate int, totalGetRate int) (*S
 		ctx:            context.Background(),
 		rateLimiter:    rateLimiter,
 		operatorNonce:  initialNonce,
+		csvRateLimit:   csvRateLimit,
 	}, nil
 }
 
@@ -202,6 +204,7 @@ func (st *StressTester) getAccountNonce(address string) (uint64, error) {
 	accountNonce, err := client.GetAccountNonce(st.ctx, address)
 	if err != nil {
 		// Failed to get nonce
+		log.Printf("❌ API ERROR: GetAccountNonce failed | Address: %s | Node: %d | Error: %v", address, nodeIndex, err)
 		return 0, err
 	}
 	if accountNonce == nil {
@@ -213,6 +216,8 @@ func (st *StressTester) getAccountNonce(address string) (uint64, error) {
 
 // waitForTransactionReceipt waits for transaction receipt using node pool
 func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress string, toAddress string, operationType string) error {
+	log.Printf("⏳ Waiting for transaction receipt | TxHash: %s | From: %s | To: %s | Operation: %s", txHash, fromAddress, toAddress, operationType)
+
 	retryCount := 0
 	maxRetries := 120 // Maximum 120 retries (about 60 seconds with 500ms intervals)
 	for {
@@ -237,11 +242,12 @@ func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress str
 		if err != nil {
 			retryCount++
 			if retryCount >= maxRetries {
+				log.Printf("❌ API ERROR: GetTransactionReceipt timeout | TxHash: %s | From: %s | To: %s | Node: %d | Retry: %d/%d | Error: %v", txHash, fromAddress, toAddress, nodeIndex, retryCount, maxRetries, err)
 				return fmt.Errorf("transaction receipt timeout after %d retries", maxRetries)
 			}
 			// Log only at 50% and max retries
 			if retryCount == maxRetries/2 || retryCount == maxRetries-1 {
-				log.Printf("Waiting for tx %s... (retry %d/%d)", txHash[:8]+"...", retryCount, maxRetries)
+				log.Printf("⏱️  API RETRY: GetTransactionReceipt | TxHash: %s | Node: %d | Retry: %d/%d | Error: %v", txHash[:8]+"...", nodeIndex, retryCount, maxRetries, err)
 			}
 			time.Sleep(500 * time.Millisecond)
 			continue
@@ -249,8 +255,10 @@ func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress str
 
 		if receipt.Success {
 			// Transaction confirmed
+			log.Printf("✅ Transaction confirmed | TxHash: %s | Operation: %s | From: %s | To: %s", txHash, operationType, fromAddress, toAddress)
 			return nil
 		} else {
+			log.Printf("❌ Transaction failed | TxHash: %s | Operation: %s | From: %s | To: %s", txHash, operationType, fromAddress, toAddress)
 			return fmt.Errorf("transaction failed: %s", txHash)
 		}
 	}
@@ -258,6 +266,8 @@ func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress str
 
 // validateNonceIncrement validates nonce increment using node pool
 func (st *StressTester) validateNonceIncrement(address string, expectedNonce uint64, walletType string, operationType string) error {
+	log.Printf("🔍 Validating nonce increment | Address: %s | Expected: %d | Type: %s | Operation: %s", address, expectedNonce, walletType, operationType)
+
 	retryCount := 0
 	maxRetries := 80 // Maximum 80 retries (about 40 seconds with 500ms intervals)
 	for {
@@ -282,7 +292,11 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 		if err != nil {
 			retryCount++
 			if retryCount >= maxRetries {
+				log.Printf("❌ API ERROR: GetAccountNonce validation timeout | Address: %s | Expected: %d | Node: %d | Retry: %d/%d | Error: %v", address, expectedNonce, nodeIndex, retryCount, maxRetries, err)
 				return fmt.Errorf("failed to get nonce after %d retries: %w", maxRetries, err)
+			}
+			if retryCount == maxRetries/2 || retryCount == maxRetries-1 {
+				log.Printf("⏱️  API RETRY: GetAccountNonce validation | Address: %s | Node: %d | Retry: %d/%d | Error: %v", address, nodeIndex, retryCount, maxRetries, err)
 			}
 			time.Sleep(500 * time.Millisecond)
 			continue
@@ -290,6 +304,7 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 
 		if accountNonce.Nonce == expectedNonce {
 			// Nonce validated
+			log.Printf("✅ Nonce validated | Address: %s | Nonce: %d", address, expectedNonce)
 			return nil
 		}
 
@@ -347,14 +362,6 @@ func (st *StressTester) createTransferWallets() error {
 			return fmt.Errorf("failed to create primary transfer wallet %d: %w", i, err)
 		}
 		st.transferWallets[i] = wallet
-
-		// Log progress every 100 wallets to avoid excessive logging
-		if (i+1)%100 == 0 {
-			// Log progress every 10%
-			if (i+1)%(TRANSFER_WALLETS_COUNT/10) == 0 || i+1 == TRANSFER_WALLETS_COUNT {
-				log.Printf("Transfer wallets: %d/%d", i+1, TRANSFER_WALLETS_COUNT)
-			}
-		}
 	}
 
 	log.Printf("✓ Created %d transfer wallets", TRANSFER_WALLETS_COUNT)
@@ -392,7 +399,7 @@ func (st *StressTester) createToken() error {
 
 	signature, err := client.SignMessage(payload, st.operatorWallet.PrivateKey)
 	if err != nil {
-		log.Printf("Error: Failed to sign token: %v", err)
+		log.Printf("❌ SIGNING ERROR: Token creation signature failed | Symbol: %s | Operator: %s | Nonce: %d | Node: %d | Error: %v", tokenSymbol, st.operatorWallet.Address, nonce, nodeIndex, err)
 		return fmt.Errorf("failed to sign token creation: %w", err)
 	}
 
@@ -418,7 +425,7 @@ func (st *StressTester) createToken() error {
 
 	result, err := client.IssueToken(st.ctx, req)
 	if err != nil {
-		log.Printf("Error: Failed to submit token: %v", err)
+		log.Printf("❌ API ERROR: IssueToken failed | Symbol: %s | Operator: %s | Nonce: %d | Allowance: %d | Node: %d | Error: %v", tokenSymbol, st.operatorWallet.Address, nonce, MINT_ALLOWANCE, nodeIndex, err)
 		return fmt.Errorf("failed to issue token: %w", err)
 	}
 
@@ -504,7 +511,7 @@ func (st *StressTester) grantSingleMintAuthority(walletIndex int, mintWallet *Wa
 
 	signature, err := client.SignMessage(payload, st.operatorWallet.PrivateKey)
 	if err != nil {
-		log.Printf("Error: Failed to sign authority (wallet %d): %v", walletIndex+1, err)
+		log.Printf("❌ SIGNING ERROR: Authority grant signature failed | MintWallet: %d (%s) | Operator: %s | Nonce: %d | Allowance: %d | Token: %s | Node: %d | Error: %v", walletIndex+1, mintWallet.Address, st.operatorWallet.Address, nonce, MINT_ALLOWANCE, st.tokenAddress, nodeIndex, err)
 		return fmt.Errorf("failed to sign authority grant for wallet %d: %w", walletIndex, err)
 	}
 
@@ -530,7 +537,7 @@ func (st *StressTester) grantSingleMintAuthority(walletIndex int, mintWallet *Wa
 
 	result, err := client.GrantTokenAuthority(st.ctx, req)
 	if err != nil {
-		log.Printf("Error: Failed to grant authority (wallet %d): %v", walletIndex+1, err)
+		log.Printf("❌ API ERROR: GrantTokenAuthority failed | MintWallet: %d (%s) | Operator: %s | Nonce: %d | Allowance: %d | Token: %s | Node: %d | Error: %v", walletIndex+1, mintWallet.Address, st.operatorWallet.Address, nonce, MINT_ALLOWANCE, st.tokenAddress, nodeIndex, err)
 		return fmt.Errorf("failed to grant authority to wallet %d: %w", walletIndex, err)
 	}
 
@@ -551,13 +558,16 @@ func (st *StressTester) grantSingleMintAuthority(walletIndex int, mintWallet *Wa
 
 // mintToWallet performs a single mint operation
 func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWalletIndex, transferWalletIndex int) error {
-	// Minting from wallet mintWalletIndex to transferWalletIndex
+	// Log start of mint operation
+	log.Printf("🚀 MINT START: Mint wallet %d → Transfer wallet %d | MintAddr: %s | TargetAddr: %s", mintWalletIndex, transferWalletIndex, mintWallet.Address, transferWallet.Address)
 
 	// Get mint wallet's current nonce
+	log.Printf("📊 Getting nonce for mint wallet %d | Address: %s", mintWalletIndex, mintWallet.Address)
 	nonce, err := st.getAccountNonce(mintWallet.Address)
 	if err != nil {
 		return err
 	}
+	log.Printf("✅ Got nonce | MintWallet: %d | Nonce: %d", mintWalletIndex, nonce)
 
 	// Get a node for POST operation
 	client, _, nodeIndex, err := st.nodePool.GetNodeForMint()
@@ -579,7 +589,7 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 	// Sign the payload
 	signature, err := client.SignMessage(payload, mintWallet.PrivateKey)
 	if err != nil {
-		log.Printf("Error: Failed to sign mint (wallet %d): %v", mintWalletIndex, err)
+		log.Printf("❌ SIGNING ERROR: Mint transaction signature failed | MintWallet: %d (%s) | TargetWallet: %d (%s) | Nonce: %d | Amount: %d | Token: %s | Node: %d | Error: %v", mintWalletIndex, mintWallet.Address, transferWalletIndex, transferWallet.Address, nonce, MINT_AMOUNT, st.tokenAddress, nodeIndex, err)
 		return fmt.Errorf("failed to sign mint transaction: %w", err)
 	}
 
@@ -605,19 +615,29 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 	}
 
 	// Send mint request
-	_, err = client.MintToken(st.ctx, req)
+	result, err := client.MintToken(st.ctx, req)
 	if err != nil {
-		log.Printf("Error: Failed to mint (%d→%d): %v", mintWalletIndex, transferWalletIndex, err)
+		log.Printf("❌ API ERROR: MintToken failed | MintWallet: %d (%s) | TargetWallet: %d (%s) | Nonce: %d | Amount: %d | Token: %s | Node: %d | Error: %v", mintWalletIndex, mintWallet.Address, transferWalletIndex, transferWallet.Address, nonce, MINT_AMOUNT, st.tokenAddress, nodeIndex, err)
 		return fmt.Errorf("failed to mint token: %w", err)
+	}
+
+	// Log successful mint submission
+	log.Printf("✅ MINT SUBMITTED: Mint wallet %d → Transfer wallet %d | TxHash: %s | MintAddr: %s | TargetAddr: %s | Amount: %d | Nonce: %d", mintWalletIndex, transferWalletIndex, result.Hash, mintWallet.Address, transferWallet.Address, MINT_AMOUNT, nonce)
+
+	// Wait for transaction confirmation
+	if err := st.waitForTransactionReceipt(result.Hash, mintWallet.Address, transferWallet.Address, "MINT"); err != nil {
+		log.Printf("❌ MINT TIMEOUT: Mint wallet %d → Transfer wallet %d | TxHash: %s | MintAddr: %s | TargetAddr: %s | Amount: %d | Nonce: %d | Error: %v", mintWalletIndex, transferWalletIndex, result.Hash, mintWallet.Address, transferWallet.Address, MINT_AMOUNT, nonce, err)
+		return fmt.Errorf("failed to confirm mint transaction: %w", err)
 	}
 
 	// Validate nonce increment to ensure transaction was confirmed
 	if err := st.validateNonceIncrement(mintWallet.Address, nonce+1, "MINT_WALLET", "MINT"); err != nil {
-		log.Printf("Error: Nonce validation failed (wallet %d): %v", mintWalletIndex, err)
+		log.Printf("❌ NONCE VALIDATION FAILED: Mint wallet %d → Transfer wallet %d | TxHash: %s | MintAddr: %s | TargetAddr: %s | Amount: %d | ExpectedNonce: %d | Error: %v", mintWalletIndex, transferWalletIndex, result.Hash, mintWallet.Address, transferWallet.Address, MINT_AMOUNT, nonce+1, err)
 		return fmt.Errorf("failed to validate nonce increment after mint operation: %w", err)
 	}
 
-	// Mint success: mintWalletIndex -> transferWalletIndex
+	// Log successful mint completion
+	log.Printf("✅ MINT COMPLETED: Mint wallet %d → Transfer wallet %d | TxHash: %s | MintAddr: %s | TargetAddr: %s | Amount: %d", mintWalletIndex, transferWalletIndex, result.Hash, mintWallet.Address, transferWallet.Address, MINT_AMOUNT)
 
 	return nil
 }
@@ -644,10 +664,6 @@ func (st *StressTester) performAllMints() error {
 	var mintWG sync.WaitGroup
 	errorChan := make(chan error, MINT_WALLETS_COUNT*WALLETS_PER_MINT)
 
-	// Add atomic counter for mint progress
-	var mintCounter int64
-	totalMints := MINT_WALLETS_COUNT * WALLETS_PER_MINT
-
 	// Launch one goroutine per mint wallet
 	for i, mintWallet := range st.mintWallets {
 		mintWG.Add(1)
@@ -671,11 +687,7 @@ func (st *StressTester) performAllMints() error {
 					return
 				}
 
-				// Update mint progress
-				currentMint := atomic.AddInt64(&mintCounter, 1)
-				if currentMint%(int64(totalMints)/100) == 0 || currentMint == int64(totalMints) {
-					log.Printf("Minting: %d/%d", currentMint, totalMints)
-				}
+				// Update mint progress counter (no batch logging)
 			}
 		}(i, mintWallet)
 	}

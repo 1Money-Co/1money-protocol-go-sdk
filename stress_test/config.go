@@ -10,7 +10,7 @@ import (
 const (
 	// Wallet Configuration
 	MINT_WALLETS_COUNT     = 20                                          // Number of mint authority wallets
-	TRANSFER_WALLETS_COUNT = 10000                                       // Number of primary transfer recipient wallets
+	TRANSFER_WALLETS_COUNT = 5000                                        // Number of primary transfer recipient wallets
 	WALLETS_PER_MINT       = TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
 
 	// Token Configuration
@@ -23,7 +23,7 @@ const (
 	MINT_AMOUNT    = 1000000000          // Amount to mint per operation
 
 	// Rate Limiting Configuration
-	POST_RATE_LIMIT_TPS = 50  // Maximum POST requests per second (configurable)
+	POST_RATE_LIMIT_TPS = 100 // Maximum POST requests per second (configurable)
 	GET_RATE_LIMIT_TPS  = 250 // Maximum GET requests per second (configurable)
 
 	// Nonce Management Configuration
@@ -33,6 +33,7 @@ const (
 	// CSV Generation Configuration
 	CSV_PROGRESS_INTERVAL_WALLETS = 200 // Progress logging interval for wallet CSV generation
 	CSV_PROGRESS_INTERVAL_DIST    = 500 // Progress logging interval for distribution CSV generation
+	CSV_BALANCE_QUERY_RATE_LIMIT  = 400 // Maximum balance queries per second during CSV generation (configurable)
 )
 
 // Wallet represents a wallet with private key, public key, and address
@@ -53,6 +54,7 @@ type StressTester struct {
 	rateLimiter        *MultiNodeRateLimiter // Rate limiter for distributed nodes
 	operatorNonceMutex sync.Mutex            // Mutex for operator wallet nonce management
 	operatorNonce      uint64                // Current operator wallet nonce
+	csvRateLimit       int                   // Rate limit for balance queries during CSV generation
 }
 
 // GetTokenSymbol returns a dynamically generated token symbol for each test run

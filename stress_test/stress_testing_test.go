@@ -45,7 +45,7 @@ func TestBatchMint(t *testing.T) {
 	defaultNodeURL := "https://testapi.1moneynetwork.com"
 	nodeURLs := []string{defaultNodeURL}
 	
-	if err := runCompleteStressTest(logToFile, fileLogger, nodeURLs, POST_RATE_LIMIT_TPS, GET_RATE_LIMIT_TPS); err != nil {
+	if err := runCompleteStressTest(logToFile, fileLogger, nodeURLs, POST_RATE_LIMIT_TPS, GET_RATE_LIMIT_TPS, CSV_BALANCE_QUERY_RATE_LIMIT); err != nil {
 		t.Fatal(err)
 	}
 

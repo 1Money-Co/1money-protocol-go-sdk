@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	onemoney "github.com/1Money-Co/1money-go-sdk"
 )
@@ -34,12 +35,20 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 	log.Printf("Generating accounts detail CSV file: %s", csvFileName)
 	totalWallets := len(st.transferWallets)
 	log.Printf("Collecting balance information for %d wallets...", totalWallets)
+	log.Printf("CSV balance query rate limit: %d queries/second", st.csvRateLimit)
 
 	processedCount := 0
+
+	// Create rate limiter for CSV balance queries
+	rateLimiter := time.NewTicker(time.Second / time.Duration(st.csvRateLimit))
+	defer rateLimiter.Stop()
 
 	// Write data for transfer wallets
 	log.Printf("Processing transfer wallets...")
 	for i, wallet := range st.transferWallets {
+		// Wait for rate limiter
+		<-rateLimiter.C
+
 		// Get a node for GET operation
 		client, _, _, err := st.nodePool.GetNodeForGet()
 		if err != nil {
@@ -47,12 +56,15 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 			continue
 		}
 
-		// Skip rate limiting for CSV generation to speed up
-
 		// Get token account balance
+		startTime := time.Now()
+
 		tokenAccount, err := client.GetTokenAccount(st.ctx, wallet.Address, st.tokenAddress)
+		queryDuration := time.Since(startTime)
+
 		if err != nil {
 			// Failed to get balance
+			log.Printf("⚠️  CSV WARNING: GetTokenAccount failed | Wallet: %d | Address: %s | Token: %s | Duration: %v | Error: %v | Using zero balance", i+1, wallet.Address, st.tokenAddress, queryDuration, err)
 			// Continue with zero balance if account doesn't exist or has error
 			tokenAccount = &onemoney.TokenAccountResponse{Balance: "0"}
 		}
@@ -79,7 +91,6 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 			log.Printf("Processed %d/%d total wallets for CSV generation", processedCount, totalWallets)
 		}
 	}
-
 
 	log.Printf("✓ CSV generated: %s (%d entries)", csvFileName, processedCount)
 
