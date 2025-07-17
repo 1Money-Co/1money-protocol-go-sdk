@@ -108,7 +108,6 @@ func (st *StressTester) verifyNonceIncrement(expectedNonce uint64, walletIndex i
 		}
 
 		if currentNonce == expectedNonce {
-			log.Printf("✓ Nonce verified: %d (wallet %d)", expectedNonce, walletIndex)
 			return nil
 		}
 
@@ -217,7 +216,6 @@ func (st *StressTester) getAccountNonce(address string) (uint64, error) {
 
 // waitForTransactionReceipt waits for transaction receipt using node pool
 func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress string, toAddress string, operationType string) error {
-	log.Printf("⏳ Waiting for transaction receipt | TxHash: %s | From: %s | To: %s | Operation: %s", txHash, fromAddress, toAddress, operationType)
 
 	retryCount := 0
 	maxRetries := 120 // Maximum 120 retries (about 60 seconds with 500ms intervals)
@@ -267,7 +265,6 @@ func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress str
 
 // validateNonceIncrement validates nonce increment using node pool
 func (st *StressTester) validateNonceIncrement(address string, expectedNonce uint64, walletType string, operationType string) error {
-	log.Printf("🔍 Validating nonce increment | Address: %s | Expected: %d | Type: %s | Operation: %s", address, expectedNonce, walletType, operationType)
 
 	retryCount := 0
 	maxRetries := 80 // Maximum 80 retries (about 40 seconds with 500ms intervals)
@@ -304,8 +301,6 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 		}
 
 		if accountNonce.Nonce == expectedNonce {
-			// Nonce validated
-			log.Printf("✅ Nonce validated | Address: %s | Nonce: %d", address, expectedNonce)
 			return nil
 		}
 
@@ -577,17 +572,12 @@ func (st *StressTester) grantSingleMintAuthority(walletIndex int, mintWallet *Wa
 // mintToWallet performs a single mint operation
 func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWalletIndex, transferWalletIndex int) error {
 	totalMints := int64(MINT_WALLETS_COUNT * WALLETS_PER_MINT)
-	
-	// Log start of mint operation
-	log.Printf("🚀 MINT START: Mint wallet %d → Transfer wallet %d | MintAddr: %s | TargetAddr: %s", mintWalletIndex, transferWalletIndex, mintWallet.Address, transferWallet.Address)
 
 	// Get mint wallet's current nonce
-	log.Printf("📊 Getting nonce for mint wallet %d | Address: %s", mintWalletIndex, mintWallet.Address)
 	nonce, err := st.getAccountNonce(mintWallet.Address)
 	if err != nil {
 		return err
 	}
-	log.Printf("✅ Got nonce | MintWallet: %d | Nonce: %d", mintWalletIndex, nonce)
 
 	// Get a node for POST operation
 	client, _, nodeIndex, err := st.nodePool.GetNodeForMint()
@@ -641,9 +631,6 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 		return fmt.Errorf("failed to mint token: %w", err)
 	}
 
-	// Log successful mint submission
-	log.Printf("✅ MINT SUBMITTED: Mint wallet %d → Transfer wallet %d | TxHash: %s | MintAddr: %s | TargetAddr: %s | Amount: %d | Nonce: %d", mintWalletIndex, transferWalletIndex, result.Hash, mintWallet.Address, transferWallet.Address, MINT_AMOUNT, nonce)
-
 	// Wait for transaction confirmation
 	if err := st.waitForTransactionReceipt(result.Hash, mintWallet.Address, transferWallet.Address, "MINT"); err != nil {
 		log.Printf("❌ MINT TIMEOUT: Mint wallet %d → Transfer wallet %d | TxHash: %s | MintAddr: %s | TargetAddr: %s | Amount: %d | Nonce: %d | Error: %v", mintWalletIndex, transferWalletIndex, result.Hash, mintWallet.Address, transferWallet.Address, MINT_AMOUNT, nonce, err)
@@ -691,7 +678,7 @@ func (st *StressTester) performConcurrentMinting() error {
 func (st *StressTester) performAllMints() error {
 	// Reset mint counter
 	atomic.StoreInt64(&st.mintCounter, 0)
-	
+
 	var mintWG sync.WaitGroup
 	errorChan := make(chan error, MINT_WALLETS_COUNT*WALLETS_PER_MINT)
 
@@ -739,39 +726,39 @@ func (st *StressTester) performAllMints() error {
 func (st *StressTester) performAllTransfers() error {
 	// Reset transfer counter
 	atomic.StoreInt64(&st.transferCounter, 0)
-	
+
 	var transferWG sync.WaitGroup
 	errorChan := make(chan error, TRANSFER_WALLETS_COUNT)
-	
+
 	// Calculate total transfers
 	totalTransfers := int64(TRANSFER_WALLETS_COUNT * DIST_WALLETS_PER_TRANSFER)
-	
+
 	// Launch one goroutine per transfer wallet
 	for i, transferWallet := range st.transferWallets {
 		transferWG.Add(1)
 		go func(walletIndex int, wallet *Wallet) {
 			defer transferWG.Done()
-			
+
 			// Calculate the range of distribution wallets for this transfer wallet
 			startIdx := walletIndex * DIST_WALLETS_PER_TRANSFER
 			endIdx := startIdx + DIST_WALLETS_PER_TRANSFER
-			
+
 			// Perform sequential transfers to distribution wallets
 			if err := st.transferToDistributionWallets(wallet, walletIndex+1, startIdx, endIdx, totalTransfers); err != nil {
 				errorChan <- fmt.Errorf("transfer wallet %d failed to distribute: %w", walletIndex+1, err)
 			}
 		}(i, transferWallet)
 	}
-	
+
 	// Wait for all transfer operations to complete
 	transferWG.Wait()
 	close(errorChan)
-	
+
 	// Check for any errors
 	for err := range errorChan {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -779,44 +766,42 @@ func (st *StressTester) performAllTransfers() error {
 func (st *StressTester) transferToDistributionWallets(transferWallet *Wallet, transferWalletIndex int, startIdx int, endIdx int, totalTransfers int64) error {
 	// Calculate transfer amount (1/5 of minted amount)
 	transferAmount := MINT_AMOUNT / 5
-	
+
 	// Get current nonce for the transfer wallet
 	currentNonce, err := st.getAccountNonce(transferWallet.Address)
 	if err != nil {
 		return fmt.Errorf("failed to get initial nonce for transfer wallet %d: %w", transferWalletIndex, err)
 	}
-	
+
 	// Sequential transfers to each distribution wallet
 	for i := startIdx; i < endIdx; i++ {
 		distWallet := st.distributionWallets[i]
-		
+
 		// Perform single transfer
 		if err := st.transferToSingleDistWallet(transferWallet, transferWalletIndex, distWallet, i+1, currentNonce, int64(transferAmount), totalTransfers); err != nil {
 			return fmt.Errorf("failed to transfer to distribution wallet %d: %w", i+1, err)
 		}
-		
+
 		// Increment nonce for next transfer
 		currentNonce++
-		
+
 		// Wait for nonce to be confirmed before next transfer
 		if err := st.validateNonceIncrement(transferWallet.Address, currentNonce, "TRANSFER_WALLET", "TRANSFER"); err != nil {
 			return fmt.Errorf("nonce validation failed after transfer to distribution wallet %d: %w", i+1, err)
 		}
 	}
-	
+
 	return nil
 }
 
 // transferToSingleDistWallet performs a single transfer to a distribution wallet
 func (st *StressTester) transferToSingleDistWallet(transferWallet *Wallet, transferWalletIndex int, distWallet *Wallet, distWalletIndex int, nonce uint64, amount int64, totalTransfers int64) error {
-	log.Printf("🚀 TRANSFER START: Transfer wallet %d → Distribution wallet %d | TransferAddr: %s | DistAddr: %s", transferWalletIndex, distWalletIndex, transferWallet.Address, distWallet.Address)
-	
 	// Get a node for POST operation
 	client, _, nodeIndex, err := st.nodePool.GetNodeForMint()
 	if err != nil {
 		return fmt.Errorf("failed to get node for transfer operation: %w", err)
 	}
-	
+
 	// Create transfer payload
 	amountBig := big.NewInt(amount)
 	payload := onemoney.PaymentPayload{
@@ -826,32 +811,32 @@ func (st *StressTester) transferToSingleDistWallet(transferWallet *Wallet, trans
 		Value:     amountBig,
 		Token:     common.HexToAddress(st.tokenAddress),
 	}
-	
+
 	// Sign the payload
 	signature, err := client.SignMessage(payload, transferWallet.PrivateKey)
 	if err != nil {
-		log.Printf("❌ SIGNING ERROR: Transfer transaction signature failed | TransferWallet: %d (%s) | DistWallet: %d (%s) | Nonce: %d | Amount: %d | Token: %s | Node: %d | Error: %v", 
+		log.Printf("❌ SIGNING ERROR: Transfer transaction signature failed | TransferWallet: %d (%s) | DistWallet: %d (%s) | Nonce: %d | Amount: %d | Token: %s | Node: %d | Error: %v",
 			transferWalletIndex, transferWallet.Address, distWalletIndex, distWallet.Address, nonce, amount, st.tokenAddress, nodeIndex, err)
 		return fmt.Errorf("failed to sign transfer transaction: %w", err)
 	}
-	
+
 	// Create transfer request
 	req := &onemoney.PaymentRequest{
 		PaymentPayload: payload,
-		Signature: *signature,
+		Signature:      *signature,
 	}
-	
+
 	// Get rate limiter for this node
 	nodeRateLimiter := st.rateLimiter.GetNodeRateLimiter(nodeIndex)
 	if nodeRateLimiter == nil {
 		return fmt.Errorf("no rate limiter for node %d", nodeIndex)
 	}
-	
+
 	// Apply rate limiting for POST request
 	if err := nodeRateLimiter.WaitForPostToken(st.ctx); err != nil {
 		return fmt.Errorf("rate limiting failed for Transfer: %w", err)
 	}
-	
+
 	// Send transfer request
 	result, err := client.SendPayment(st.ctx, req)
 	if err != nil {
@@ -859,22 +844,18 @@ func (st *StressTester) transferToSingleDistWallet(transferWallet *Wallet, trans
 			transferWalletIndex, transferWallet.Address, distWalletIndex, distWallet.Address, nonce, amount, st.tokenAddress, nodeIndex, err)
 		return fmt.Errorf("failed to send payment: %w", err)
 	}
-	
-	// Log successful transfer submission
-	log.Printf("✅ TRANSFER SUBMITTED: Transfer wallet %d → Distribution wallet %d | TxHash: %s | TransferAddr: %s | DistAddr: %s | Amount: %d | Nonce: %d", 
-		transferWalletIndex, distWalletIndex, result.Hash, transferWallet.Address, distWallet.Address, amount, nonce)
-	
+
 	// Wait for transaction confirmation
 	if err := st.waitForTransactionReceipt(result.Hash, transferWallet.Address, distWallet.Address, "TRANSFER"); err != nil {
-		log.Printf("❌ TRANSFER TIMEOUT: Transfer wallet %d → Distribution wallet %d | TxHash: %s | TransferAddr: %s | DistAddr: %s | Amount: %d | Nonce: %d | Error: %v", 
+		log.Printf("❌ TRANSFER TIMEOUT: Transfer wallet %d → Distribution wallet %d | TxHash: %s | TransferAddr: %s | DistAddr: %s | Amount: %d | Nonce: %d | Error: %v",
 			transferWalletIndex, distWalletIndex, result.Hash, transferWallet.Address, distWallet.Address, amount, nonce, err)
 		return fmt.Errorf("failed to confirm transfer transaction: %w", err)
 	}
-	
+
 	// Log successful transfer completion with progress
 	currentTransfer := atomic.AddInt64(&st.transferCounter, 1)
-	log.Printf("✅ TRANSFER COMPLETED: Transfer wallet %d → Distribution wallet %d (%d/%d) | TxHash: %s | TransferAddr: %s | DistAddr: %s | Amount: %d", 
+	log.Printf("✅ TRANSFER COMPLETED: Transfer wallet %d → Distribution wallet %d (%d/%d) | TxHash: %s | TransferAddr: %s | DistAddr: %s | Amount: %d",
 		transferWalletIndex, distWalletIndex, currentTransfer, totalTransfers, result.Hash, transferWallet.Address, distWallet.Address, amount)
-	
+
 	return nil
 }
