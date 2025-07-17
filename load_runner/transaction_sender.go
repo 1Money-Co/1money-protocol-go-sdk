@@ -266,7 +266,7 @@ func VerifyTransactionsMultiNode(
 					results[resultIdx].VerifySendTime = verifyStart
 					
 					// Verify transaction
-					success, err := VerifyTransaction(client, results[resultIdx].TxHash)
+					success, failureReason, err := VerifyTransaction(client, results[resultIdx].TxHash)
 					
 					// Record verification end time
 					verifyEnd := time.Now()
@@ -277,6 +277,10 @@ func VerifyTransactionsMultiNode(
 					results[resultIdx].VerificationError = err
 					if err == nil {
 						results[resultIdx].TxSuccess = success
+						results[resultIdx].TxFailureReason = failureReason
+					} else {
+						// If there's an error, the failure reason is in the error message
+						results[resultIdx].TxFailureReason = failureReason
 					}
 				}
 			}(i)

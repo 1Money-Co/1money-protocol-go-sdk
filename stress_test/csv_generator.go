@@ -33,7 +33,7 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 	}
 
 	log.Printf("Generating accounts detail CSV file: %s", csvFileName)
-	totalWallets := len(st.transferWallets)
+	totalWallets := len(st.transferWallets) + len(st.distributionWallets)
 	log.Printf("Collecting balance information for %d wallets...", totalWallets)
 	log.Printf("CSV balance query rate limit: %d queries/second", st.csvRateLimit)
 
@@ -88,6 +88,57 @@ func (st *StressTester) generateAccountsDetailCSV(timestamp string) error {
 		processedCount++
 		// Log progress every CSV_PROGRESS_INTERVAL_WALLETS wallets
 		if processedCount%CSV_PROGRESS_INTERVAL_WALLETS == 0 {
+			log.Printf("Processed %d/%d total wallets for CSV generation", processedCount, totalWallets)
+		}
+	}
+
+	log.Printf("Processing distribution wallets...")
+	for i, wallet := range st.distributionWallets {
+		// Wait for rate limiter
+		<-rateLimiter.C
+
+		// Get a node for GET operation
+		client, _, _, err := st.nodePool.GetNodeForGet()
+		if err != nil {
+			log.Printf("Failed to get node for balance check (dist wallet %d): %v", i+1, err)
+			continue
+		}
+
+		// Get token account balance
+		startTime := time.Now()
+
+		tokenAccount, err := client.GetTokenAccount(st.ctx, wallet.Address, st.tokenAddress)
+		queryDuration := time.Since(startTime)
+
+		if err != nil {
+			// Failed to get balance
+			log.Printf("⚠️  CSV WARNING: GetTokenAccount failed | Dist Wallet: %d | Address: %s | Token: %s | Duration: %v | Error: %v | Using zero balance", i+1, wallet.Address, st.tokenAddress, queryDuration, err)
+			// Continue with zero balance if account doesn't exist or has error
+			tokenAccount = &onemoney.TokenAccountResponse{Balance: "0"}
+		}
+
+		// Calculate which transfer wallet this distribution wallet belongs to
+		transferWalletIndex := i / DIST_WALLETS_PER_TRANSFER
+
+		// Prepare CSV row for distribution wallet
+		row := []string{
+			"0x" + wallet.PrivateKey,
+			st.tokenAddress,
+			strconv.Itoa(int(TOKEN_DECIMALS)),
+			tokenAccount.Balance,
+			"distribution",
+			strconv.Itoa(i + 1),
+			fmt.Sprintf("transfer_wallet_%d", transferWalletIndex+1), // Source is the transfer wallet that sent tokens
+		}
+
+		// Write row to CSV
+		if err := writer.Write(row); err != nil {
+			return fmt.Errorf("failed to write CSV row for dist wallet %d: %w", i+1, err)
+		}
+
+		processedCount++
+		// Log progress every CSV_PROGRESS_INTERVAL_DIST wallets
+		if processedCount%CSV_PROGRESS_INTERVAL_DIST == 0 {
 			log.Printf("Processed %d/%d total wallets for CSV generation", processedCount, totalWallets)
 		}
 	}

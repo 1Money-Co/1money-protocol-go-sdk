@@ -187,9 +187,13 @@ func main() {
 						verifySendTime, verifyResponseTime, verifiedCount, stats.SuccessfulSends, 
 						result.VerifyDuration.Milliseconds(), result.TxHash)
 				} else {
-					Logf("[Sent: %s, Response: %s] [%d/%d] (%dms) ❌ TX %s: Failed on chain\n", 
+					failureMsg := "Failed on chain"
+					if result.TxFailureReason != "" {
+						failureMsg = result.TxFailureReason
+					}
+					Logf("[Sent: %s, Response: %s] [%d/%d] (%dms) ❌ TX %s: %s\n", 
 						verifySendTime, verifyResponseTime, verifiedCount, stats.SuccessfulSends, 
-						result.VerifyDuration.Milliseconds(), result.TxHash)
+						result.VerifyDuration.Milliseconds(), result.TxHash, failureMsg)
 				}
 			} else if result.Success && result.VerificationError != nil {
 				Logf("[%d/%d] ⚠️  TX %s: Verification error: %v\n", i+1, stats.SuccessfulSends, result.TxHash, result.VerificationError)
@@ -227,7 +231,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		return results[i].AccountIndex < results[j].AccountIndex
 	})
 
-	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,send_time,response_time,node_url,node_count,verified,tx_success,verification_error,verify_send_time,verify_response_time,verify_duration_ms\n")
+	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,send_time,response_time,node_url,node_count,verified,tx_success,tx_failure_reason,verification_error,verify_send_time,verify_response_time,verify_duration_ms\n")
 	for _, result := range results {
 		errorStr := ""
 		if result.Error != nil {
@@ -257,7 +261,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		if result.VerifyDuration > 0 {
 			verifyDurationMs = result.VerifyDuration.Milliseconds()
 		}
-		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%s,%s,%s,%d,%t,%t,%s,%s,%s,%d\n",
+		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%s,%s,%s,%d,%t,%t,%s,%s,%s,%s,%d\n",
 			result.WalletIndex,
 			result.FromAddress,
 			result.TxHash,
@@ -270,6 +274,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 			result.NodeCount,
 			result.Verified,
 			result.TxSuccess,
+			result.TxFailureReason,
 			verifyErrorStr,
 			verifySendTimeStr,
 			verifyResponseTimeStr,

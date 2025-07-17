@@ -32,6 +32,7 @@ type TransactionResult struct {
 	Verified          bool
 	VerificationError error
 	TxSuccess         bool
+	TxFailureReason   string  // Failure reason from receipt
 	NodeIndex         int
 	NodeURL           string
 	NodeCount         int64
@@ -132,13 +133,22 @@ func SendSingleTransactionToNode(
 }
 
 // VerifyTransaction verifies a transaction receipt
-func VerifyTransaction(client *onemoney.Client, txHash string) (bool, error) {
+func VerifyTransaction(client *onemoney.Client, txHash string) (bool, string, error) {
 	ctx := context.Background()
 	receipt, err := client.GetTransactionReceipt(ctx, txHash)
 	if err != nil {
-		return false, err
+		// The error message often contains the failure reason
+		return false, err.Error(), err
 	}
-	return receipt.Success, nil
+	
+	// If transaction failed, try to extract failure reason
+	failureReason := ""
+	if !receipt.Success {
+		// For now, we'll use a generic message since the API doesn't return specific failure reasons in the receipt
+		failureReason = fmt.Sprintf("Transaction failed at checkpoint %d", receipt.CheckpointNumber)
+	}
+	
+	return receipt.Success, failureReason, nil
 }
 
 // GetTokenBalance queries the token balance for an address

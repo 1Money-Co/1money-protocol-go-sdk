@@ -9,9 +9,11 @@ import (
 // Configurable Constants - Modify these values as needed for different stress test scenarios
 const (
 	// Wallet Configuration
-	MINT_WALLETS_COUNT     = 20                                          // Number of mint authority wallets
-	TRANSFER_WALLETS_COUNT = 10000                                       // Number of primary transfer recipient wallets
-	WALLETS_PER_MINT       = TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
+	MINT_WALLETS_COUNT        = 20                                                 // Number of mint authority wallets
+	TRANSFER_WALLETS_COUNT    = 2000                                               // Number of primary transfer recipient wallets
+	WALLETS_PER_MINT          = TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT        // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
+	DIST_WALLETS_PER_TRANSFER = 4                                                  // Number of distribution wallets per transfer wallet
+	TOTAL_DIST_WALLETS        = TRANSFER_WALLETS_COUNT * DIST_WALLETS_PER_TRANSFER // Total distribution wallets
 
 	// Token Configuration
 	TOKEN_NAME     = "Stress Test Token"
@@ -45,17 +47,19 @@ type Wallet struct {
 
 // StressTester manages the stress testing operations
 type StressTester struct {
-	nodePool           *NodePool
-	operatorWallet     *Wallet
-	mintWallets        []*Wallet
-	transferWallets    []*Wallet // Primary transfer wallets (tier 2)
-	tokenAddress       string
-	ctx                context.Context
-	rateLimiter        *MultiNodeRateLimiter // Rate limiter for distributed nodes
-	operatorNonceMutex sync.Mutex            // Mutex for operator wallet nonce management
-	operatorNonce      uint64                // Current operator wallet nonce
-	csvRateLimit       int                   // Rate limit for balance queries during CSV generation
-	mintCounter        int64                 // Atomic counter for tracking mint progress
+	nodePool            *NodePool
+	operatorWallet      *Wallet
+	mintWallets         []*Wallet
+	transferWallets     []*Wallet // Primary transfer wallets (tier 2)
+	distributionWallets []*Wallet // Distribution wallets (tier 3)
+	tokenAddress        string
+	ctx                 context.Context
+	rateLimiter         *MultiNodeRateLimiter // Rate limiter for distributed nodes
+	operatorNonceMutex  sync.Mutex            // Mutex for operator wallet nonce management
+	operatorNonce       uint64                // Current operator wallet nonce
+	csvRateLimit        int                   // Rate limit for balance queries during CSV generation
+	mintCounter         int64                 // Atomic counter for tracking mint progress
+	transferCounter     int64                 // Atomic counter for tracking transfer progress
 }
 
 // GetTokenSymbol returns a dynamically generated token symbol for each test run

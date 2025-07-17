@@ -128,8 +128,8 @@ func runCompleteStressTest(logToFile LogFunc, fileLogger *log.Logger, nodeURLs [
 
 // RunStressTest executes the complete stress test workflow
 func (st *StressTester) RunStressTest() error {
-	log.Printf("Starting stress test: %d nodes, %d mint wallets, %d target wallets", 
-		st.nodePool.Size(), MINT_WALLETS_COUNT, TRANSFER_WALLETS_COUNT)
+	log.Printf("Starting stress test: %d nodes, %d mint wallets, %d transfer wallets, %d distribution wallets", 
+		st.nodePool.Size(), MINT_WALLETS_COUNT, TRANSFER_WALLETS_COUNT, TOTAL_DIST_WALLETS)
 
 	// Preparation: Create wallets
 	if err := st.createMintWallets(); err != nil {
@@ -141,6 +141,11 @@ func (st *StressTester) RunStressTest() error {
 		return fmt.Errorf("failed to create transfer wallets: %w", err)
 	}
 	log.Println("✓ Transfer wallets created")
+
+	if err := st.createDistributionWallets(); err != nil {
+		return fmt.Errorf("failed to create distribution wallets: %w", err)
+	}
+	log.Println("✓ Distribution wallets created")
 
 	// Create token
 	if err := st.createToken(); err != nil {
