@@ -10,7 +10,7 @@ import (
 const (
 	// Wallet Configuration
 	MINT_WALLETS_COUNT     = 20                                          // Number of mint authority wallets
-	TRANSFER_WALLETS_COUNT = 5000                                        // Number of primary transfer recipient wallets
+	TRANSFER_WALLETS_COUNT = 10000                                       // Number of primary transfer recipient wallets
 	WALLETS_PER_MINT       = TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT // Number of transfer wallets per mint wallet (should equal TRANSFER_WALLETS_COUNT / MINT_WALLETS_COUNT)
 
 	// Token Configuration
@@ -55,6 +55,7 @@ type StressTester struct {
 	operatorNonceMutex sync.Mutex            // Mutex for operator wallet nonce management
 	operatorNonce      uint64                // Current operator wallet nonce
 	csvRateLimit       int                   // Rate limit for balance queries during CSV generation
+	mintCounter        int64                 // Atomic counter for tracking mint progress
 }
 
 // GetTokenSymbol returns a dynamically generated token symbol for each test run

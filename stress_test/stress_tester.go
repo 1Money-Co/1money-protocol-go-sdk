@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	onemoney "github.com/1Money-Co/1money-go-sdk"
@@ -558,6 +559,8 @@ func (st *StressTester) grantSingleMintAuthority(walletIndex int, mintWallet *Wa
 
 // mintToWallet performs a single mint operation
 func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWalletIndex, transferWalletIndex int) error {
+	totalMints := int64(MINT_WALLETS_COUNT * WALLETS_PER_MINT)
+	
 	// Log start of mint operation
 	log.Printf("🚀 MINT START: Mint wallet %d → Transfer wallet %d | MintAddr: %s | TargetAddr: %s", mintWalletIndex, transferWalletIndex, mintWallet.Address, transferWallet.Address)
 
@@ -636,8 +639,9 @@ func (st *StressTester) mintToWallet(mintWallet, transferWallet *Wallet, mintWal
 		return fmt.Errorf("failed to validate nonce increment after mint operation: %w", err)
 	}
 
-	// Log successful mint completion
-	log.Printf("✅ MINT COMPLETED: Mint wallet %d → Transfer wallet %d | TxHash: %s | MintAddr: %s | TargetAddr: %s | Amount: %d", mintWalletIndex, transferWalletIndex, result.Hash, mintWallet.Address, transferWallet.Address, MINT_AMOUNT)
+	// Log successful mint completion with progress
+	currentMint := atomic.AddInt64(&st.mintCounter, 1)
+	log.Printf("✅ MINT COMPLETED: Mint wallet %d → Transfer wallet %d (%d/%d) | TxHash: %s | MintAddr: %s | TargetAddr: %s | Amount: %d", mintWalletIndex, transferWalletIndex, currentMint, totalMints, result.Hash, mintWallet.Address, transferWallet.Address, MINT_AMOUNT)
 
 	return nil
 }
@@ -661,6 +665,9 @@ func (st *StressTester) performConcurrentMinting() error {
 
 // performAllMints executes all mint operations concurrently
 func (st *StressTester) performAllMints() error {
+	// Reset mint counter
+	atomic.StoreInt64(&st.mintCounter, 0)
+	
 	var mintWG sync.WaitGroup
 	errorChan := make(chan error, MINT_WALLETS_COUNT*WALLETS_PER_MINT)
 
