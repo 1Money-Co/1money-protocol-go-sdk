@@ -19,6 +19,8 @@ var (
 	useTestnet  = flag.Bool("testnet", true, "Use testnet (true) or mainnet (false)")
 	maxAccounts = flag.Int("max", 0, "Maximum number of accounts to process (0 = all)")
 	nodeList    = flag.String("nodes", "", "Comma-separated list of node URLs (e.g. '192.168.1.1:8080,192.168.1.2:8080')")
+	postRate    = flag.Int("post-rate", 0, "Total POST rate limit in TPS (0 = use concurrency)")
+	getRate     = flag.Int("get-rate", 500, "Total GET rate limit in TPS for verification/balance queries")
 )
 
 func main() {
@@ -88,6 +90,15 @@ func main() {
 	Logf("Target Address: %s\n", *toAddress)
 	Logf("Amount per TX: %s\n", *amount)
 	Logf("Concurrency: %d\n", *concurrency)
+
+	// Determine actual POST rate
+	actualPostRate := *postRate
+	if actualPostRate == 0 {
+		actualPostRate = *concurrency
+	}
+
+	Logf("POST Rate Limit: %d TPS (total)\n", actualPostRate)
+	Logf("GET Rate Limit: %d TPS (total)\n", *getRate)
 	Logf("Node Count: %d\n", nodePool.Size())
 	Logln("Nodes:")
 	for i, node := range nodePool.GetNodes() {
@@ -105,22 +116,22 @@ func main() {
 	}
 
 	Logf("Loaded %d accounts from CSV\n", len(accounts))
-	
+
 	Logf("Chain ID: %d (hardcoded)\n", HardcodedChainID)
-	
+
 	Logln("\nStarting transaction sending...")
 	Logln(strings.Repeat("═", 60))
 
 	startTime := time.Now()
-	results := SendTransactionsMultiNode(nodePool, accounts, *toAddress, *amount, *concurrency)
+	results := SendTransactionsMultiNode(nodePool, accounts, *toAddress, *amount, actualPostRate)
 	sendDuration := time.Since(startTime)
 
 	// Calculate expected per node for logging
 	expectedPerNode := len(accounts) / nodePool.Size()
-	if nodePool.Size() > 0 && len(accounts) % nodePool.Size() > 0 {
+	if nodePool.Size() > 0 && len(accounts)%nodePool.Size() > 0 {
 		// Some nodes will have one more
 	}
-	
+
 	// Log individual results with progress
 	for _, result := range results {
 		sendTime := ""
@@ -131,7 +142,7 @@ func main() {
 		if !result.ResponseTime.IsZero() {
 			responseTime = result.ResponseTime.Format("15:04:05.000")
 		}
-		
+
 		if result.Success {
 			Logf("[Sent: %s, Response: %s] [%d/%d-%s](%dms) ✅ Wallet #%s: TX %s\n",
 				sendTime, responseTime, result.NodeCount, expectedPerNode, result.NodeURL, result.Duration.Milliseconds(), result.WalletIndex, result.TxHash)
@@ -143,16 +154,16 @@ func main() {
 
 	// Calculate initial statistics
 	stats := CalculateStatistics(results, sendDuration, 0)
-	
-	if stats.SuccessfulSends > 0 {
-		Logln("\n⏳ Waiting 10 seconds before verifying transactions...")
-		time.Sleep(10 * time.Second)
 
-		Logln("\n🔍 Verifying transaction receipts...")
-		Logln("Note: Using same nodes as configured, respecting GET rate limit (500 TPS/node)")
+	if stats.SuccessfulSends > 0 {
+		Logf("\n⏳ Waiting 20 seconds before verifying transactions...")
+		time.Sleep(20 * time.Second)
+
+		Logf("\n🔍 Verifying transaction receipts...")
+		Logf("Note: Using same nodes as configured, respecting GET rate limit (%d TPS total, %d TPS/node)\n", *getRate, *getRate/nodePool.Size())
 		Logln(strings.Repeat("─", 60))
 		verifyStart := time.Now()
-		VerifyTransactionsMultiNode(nodePool, results, *concurrency)
+		VerifyTransactionsMultiNode(nodePool, results, *getRate)
 		verifyDuration := time.Since(verifyStart)
 
 		// Log verification results
@@ -160,23 +171,38 @@ func main() {
 		for i, result := range results {
 			if result.Verified {
 				verifiedCount++
+				
+				// Format verification timestamps
+				verifySendTime := ""
+				verifyResponseTime := ""
+				if !result.VerifySendTime.IsZero() {
+					verifySendTime = result.VerifySendTime.Format("15:04:05.000")
+				}
+				if !result.VerifyResponseTime.IsZero() {
+					verifyResponseTime = result.VerifyResponseTime.Format("15:04:05.000")
+				}
+				
 				if result.TxSuccess {
-					Logf("[%d/%d] ✅ TX %s: Confirmed successful\n", verifiedCount, stats.SuccessfulSends, result.TxHash)
+					Logf("[Sent: %s, Response: %s] [%d/%d] (%dms) ✅ TX %s: Confirmed successful\n", 
+						verifySendTime, verifyResponseTime, verifiedCount, stats.SuccessfulSends, 
+						result.VerifyDuration.Milliseconds(), result.TxHash)
 				} else {
-					Logf("[%d/%d] ❌ TX %s: Failed on chain\n", verifiedCount, stats.SuccessfulSends, result.TxHash)
+					Logf("[Sent: %s, Response: %s] [%d/%d] (%dms) ❌ TX %s: Failed on chain\n", 
+						verifySendTime, verifyResponseTime, verifiedCount, stats.SuccessfulSends, 
+						result.VerifyDuration.Milliseconds(), result.TxHash)
 				}
 			} else if result.Success && result.VerificationError != nil {
 				Logf("[%d/%d] ⚠️  TX %s: Verification error: %v\n", i+1, stats.SuccessfulSends, result.TxHash, result.VerificationError)
 			}
 		}
-		
+
 		// Recalculate statistics with verification data
 		stats = CalculateStatistics(results, sendDuration, verifyDuration)
 	}
-	
+
 	// Print detailed statistics report
 	stats.PrintDetailedReport()
-	
+
 	// Print node distribution statistics
 	nodePool.PrintNodeDistribution()
 
@@ -201,7 +227,7 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		return results[i].AccountIndex < results[j].AccountIndex
 	})
 
-	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,send_time,response_time,node_url,node_count,verified,tx_success,verification_error\n")
+	fmt.Fprintf(file, "wallet_index,from_address,tx_hash,success,error,duration_ms,send_time,response_time,node_url,node_count,verified,tx_success,verification_error,verify_send_time,verify_response_time,verify_duration_ms\n")
 	for _, result := range results {
 		errorStr := ""
 		if result.Error != nil {
@@ -219,7 +245,19 @@ func WriteResultsToCSV(results []TransactionResult) error {
 		if !result.ResponseTime.IsZero() {
 			responseTimeStr = result.ResponseTime.Format("2006-01-02 15:04:05.000")
 		}
-		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%s,%s,%s,%d,%t,%t,%s\n",
+		verifySendTimeStr := ""
+		verifyResponseTimeStr := ""
+		if !result.VerifySendTime.IsZero() {
+			verifySendTimeStr = result.VerifySendTime.Format("2006-01-02 15:04:05.000")
+		}
+		if !result.VerifyResponseTime.IsZero() {
+			verifyResponseTimeStr = result.VerifyResponseTime.Format("2006-01-02 15:04:05.000")
+		}
+		verifyDurationMs := int64(0)
+		if result.VerifyDuration > 0 {
+			verifyDurationMs = result.VerifyDuration.Milliseconds()
+		}
+		fmt.Fprintf(file, "%s,%s,%s,%t,%s,%d,%s,%s,%s,%d,%t,%t,%s,%s,%s,%d\n",
 			result.WalletIndex,
 			result.FromAddress,
 			result.TxHash,
@@ -233,6 +271,9 @@ func WriteResultsToCSV(results []TransactionResult) error {
 			result.Verified,
 			result.TxSuccess,
 			verifyErrorStr,
+			verifySendTimeStr,
+			verifyResponseTimeStr,
+			verifyDurationMs,
 		)
 	}
 
@@ -240,4 +281,3 @@ func WriteResultsToCSV(results []TransactionResult) error {
 	Logf("Results written to: %s\n", absPath)
 	return nil
 }
-

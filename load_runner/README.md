@@ -38,6 +38,8 @@ Options:
   -max <n>         Maximum accounts to process (default: all)
   -mainnet         Use mainnet instead of testnet
   -nodes <list>    Comma-separated list of node URLs (min 1, max 13)
+  -post-rate <n>   Total POST rate limit in TPS (default: concurrency value)
+  -get-rate <n>    Total GET rate limit in TPS for verification/balance queries (default: 500)
 ```
 
 Examples:
@@ -68,6 +70,12 @@ Examples:
 
 # High concurrency with rate limiting (2 nodes, concurrency will be capped at 500 TPS)
 ./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -nodes "node1:8080,node2:8080" -concurrency 1000
+
+# Custom rate limits for POST and GET operations
+./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -post-rate 100 -get-rate 200
+
+# High GET rate for fast balance queries
+./run_load_test.sh 0x742d35Cc6634C0532925a3b844Bc9e7595f87890 -get-rate 1000
 ```
 
 ### Direct Go Run
@@ -117,26 +125,31 @@ The load runner supports distributing transactions across multiple nodes (1-13 n
 
 The load runner respects server-side rate limits to prevent overwhelming the nodes:
 
-- **POST requests** (transactions): 250 TPS per node
-- **GET requests** (verification): 500 TPS per node
+- **POST requests** (transactions): Configurable via `-post-rate` flag (default: concurrency value)
+- **GET requests** (verification/balance queries): Configurable via `-get-rate` flag (default: 500 TPS total)
 
-#### Smooth Traffic Distribution
+#### Smooth Traffic Distribution with Micro-Burst Prevention
 
-The load runner uses a smooth rate limiter that distributes requests evenly across time:
-- Divides each second into 20 intervals of 50ms each
-- Distributes allowed requests evenly across these intervals
-- Prevents burst traffic at the beginning of each second
-- Ensures stable transaction flow within sliding windows
+The load runner uses an advanced rate limiter that prevents micro-bursts:
+- **Token Bucket**: Ensures average rate stays within configured limits
+- **Sliding Window**: Monitors 100ms windows to prevent micro-bursts
+- **2x Burst Protection**: Prevents instantaneous rate from exceeding 2x the configured rate
+- **Smooth Distribution**: Spreads requests evenly over time
 
-#### Automatic Concurrency Adjustment
+For example, with 100 TPS rate limit:
+- Average rate: 100 requests/second
+- Maximum burst in any 100ms window: 20 requests (2x rate × 0.1s)
+- Prevents server-side throttling due to micro-bursts
 
-When the requested concurrency exceeds the rate limits, it's automatically capped:
-- Maximum transaction concurrency = `node_count × 250`
-- Maximum verification concurrency = `node_count × 500`
+#### Rate Limit Distribution
 
-For example:
-- With 2 nodes and `-concurrency 600`: Effective concurrency = 500 (2 × 250)
-- With 4 nodes and `-concurrency 2000`: Effective concurrency = 1000 (4 × 250)
+The total rate limit is distributed evenly across all configured nodes:
+
+For example with 4 nodes:
+- `-post-rate 1000`: Each node gets 250 TPS
+- `-get-rate 2000`: Each node gets 500 TPS
+
+The rate limiter ensures that each node respects its individual rate limit to prevent server-side throttling.
 
 ### Node Configuration
 

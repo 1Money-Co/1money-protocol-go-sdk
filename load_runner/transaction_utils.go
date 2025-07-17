@@ -35,6 +35,11 @@ type TransactionResult struct {
 	NodeIndex         int
 	NodeURL           string
 	NodeCount         int64
+	
+	// Verification timing
+	VerifySendTime     time.Time
+	VerifyResponseTime time.Time
+	VerifyDuration     time.Duration
 }
 
 // SendSingleTransactionToNode sends a single transaction to a specific node
@@ -134,4 +139,17 @@ func VerifyTransaction(client *onemoney.Client, txHash string) (bool, error) {
 		return false, err
 	}
 	return receipt.Success, nil
+}
+
+// GetTokenBalance queries the token balance for an address
+func GetTokenBalance(client *onemoney.Client, address string, tokenAddress string) (*big.Int, error) {
+	ctx := context.Background()
+	account, err := client.GetTokenAccount(ctx, address, tokenAddress)
+	if err != nil {
+		return nil, err
+	}
+	
+	balance := new(big.Int)
+	balance.SetString(account.Balance, 10)
+	return balance, nil
 }
