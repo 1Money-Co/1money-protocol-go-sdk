@@ -128,13 +128,22 @@ func TestSendPayment(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	// Create payment payload
 	payload := onemoney.PaymentPayload{
-		ChainID:   1212101,
-		Nonce:     nonce,
-		Recipient: common.HexToAddress(onemoney.Test2ndAddress),
-		Value:     big.NewInt(40250000),
-		Token:     common.HexToAddress(onemoney.TestTokenAddress),
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
+		ChainID:          1212101,
+		Nonce:            nonce,
+		Recipient:        common.HexToAddress(onemoney.Test2ndAddress),
+		Value:            big.NewInt(40250000),
+		Token:            common.HexToAddress(onemoney.TestTokenAddress),
 	}
 	// Sign the payload
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)

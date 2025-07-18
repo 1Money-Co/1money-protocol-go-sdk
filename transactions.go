@@ -27,7 +27,7 @@ type TokenTransferPayload struct {
 }
 
 type Transaction struct {
-	TransactionType  string      `json:"transaction_type"`
+	TransactionType string `json:"transaction_type"`
 	// Data holds the specific payload for the transaction, which varies based on TransactionType.
 	// Common examples include TokenCreatePayload or TokenTransferPayload.
 	// Using interface{} (or any) for flexibility as new transaction types can be added.
@@ -87,11 +87,13 @@ func (client *Client) GetEstimateFee(ctx context.Context, from, token, value str
 }
 
 type PaymentPayload struct {
-	ChainID   uint64         `json:"chain_id"`
-	Nonce     uint64         `json:"nonce"`
-	Recipient common.Address `json:"recipient"`
-	Value     *big.Int       `json:"value"`
-	Token     common.Address `json:"token"`
+	RecentEpoch      uint64         `json:"recent_epoch"`
+	RecentCheckpoint uint64         `json:"recent_checkpoint"`
+	ChainID          uint64         `json:"chain_id"`
+	Nonce            uint64         `json:"nonce"`
+	Recipient        common.Address `json:"recipient"`
+	Value            *big.Int       `json:"value"`
+	Token            common.Address `json:"token"`
 }
 
 type PaymentRequest struct {
