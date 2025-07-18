@@ -244,10 +244,6 @@ func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress str
 				log.Printf("❌ API ERROR: GetTransactionReceipt timeout | TxHash: %s | From: %s | To: %s | Node: %d | Retry: %d/%d | Error: %v", txHash, fromAddress, toAddress, nodeIndex, retryCount, maxRetries, err)
 				return fmt.Errorf("transaction receipt timeout after %d retries", maxRetries)
 			}
-			// Log only at 50% and max retries
-			if retryCount == maxRetries/2 || retryCount == maxRetries-1 {
-				log.Printf("⏱️  API RETRY: GetTransactionReceipt | TxHash: %s | Node: %d | Retry: %d/%d | Error: %v", txHash[:8]+"...", nodeIndex, retryCount, maxRetries, err)
-			}
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
@@ -267,7 +263,7 @@ func (st *StressTester) waitForTransactionReceipt(txHash string, fromAddress str
 func (st *StressTester) validateNonceIncrement(address string, expectedNonce uint64, walletType string, operationType string) error {
 
 	retryCount := 0
-	maxRetries := 80 // Maximum 80 retries (about 40 seconds with 500ms intervals)
+	maxRetries := 40 // Maximum 80 retries (about 40 seconds with 500ms intervals)
 	for {
 		// Get a node for GET operation
 		client, _, nodeIndex, err := st.nodePool.GetNodeForGet()
@@ -292,9 +288,6 @@ func (st *StressTester) validateNonceIncrement(address string, expectedNonce uin
 			if retryCount >= maxRetries {
 				log.Printf("❌ API ERROR: GetAccountNonce validation timeout | Address: %s | Expected: %d | Node: %d | Retry: %d/%d | Error: %v", address, expectedNonce, nodeIndex, retryCount, maxRetries, err)
 				return fmt.Errorf("failed to get nonce after %d retries: %w", maxRetries, err)
-			}
-			if retryCount == maxRetries/2 || retryCount == maxRetries-1 {
-				log.Printf("⏱️  API RETRY: GetAccountNonce validation | Address: %s | Node: %d | Retry: %d/%d | Error: %v", address, nodeIndex, retryCount, maxRetries, err)
 			}
 			time.Sleep(500 * time.Millisecond)
 			continue
