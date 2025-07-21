@@ -16,14 +16,23 @@ func TestIssueToken(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	payload := onemoney.TokenIssuePayload{
-		ChainID:         1212101,
-		Nonce:           nonce,
-		Symbol:          "USDA",
-		Name:            "1Money Stable Coin Aaron",
-		Decimals:        6,
-		MasterAuthority: common.HexToAddress(onemoney.TestOperatorAddress),
-		IsPrivate:       false,
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
+		ChainID:          1212101,
+		Nonce:            nonce,
+		Symbol:           "USDA",
+		Name:             "1Money Stable Coin Aaron",
+		Decimals:         6,
+		MasterAuthority:  common.HexToAddress(onemoney.TestOperatorAddress),
+		IsPrivate:        false,
 	}
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
 	if err != nil {
@@ -108,12 +117,21 @@ func TestUpdateTokenMetadata(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	payload := onemoney.UpdateMetadataPayload{
-		ChainID: 1212101,
-		Nonce:   nonce,
-		Name:    "USDFF Stablecoin",
-		URI:     "https://usdf.com",
-		Token:   common.HexToAddress(onemoney.TestTokenAddress),
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
+		ChainID:          1212101,
+		Nonce:            nonce,
+		Name:             "USDFF Stablecoin",
+		URI:              "https://usdf.com",
+		Token:            common.HexToAddress(onemoney.TestTokenAddress),
 		AdditionalMetadata: []onemoney.AdditionalMetadata{
 			{
 				Key:   "test",
@@ -149,7 +167,16 @@ func TestGrantMintBurnAuthority(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	payload := onemoney.TokenAuthorityPayload{
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
 		ChainID:          1212101,
 		Nonce:            nonce,
 		Action:           onemoney.AuthorityActionGrant,
@@ -187,7 +214,16 @@ func TestGrantMasterMintAuthority(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	payload := onemoney.TokenAuthorityPayload{
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
 		ChainID:          1212101,
 		Nonce:            nonce,
 		Action:           onemoney.AuthorityActionGrant,
@@ -225,7 +261,16 @@ func TestGrantMasterUpdateMetadata(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	payload := onemoney.TokenAuthorityPayload{
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
 		ChainID:          1212101,
 		Nonce:            nonce,
 		Action:           onemoney.AuthorityActionGrant,
@@ -263,7 +308,16 @@ func TestGrantMasterUpdatePause(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	payload := onemoney.TokenAuthorityPayload{
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
 		ChainID:          1212101,
 		Nonce:            nonce,
 		Action:           onemoney.AuthorityActionGrant,
@@ -301,7 +355,16 @@ func TestGrantManageListPause(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	payload := onemoney.TokenAuthorityPayload{
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
 		ChainID:          1212101,
 		Nonce:            nonce,
 		Action:           onemoney.AuthorityActionGrant,
@@ -340,13 +403,22 @@ func TestMintToken(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	// Create mint payload
 	payload := onemoney.TokenMintPayload{
-		ChainID:   1212101,
-		Nonce:     nonce,
-		Recipient: common.HexToAddress(onemoney.TestOperatorAddress),
-		Value:     big.NewInt(150000),
-		Token:     common.HexToAddress(onemoney.TestTokenAddress),
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
+		ChainID:          1212101,
+		Nonce:            nonce,
+		Recipient:        common.HexToAddress(onemoney.TestOperatorAddress),
+		Value:            big.NewInt(150000),
+		Token:            common.HexToAddress(onemoney.TestTokenAddress),
 	}
 	// Sign the payload
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
@@ -380,13 +452,22 @@ func TestBurnToken(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
-	// Create mint payload
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
+	// Create burn payload
 	payload := onemoney.TokenBurnPayload{
-		ChainID:   1212101,
-		Nonce:     nonce,
-		Recipient: common.HexToAddress(onemoney.TestOperatorAddress),
-		Value:     big.NewInt(15000),
-		Token:     common.HexToAddress(onemoney.TestTokenAddress),
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
+		ChainID:          1212101,
+		Nonce:            nonce,
+		Recipient:        common.HexToAddress(onemoney.TestOperatorAddress),
+		Value:            big.NewInt(15000),
+		Token:            common.HexToAddress(onemoney.TestTokenAddress),
 	}
 	// Sign the payload
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
@@ -420,13 +501,22 @@ func TestBlacklist(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	// Create SetTokenManagelist payload
 	payload := onemoney.TokenManageListPayload{
-		ChainID: 1212101,
-		Nonce:   nonce,
-		Action:  onemoney.Whitelist,
-		Address: common.HexToAddress(onemoney.TestOperatorAddress),
-		Token:   common.HexToAddress(onemoney.TestTokenAddress),
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
+		ChainID:          1212101,
+		Nonce:            nonce,
+		Action:           onemoney.Whitelist,
+		Address:          common.HexToAddress(onemoney.TestOperatorAddress),
+		Token:            common.HexToAddress(onemoney.TestTokenAddress),
 	}
 	// Sign the payload
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
@@ -460,12 +550,21 @@ func TestPauseToken(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
-	// Create mint payload
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
+	// Create pause payload
 	payload := onemoney.PauseTokenPayload{
-		ChainID: 1212101,
-		Nonce:   nonce,
-		Action:  onemoney.Pause, // Unpause
-		Token:   common.HexToAddress(onemoney.TestTokenAddress),
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
+		ChainID:          1212101,
+		Nonce:            nonce,
+		Action:           onemoney.Pause, // Unpause
+		Token:            common.HexToAddress(onemoney.TestTokenAddress),
 	}
 	// Sign the payload
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
@@ -499,12 +598,21 @@ func TestUnPauseToken(t *testing.T) {
 		t.Fatalf("Failed to get account nonce: %v", err)
 	}
 	var nonce uint64 = accountNonce.Nonce
+
+	// Get latest epoch and checkpoint
+	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+	}
+
 	// Create pause payload
 	payload := onemoney.PauseTokenPayload{
-		ChainID: 1212101,
-		Nonce:   nonce,
-		Action:  onemoney.UnPause,
-		Token:   common.HexToAddress(onemoney.TestTokenAddress),
+		RecentEpoch:      epochCheckpoint.Epoch,
+		RecentCheckpoint: epochCheckpoint.Checkpoint,
+		ChainID:          1212101,
+		Nonce:            nonce,
+		Action:           onemoney.UnPause,
+		Token:            common.HexToAddress(onemoney.TestTokenAddress),
 	}
 	// Sign the payload
 	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)

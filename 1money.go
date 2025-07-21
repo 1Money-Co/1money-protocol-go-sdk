@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // Logger defines a simple logging interface.
@@ -45,6 +48,20 @@ type Client struct {
 	httpclient *http.Client
 	logger     Logger
 	hooks      []Hook // New field
+}
+
+func PrivateKeyToAddress(privateKeyHex string) (string, error) {
+
+	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
+	privateKey, err := crypto.HexToECDSA(privateKeyHex)
+	if err != nil {
+		return "", fmt.Errorf("无效的私钥: %v", err)
+	}
+
+	publicKeyECDSA := &privateKey.PublicKey
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	return address.Hex(), nil
 }
 
 func newClientInternal(baseHost string, options ...ClientOption) *Client {

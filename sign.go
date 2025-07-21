@@ -2,10 +2,11 @@ package onemoney
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"strings"
 )
 
 type Signature struct {
@@ -25,13 +26,10 @@ func (client *Client) SignMessage(msg interface{}, privateKey string) (*Signatur
 		return nil, fmt.Errorf("invalid private key: %w", err)
 	}
 	hash := crypto.Keccak256(encoded)
-	fmt.Printf("Signature Hash: %s\n", common.BytesToHash(hash))
 	signature, err := crypto.Sign(hash, key)
 	if err != nil {
 		return nil, fmt.Errorf("sign message: %w", err)
 	}
-	fmt.Printf("Signature: 0x%x\n", signature)
-	fmt.Printf("Raw bytes: %v\n", signature)
 	return &Signature{
 		R: common.BytesToHash(signature[:32]).Hex(),
 		S: common.BytesToHash(signature[32:64]).Hex(),
