@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	onemoney "github.com/1Money-Co/1money-go-sdk"
+	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
 )
 
 const testTimeout = 30 * time.Second
