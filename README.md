@@ -1,9 +1,9 @@
-[![Go Reference](https://pkg.go.dev/badge/github.com/1Money-Co/1money-go-sdk.svg)](https://pkg.go.dev/github.com/1Money-Co/1money-go-sdk)
-[![Go Report Card](https://goreportcard.com/badge/github.com/1Money-Co/1money-go-sdk)](https://goreportcard.com/report/github.com/1Money-Co/1money-go-sdk)
-![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/1Money-Co/1money-go-sdk)
-[![GitHub Tag](https://img.shields.io/github/v/tag/1Money-Co/1money-go-sdk?label=Latest%20Version)](https://pkg.go.dev/github.com/1Money-Co/1money-go-sdk)
+[![Go Reference](https://pkg.go.dev/badge/github.com/1Money-Co/1money-protocol-go-sdk.svg)](https://pkg.go.dev/github.com/1Money-Co/1money-protocol-go-sdk)
+[![Go Report Card](https://goreportcard.com/badge/github.com/1Money-Co/1money-protocol-go-sdk)](https://goreportcard.com/report/github.com/1Money-Co/1money-protocol-go-sdk)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/1Money-Co/1money-protocol-go-sdk)
+[![GitHub Tag](https://img.shields.io/github/v/tag/1Money-Co/1money-protocol-go-sdk?label=Latest%20Version)](https://pkg.go.dev/github.com/1Money-Co/1money-protocol-go-sdk)
 
-# 1money-go-sdk
+# 1money-protocol-go-sdk
 
 An SDK for the 1money blockchain in Go.
 
@@ -12,7 +12,7 @@ An SDK for the 1money blockchain in Go.
 Add go to your `go.mod` file
 
 ```bash
-go get -u  https://github.com/1Money-Co/1money-go-sdk
+go get -u  https://github.com/1Money-Co/1money-protocol-go-sdk
 ```
 
 ## Example
