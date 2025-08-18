@@ -1,4 +1,4 @@
-module github.com/1Money-Co/1money-go-sdk
+module github.com/1Money-Co/1money-network-go-sdk
 
 go 1.24
 

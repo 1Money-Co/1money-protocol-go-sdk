@@ -2,7 +2,7 @@ package onemoney_test
 
 import (
 	"context"
-	onemoney "github.com/1Money-Co/1money-go-sdk"
+	onemoney "github.com/1Money-Co/1money-network-go-sdk"
 	"testing"
 )
 

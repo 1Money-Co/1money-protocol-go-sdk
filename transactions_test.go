@@ -3,7 +3,7 @@ package onemoney_test
 import (
 	"context"
 	"fmt"
-	onemoney "github.com/1Money-Co/1money-go-sdk"
+	onemoney "github.com/1Money-Co/1money-network-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"testing"
