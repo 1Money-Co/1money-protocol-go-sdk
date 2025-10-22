@@ -3,9 +3,10 @@ package onemoney
 import (
 	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"net/url"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Address string
@@ -40,6 +41,7 @@ type Transaction struct {
 	From             string      `json:"from"`
 	Hash             string      `json:"hash"`
 	Nonce            int         `json:"nonce"`
+	RecentCheckpoint uint64      `json:"recent_checkpoint"`
 	Signature        *Signature  `json:"signature"`
 	TransactionIndex int         `json:"transaction_index"`
 }
@@ -87,7 +89,6 @@ func (client *Client) GetEstimateFee(ctx context.Context, from, token, value str
 }
 
 type PaymentPayload struct {
-	RecentEpoch      uint64         `json:"recent_epoch"`
 	RecentCheckpoint uint64         `json:"recent_checkpoint"`
 	ChainID          uint64         `json:"chain_id"`
 	Nonce            uint64         `json:"nonce"`

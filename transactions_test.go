@@ -3,16 +3,17 @@ package onemoney_test
 import (
 	"context"
 	"fmt"
-	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"testing"
+
+	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func TestGetTransactionByHash(t *testing.T) {
 	client := onemoney.NewTestClient()
 	// for create/mint related transaction, can check cp=1 related transactions to get the hash to test
-	hash := "0x85396c45c42acfc73c214da3b71737f3c46b4bda638d5b0c58404d176392f867"
+	hash := "0x74c1839ab02c9139f92329b575684bae5d3e051fbf402dd4bf2d6b1c9761bdfd"
 	result, err := client.GetTransactionByHash(context.Background(), hash)
 	if err != nil {
 		t.Fatalf("GetTransactionByHash failed: %v", err)
@@ -36,6 +37,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	t.Logf("Successfully retrieved transaction: %s", result.Hash)
 	t.Logf("Transaction type: %s", result.TransactionType)
 	t.Logf("From: %s", result.From)
+	t.Logf("Recent Checkpoint: %d", result.RecentCheckpoint)
 
 	switch result.TransactionType {
 	case "TokenCreate":
@@ -56,7 +58,7 @@ func TestGetTransactionByHash(t *testing.T) {
 
 func TestGetTransactionReceipt(t *testing.T) {
 	client := onemoney.NewTestClient()
-	hash := "0x85396c45c42acfc73c214da3b71737f3c46b4bda638d5b0c58404d176392f867"
+	hash := "0x74c1839ab02c9139f92329b575684bae5d3e051fbf402dd4bf2d6b1c9761bdfd"
 	result, err := client.GetTransactionReceipt(context.Background(), hash)
 	if err != nil {
 		t.Fatalf("GetTransactionReceipt failed: %v", err)
@@ -129,20 +131,19 @@ func TestSendPayment(t *testing.T) {
 	}
 	var nonce uint64 = accountNonce.Nonce
 
-	// Get latest epoch and checkpoint
-	epochCheckpoint, err := client.GetLatestEpochCheckpoint(context.Background())
+	// Get latest checkpoint
+	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
 	if err != nil {
-		t.Fatalf("Failed to get latest epoch checkpoint: %v", err)
+		t.Fatalf("Failed to get latest checkpoint number: %v", err)
 	}
 
 	// Create payment payload
 	payload := onemoney.PaymentPayload{
-		RecentEpoch:      epochCheckpoint.Epoch,
-		RecentCheckpoint: epochCheckpoint.Checkpoint,
+		RecentCheckpoint: uint64(latestCheckpoint.Number),
 		ChainID:          1212101,
 		Nonce:            nonce,
 		Recipient:        common.HexToAddress(onemoney.Test2ndAddress),
-		Value:            big.NewInt(40250000),
+		Value:            big.NewInt(4025),
 		Token:            common.HexToAddress(onemoney.TestTokenAddress),
 	}
 	// Sign the payload
