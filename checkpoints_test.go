@@ -2,8 +2,9 @@ package onemoney_test
 
 import (
 	"context"
-	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
 	"testing"
+
+	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
 )
 
 func TestGetCheckpointNumber(t *testing.T) {
@@ -43,7 +44,7 @@ func TestGetCheckpointByHashFull(t *testing.T) {
 	}
 	// Log the result for manual verification
 	t.Logf("Successfully retrieved checkpoint detail for hash: %s", hash)
-	t.Logf("Number of transactions: %d", result.Size)
+	t.Logf("Size of transactions: %d", result.Size)
 	t.Log("result: ", result)
 }
 
@@ -66,13 +67,13 @@ func TestGetCheckpointByHash(t *testing.T) {
 	}
 	// Log the result for manual verification
 	t.Logf("Successfully retrieved checkpoint detail for hash: %s", hash)
-	t.Logf("Number of transactions: %d", result.Size)
+	t.Logf("Size of transactions: %d", result.Size)
 	t.Log("result: ", result)
 }
 
 func TestGetCheckpointByNumberFull(t *testing.T) {
 	client := onemoney.NewTestClient()
-	result, err := client.GetCheckpointByNumberFull(context.Background(), 10)
+	result, err := client.GetCheckpointByNumberFull(context.Background(), 99331)
 	if err != nil {
 		t.Fatalf("GetCheckpointByNumberFull failed: %v", err)
 	}
@@ -88,7 +89,7 @@ func TestGetCheckpointByNumberFull(t *testing.T) {
 	}
 	// Log the result for manual verification
 	t.Logf("Successfully retrieved checkpoint detail for number: %d", result.Number)
-	t.Logf("Number of transactions: %d", result.Size)
+	t.Logf("Size of transactions: %d", result.Size)
 	t.Log("result: ", result)
 }
 

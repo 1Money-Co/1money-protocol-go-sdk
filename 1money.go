@@ -41,6 +41,7 @@ const (
 	TestOperatorAddress    = ""
 	TestTokenAddress       = ""
 	Test2ndAddress         = ""
+	BlacklistAddress       = ""
 )
 
 type Client struct {
@@ -55,7 +56,7 @@ func PrivateKeyToAddress(privateKeyHex string) (string, error) {
 	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
-		return "", fmt.Errorf("无效的私钥: %v", err)
+		return "", fmt.Errorf("invalid private key: %v", err)
 	}
 
 	publicKeyECDSA := &privateKey.PublicKey

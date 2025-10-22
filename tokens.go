@@ -3,14 +3,14 @@ package onemoney
 import (
 	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"net/url"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type TokenIssuePayload struct {
-	RecentEpoch      uint64         `json:"recent_epoch"`
 	RecentCheckpoint uint64         `json:"recent_checkpoint"`
 	ChainID          uint64         `json:"chain_id"`
 	Nonce            uint64         `json:"nonce"`
@@ -65,7 +65,6 @@ type TokenInfoResponse struct {
 }
 
 type UpdateMetadataPayload struct {
-	RecentEpoch        uint64               `json:"recent_epoch"`
 	RecentCheckpoint   uint64               `json:"recent_checkpoint"`
 	ChainID            uint64               `json:"chain_id"`
 	Nonce              uint64               `json:"nonce"`
@@ -94,7 +93,7 @@ const (
 type AuthorityType string
 
 const (
-	AuthorityTypeMasterMint     AuthorityType = "MasterMint"
+	AuthorityTypeMasterMintBurn AuthorityType = "MasterMintBurn"
 	AuthorityTypeMintBurnTokens AuthorityType = "MintBurnTokens"
 	AuthorityTypePause          AuthorityType = "Pause"
 	AuthorityTypeManageList     AuthorityType = "ManageList"
@@ -111,12 +110,11 @@ const (
 type ManageListActionType string
 
 const (
-	Blacklist ManageListActionType = "ManageList"
-	Whitelist ManageListActionType = "Whitelist"
+	ManageListActionAdd    ManageListActionType = "Add"
+	ManageListActionRemove ManageListActionType = "Remove"
 )
 
 type TokenAuthorityPayload struct {
-	RecentEpoch      uint64          `json:"recent_epoch"`
 	RecentCheckpoint uint64          `json:"recent_checkpoint"`
 	ChainID          uint64          `json:"chain_id"`
 	Nonce            uint64          `json:"nonce"`
@@ -137,7 +135,6 @@ type GrantAuthorityResponse struct {
 }
 
 type TokenMintPayload struct {
-	RecentEpoch      uint64         `json:"recent_epoch"`
 	RecentCheckpoint uint64         `json:"recent_checkpoint"`
 	ChainID          uint64         `json:"chain_id"`
 	Nonce            uint64         `json:"nonce"`
@@ -156,7 +153,6 @@ type MintTokenResponse struct {
 }
 
 type TokenBurnPayload struct {
-	RecentEpoch      uint64         `json:"recent_epoch"`
 	RecentCheckpoint uint64         `json:"recent_checkpoint"`
 	ChainID          uint64         `json:"chain_id"`
 	Nonce            uint64         `json:"nonce"`
@@ -175,7 +171,6 @@ type BurnTokenResponse struct {
 }
 
 type TokenManageListPayload struct {
-	RecentEpoch      uint64               `json:"recent_epoch"`
 	RecentCheckpoint uint64               `json:"recent_checkpoint"`
 	ChainID          uint64               `json:"chain_id"`
 	Nonce            uint64               `json:"nonce"`
@@ -194,7 +189,6 @@ type SetTokenManageListResponse struct {
 }
 
 type PauseTokenPayload struct {
-	RecentEpoch      uint64          `json:"recent_epoch"`
 	RecentCheckpoint uint64          `json:"recent_checkpoint"`
 	ChainID          uint64          `json:"chain_id"`
 	Nonce            uint64          `json:"nonce"`
@@ -243,9 +237,14 @@ func (client *Client) BurnToken(ctx context.Context, req *BurnTokenRequest) (*Bu
 	return result, client.PostMethod(ctx, "/v1/tokens/burn", req, result)
 }
 
-func (client *Client) SetTokenManageList(ctx context.Context, req *SetTokenManageListRequest) (*SetTokenManageListResponse, error) {
+func (client *Client) SetTokenBlacklist(ctx context.Context, req *SetTokenManageListRequest) (*SetTokenManageListResponse, error) {
 	result := new(SetTokenManageListResponse)
-	return result, client.PostMethod(ctx, "/v1/tokens/managelist", req, result)
+	return result, client.PostMethod(ctx, "/v1/tokens/manage_blacklist", req, result)
+}
+
+func (client *Client) SetTokenWhitelist(ctx context.Context, req *SetTokenManageListRequest) (*SetTokenManageListResponse, error) {
+	result := new(SetTokenManageListResponse)
+	return result, client.PostMethod(ctx, "/v1/tokens/manage_whitelist", req, result)
 }
 
 func (client *Client) PauseToken(ctx context.Context, req *PauseTokenRequest) (*PauseTokenResponse, error) {
