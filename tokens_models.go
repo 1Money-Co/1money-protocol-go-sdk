@@ -20,7 +20,7 @@ type TokenInfoResponse struct {
 	BlackList                 []string          `json:"black_list"`
 	WhiteList                 []string          `json:"white_list"`
 	MetadataUpdateAuthorities []string          `json:"metadata_update_authorities"`
-	BridgeAuthorities         []string          `json:"bridge_authorities"`
+	BridgeMintAuthorities     []string          `json:"bridge_mint_authorities"`
 	Supply                    string            `json:"supply"`
 	Decimals                  uint8             `json:"decimals"`
 	IsPaused                  bool              `json:"is_paused"`

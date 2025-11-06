@@ -264,7 +264,7 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
                 "black_list": ["0x4"],
                 "white_list": ["0x5"],
                 "metadata_update_authorities": ["0x6"],
-                "bridge_authorities": ["0x7"],
+                "bridge_mint_authorities": ["0x7"],
                 "supply": "9999",
                 "decimals": 4,
                 "is_paused": false,
@@ -334,4 +334,10 @@ func assertBigIntEqual(t *testing.T, expected string, actual *big.Int) {
 		return
 	}
 	a.Zero(exp.Cmp(actual))
+}
+
+func TestDeriveTokenAccountAddress(t *testing.T) {
+	client := NewTestClient()
+	address := client.DeriveTokenAccountAddress(common.HexToAddress("0xA634dfba8c7550550817898bC4820cD10888Aac5"), common.HexToAddress("0x8E9d1b45293e30EF38564582979195DD16A16E13"))
+	t.Logf("address: %s", address)
 }

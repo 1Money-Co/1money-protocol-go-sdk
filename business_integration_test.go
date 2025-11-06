@@ -8,11 +8,13 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestAccount represents a test account with private key
@@ -69,15 +71,11 @@ func setupBusinessFlowTest(t *testing.T) *BusinessFlowTestSuite {
 
 	// Create operator account (for issuing tokens)
 	operatorAddr, err := PrivateKeyToAddress(operatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to get operator address: %v", err)
-	}
+	assert.Nil(t, err, "Should get operator address")
 
 	// Create master account (for token management)
 	masterAddr, err := PrivateKeyToAddress(masterPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to get master address: %v", err)
-	}
+	assert.Nil(t, err, "Should get master address")
 
 	suite := &BusinessFlowTestSuite{
 		Client: client,
@@ -95,16 +93,12 @@ func setupBusinessFlowTest(t *testing.T) *BusinessFlowTestSuite {
 	// Get chain ID
 	ctx := context.Background()
 	chainIDResp, err := client.GetChainId(ctx)
-	if err != nil {
-		t.Fatalf("Failed to get chain ID: %v", err)
-	}
+	assert.Nil(t, err, "Should get chain ID from network")
 	suite.ChainID = chainIDResp.ChainId
 
 	// Get recent checkpoint
 	checkpointResp, err := client.GetCheckpointNumber(ctx)
-	if err != nil {
-		t.Fatalf("Failed to get checkpoint: %v", err)
-	}
+	assert.Nil(t, err, "Should get checkpoint number from network")
 	suite.RecentCheckpoint = uint64(checkpointResp.Number)
 
 	// Generate test accounts if not provided
@@ -128,9 +122,7 @@ func (s *BusinessFlowTestSuite) generateOrGetAccount(envVar string) *TestAccount
 	privateKeyHex := os.Getenv(envVar)
 	if privateKeyHex != "" {
 		addr, err := PrivateKeyToAddress(privateKeyHex)
-		if err != nil {
-			s.t.Fatalf("Failed to get address from %s: %v", envVar, err)
-		}
+		assert.Nil(s.t, err, fmt.Sprintf("Should get address from: %s", envVar))
 		return &TestAccount{
 			PrivateKey: privateKeyHex,
 			Address:    common.HexToAddress(addr),
@@ -139,9 +131,7 @@ func (s *BusinessFlowTestSuite) generateOrGetAccount(envVar string) *TestAccount
 
 	// Generate new account
 	privateKey, err := crypto.GenerateKey()
-	if err != nil {
-		s.t.Fatalf("Failed to generate private key: %v", err)
-	}
+	assert.Nil(s.t, err, "Should random generate private key")
 
 	privateKeyHex = fmt.Sprintf("%x", crypto.FromECDSA(privateKey))
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -157,26 +147,22 @@ func (s *BusinessFlowTestSuite) generateOrGetAccount(envVar string) *TestAccount
 func (s *BusinessFlowTestSuite) refreshCheckpoint() {
 	ctx := context.Background()
 	checkpointResp, err := s.Client.GetCheckpointNumber(ctx)
-	if err != nil {
-		s.t.Fatalf("Failed to refresh checkpoint: %v", err)
-	}
+	assert.Nil(s.t, err, "Should refresh the checkpoint number")
 	s.RecentCheckpoint = uint64(checkpointResp.Number)
 }
 
 // getNonce gets the current nonce for an account
 func (s *BusinessFlowTestSuite) getNonce(address common.Address) uint64 {
 	ctx := context.Background()
-	nonceResp, err := s.Client.GetAccountNonce(ctx, address.Hex())
-	if err != nil {
-		s.t.Fatalf("Failed to get nonce for %s: %v", address.Hex(), err)
-	}
+	nonceResp, err := s.Client.GetAccountNonce(ctx, address)
+	assert.Nil(s.t, err, fmt.Sprintf("Should refresh the nonce of account %s", address.Hex()))
 	return nonceResp.Nonce
 }
 
 // getTokenBalance gets the token balance for an account
 func (s *BusinessFlowTestSuite) getTokenBalance(address common.Address, token common.Address) string {
 	ctx := context.Background()
-	accountResp, err := s.Client.GetTokenAccount(ctx, address.Hex(), token.Hex())
+	accountResp, err := s.Client.GetTokenAccount(ctx, address, token)
 	if err != nil {
 		// Return "0" if account doesn't exist yet
 		return "0"
@@ -234,6 +220,21 @@ func (s *BusinessFlowTestSuite) signMessage(payload interface{}, privateKey stri
 	return *signature
 }
 
+func (s *BusinessFlowTestSuite) fetchTransaction(t *testing.T, hash string) *Transaction {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := s.Client.GetTransactionByHash(ctx, hash)
+	assert.NoErrorf(t, err, "failed to fetch transaction %s", hash)
+	return tx
+}
+
+func (s *BusinessFlowTestSuite) assertReceiptBasics(t *testing.T, receipt *TransactionReceiptResponse, expectedHash string, expectedFrom common.Address) {
+	t.Helper()
+	assert.Equalf(t, expectedHash, receipt.TransactionHash, "receipt hash mismatch")
+	assert.Equalf(t, expectedFrom, receipt.From, "receipt from mismatch")
+	assert.NotEmptyf(t, receipt.FeeUsed, "expected fee used to be populated")
+}
+
 // ============================================================================
 // Test: Complete Token Lifecycle
 // ============================================================================
@@ -285,8 +286,24 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			t.Fatal("Token issuance transaction failed")
 		}
 
-		// Verify token metadata
+		suite.assertReceiptBasics(t, receipt, result.Hash, suite.OperatorAccount.Address)
+
 		tokenAddr := common.HexToAddress(result.Token)
+		assert.NotNilf(t, receipt.TokenAddress, "expected token address in receipt")
+		if receipt.TokenAddress != nil {
+			assert.Equalf(t, tokenAddr, *receipt.TokenAddress, "receipt token address mismatch")
+		}
+		assert.Nilf(t, receipt.Recipient, "expected recipient to be nil for token issue")
+
+		tx := suite.fetchTransaction(t, result.Hash)
+		assert.Equalf(t, TransactionTypeTokenCreate, tx.TransactionType, "unexpected transaction type")
+		assert.Equalf(t, suite.OperatorAccount.Address, tx.From, "unexpected transaction sender")
+		if createData, ok := tx.AsTokenCreateData(); ok {
+			assert.Equalf(t, symbol, createData.Symbol, "unexpected token symbol in transaction")
+			assert.Equalf(t, suite.MasterAccount.Address, createData.MasterAuthority, "unexpected master authority")
+		}
+
+		// Verify token metadata
 		metadata, err := suite.Client.GetTokenMetadata(ctx, tokenAddr.Hex())
 		if err != nil {
 			t.Fatalf("Failed to get token metadata: %v", err)
@@ -381,6 +398,26 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 				t.Fatal("Mint token transaction failed")
 			}
 
+			suite.assertReceiptBasics(t, receipt, result.Hash, minterAccount.Address)
+			if receipt.TokenAddress != nil {
+				assert.Equalf(t, tokenAddr, *receipt.TokenAddress, "receipt token address mismatch")
+			}
+			assert.NotNilf(t, receipt.Recipient, "expected recipient in mint receipt")
+			if receipt.Recipient != nil {
+				assert.Equalf(t, suite.Account1.Address, *receipt.Recipient, "receipt recipient mismatch")
+			}
+
+			tx := suite.fetchTransaction(t, result.Hash)
+			assert.Equalf(t, TransactionTypeTokenMint, tx.TransactionType, "unexpected transaction type for mint")
+			assert.Equalf(t, minterAccount.Address, tx.From, "unexpected mint sender")
+			if data, ok := tx.AsTokenMintData(); ok {
+				assert.Equalf(t, suite.Account1.Address, data.Recipient, "mint recipient mismatch")
+				assert.Equalf(t, tokenAddr, data.Token, "mint token mismatch")
+				valueInt, ok := new(big.Int).SetString(data.Value, 10)
+				assert.Truef(t, ok, "failed to parse mint value %s", data.Value)
+				assert.Zero(t, valueInt.Cmp(mintAmount), "mint amount mismatch")
+			}
+
 			// Verify balance
 			balance := suite.getTokenBalance(suite.Account1.Address, tokenAddr)
 			if balance != mintAmount.String() {
@@ -423,6 +460,22 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 				t.Fatal("Payment transaction failed")
 			}
 
+			suite.assertReceiptBasics(t, receipt, result.Hash, suite.Account1.Address)
+			if receipt.TokenAddress != nil {
+				assert.Equalf(t, tokenAddr, *receipt.TokenAddress, "receipt token address mismatch")
+			}
+			assert.NotNilf(t, receipt.Recipient, "expected recipient in payment receipt")
+			if receipt.Recipient != nil {
+				assert.Equalf(t, suite.Account2.Address, *receipt.Recipient, "payment recipient mismatch")
+			}
+
+			tx := suite.fetchTransaction(t, result.Hash)
+			if payload, ok := tx.AsTokenTransferData(); ok {
+				assert.Equalf(t, suite.Account2.Address, payload.Recipient, "transfer recipient mismatch")
+				assert.Equalf(t, tokenAddr, payload.Token, "transfer token mismatch")
+				assert.Equalf(t, transferAmount.String(), payload.Value, "transfer value mismatch")
+			}
+
 			// Verify balances
 			balance1 := suite.getTokenBalance(suite.Account1.Address, tokenAddr)
 			balance2 := suite.getTokenBalance(suite.Account2.Address, tokenAddr)
@@ -444,9 +497,6 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 
 		t.Run("5. Burn Tokens", func(t *testing.T) {
 			suite.refreshCheckpoint()
-
-			account2Balance := suite.getTokenBalance(suite.Account2.Address, tokenAddr)
-			t.Logf("Burn Tokens - account2Balance: %s of account %s", account2Balance, suite.Account2.Address.Hex())
 
 			// Transfer token to account that has burn authority
 			tPayload := PaymentPayload{
@@ -470,6 +520,12 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			tReceipt := suite.waitForTransaction(tResult.Hash, 60*time.Second)
 			if !tReceipt.Success {
 				t.Fatal("Payment transaction failed")
+			}
+			suite.assertReceiptBasics(t, tReceipt, tResult.Hash, suite.Account2.Address)
+			txTransfer := suite.fetchTransaction(t, tResult.Hash)
+			if payload, ok := txTransfer.AsTokenTransferData(); ok {
+				assert.Equalf(t, minterAccount.Address, payload.Recipient, "transfer-to-minter recipient mismatch")
+				assert.Equalf(t, tokenAddr, payload.Token, "transfer-to-minter token mismatch")
 			}
 			// Verify balances
 			minterBalance := suite.getTokenBalance(minterAccount.Address, tokenAddr)
@@ -507,6 +563,22 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
 				t.Fatal("Burn token transaction failed")
+			}
+
+			suite.assertReceiptBasics(t, receipt, result.Hash, minterAccount.Address)
+			if receipt.TokenAddress != nil {
+				assert.Equalf(t, tokenAddr, *receipt.TokenAddress, "burn receipt token mismatch")
+			}
+			assert.NotNilf(t, receipt.Recipient, "expected burn receipt recipient")
+			if receipt.Recipient != nil {
+				assert.Equalf(t, minterAccount.Address, *receipt.Recipient, "burn receipt recipient mismatch")
+			}
+
+			txBurn := suite.fetchTransaction(t, result.Hash)
+			if data, ok := txBurn.AsTokenBurnData(); ok {
+				valueInt, ok := new(big.Int).SetString(data.Value, 10)
+				assert.Truef(t, ok, "failed to parse burn value %s", data.Value)
+				assert.Zero(t, valueInt.Cmp(burnAmount), "burn amount mismatch")
 			}
 
 			// Verify balance decreased
@@ -1010,4 +1082,339 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 	})
 
 	t.Log("\n🎉 Update metadata test passed!")
+}
+
+func TestBusinessFlow_CheckpointEndpoints(t *testing.T) {
+	suite := setupBusinessFlowTest(t)
+	ctx := context.Background()
+	assert := assert.New(t)
+
+	numberResp, err := suite.Client.GetCheckpointNumber(ctx)
+	if !assert.NoError(err) {
+		return
+	}
+	assert.Greater(numberResp.Number, 0, "expected positive checkpoint number")
+
+	lightCheckpoint, err := suite.Client.GetCheckpointByNumber(ctx, numberResp.Number)
+	if !assert.NoError(err) {
+		return
+	}
+	assert.Equal(uint64(numberResp.Number), lightCheckpoint.Number, "light checkpoint number mismatch")
+	assert.Nil(lightCheckpoint.Transactions.Full, "expected light checkpoint without full transactions")
+
+	byHash, err := suite.Client.GetCheckpointByHash(ctx, lightCheckpoint.Hash)
+	if assert.NoError(err) {
+		assert.Equal(lightCheckpoint.Hash, byHash.Hash, "checkpoint hash mismatch")
+	}
+
+	fullByNumber, err := suite.Client.GetCheckpointByNumber(ctx, numberResp.Number, WithFullTransactions())
+	if !assert.NoError(err) {
+		return
+	}
+	assert.Nil(fullByNumber.Transactions.Hashes, "expected hashes slice to be nil when requesting full transactions")
+	assert.NotNil(fullByNumber.Transactions.Full, "expected full transactions slice")
+
+	fullByHash, err := suite.Client.GetCheckpointByHash(ctx, lightCheckpoint.Hash, WithFullTransactions())
+	if assert.NoError(err) {
+		assert.Equal(lightCheckpoint.Hash, fullByHash.Hash, "full checkpoint hash mismatch")
+		assert.NotNil(fullByHash.Transactions.Full, "expected full transactions by hash")
+	}
+}
+
+func TestBusinessFlow_AccountEndpoints(t *testing.T) {
+	suite := setupBusinessFlowTest(t)
+	ctx := context.Background()
+	assert := assert.New(t)
+
+	// Issue a new token to exercise account endpoints.
+	suite.refreshCheckpoint()
+	symbol := fmt.Sprintf("ACCT%d", time.Now().Unix()%100000)
+	issuePayload := TokenIssuePayload{
+		RecentCheckpoint: suite.RecentCheckpoint,
+		ChainID:          suite.ChainID,
+		Nonce:            suite.getNonce(suite.OperatorAccount.Address),
+		Symbol:           symbol,
+		Name:             "Account Test Token",
+		Decimals:         6,
+		MasterAuthority:  suite.MasterAccount.Address,
+		IsPrivate:        false,
+	}
+	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
+	issueReq := &IssueTokenRequest{
+		TokenIssuePayload: issuePayload,
+		Signature:         issueSignature,
+	}
+	issueResult, err := suite.Client.IssueToken(ctx, issueReq)
+	if !assert.NoError(err, "issue token for account tests") {
+		return
+	}
+	issueReceipt := suite.waitForTransaction(issueResult.Hash, 60*time.Second)
+	assert.True(issueReceipt.Success, "token issue transaction should succeed")
+	suite.assertReceiptBasics(t, issueReceipt, issueResult.Hash, suite.OperatorAccount.Address)
+	tokenAddr := common.HexToAddress(issueResult.Token)
+
+	// Grant mint authority.
+	suite.refreshCheckpoint()
+	minterAccount := suite.generateOrGetAccount("")
+	grantPayload := TokenAuthorityPayload{
+		RecentCheckpoint: suite.RecentCheckpoint,
+		ChainID:          suite.ChainID,
+		Nonce:            suite.getNonce(suite.MasterAccount.Address),
+		Action:           AuthorityActionGrant,
+		AuthorityType:    AuthorityTypeMintBurnTokens,
+		AuthorityAddress: minterAccount.Address,
+		Token:            tokenAddr,
+		Value:            big.NewInt(500000),
+	}
+	grantSignature := suite.signMessage(grantPayload, suite.MasterAccount.PrivateKey)
+	grantReq := &TokenAuthorityRequest{
+		TokenAuthorityPayload: grantPayload,
+		Signature:             grantSignature,
+	}
+	grantResult, err := suite.Client.GrantTokenAuthority(ctx, grantReq)
+	if !assert.NoError(err, "grant authority for account tests") {
+		return
+	}
+	grantReceipt := suite.waitForTransaction(grantResult.Hash, 60*time.Second)
+	assert.True(grantReceipt.Success, "grant authority transaction should succeed")
+
+	// Mint tokens to Account1 to backfill token account data.
+	suite.refreshCheckpoint()
+	mintAmount := big.NewInt(500000)
+	mintPayload := TokenMintPayload{
+		RecentCheckpoint: suite.RecentCheckpoint,
+		ChainID:          suite.ChainID,
+		Nonce:            suite.getNonce(minterAccount.Address),
+		Recipient:        suite.Account1.Address,
+		Value:            mintAmount,
+		Token:            tokenAddr,
+	}
+	mintSignature := suite.signMessage(mintPayload, minterAccount.PrivateKey)
+	mintReq := &MintTokenRequest{
+		TokenMintPayload: mintPayload,
+		Signature:        mintSignature,
+	}
+	mintResult, err := suite.Client.MintToken(ctx, mintReq)
+	if !assert.NoError(err, "mint token for account tests") {
+		return
+	}
+	mintReceipt := suite.waitForTransaction(mintResult.Hash, 60*time.Second)
+	assert.True(mintReceipt.Success, "mint transaction should succeed")
+
+	// Validate account nonce increments.
+	newNonceResp, err := suite.Client.GetAccountNonce(ctx, minterAccount.Address)
+	if assert.NoError(err) {
+		assert.GreaterOrEqual(newNonceResp.Nonce, uint64(1), "expected minter nonce to increase")
+	}
+
+	// Validate token account data.
+	tokenAccountResp, err := suite.Client.GetTokenAccount(ctx, suite.Account1.Address, tokenAddr)
+	if assert.NoError(err) {
+		assert.Equal(mintAmount.String(), tokenAccountResp.Balance, "unexpected token balance")
+		derived := suite.Client.DeriveTokenAccountAddress(suite.Account1.Address, tokenAddr)
+		assert.Equal(strings.ToLower(derived.Hex()), strings.ToLower(tokenAccountResp.TokenAccountAddress), "token account address mismatch")
+	}
+}
+
+// ============================================================================
+// Test: Fee Estimation
+// ============================================================================
+
+func TestBusinessFlow_EstimateFee(t *testing.T) {
+	suite := setupBusinessFlowTest(t)
+	ctx := context.Background()
+	assert := assert.New(t)
+
+	t.Run("1. Estimate Zero Address Token Fee", func(t *testing.T) {
+		// Zero Address
+		zeroAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
+		transferValue := "1000000" // 1 token with 6 decimals
+
+		t.Logf("💵 Estimating fee for native token transfer")
+		t.Logf("   - From: %s", suite.Account1.Address.Hex())
+		t.Logf("   - Token: %s (native)", zeroAddress.Hex())
+		t.Logf("   - Value: %s", transferValue)
+
+		feeResp, err := suite.Client.GetEstimateFee(ctx,
+			suite.Account1.Address,
+			zeroAddress,
+			transferValue)
+
+		if !assert.NoError(err, "should estimate native token fee") {
+			return
+		}
+
+		// Verify fee response
+		assert.NotEmpty(feeResp.Fee, "fee should not be empty")
+
+		// Verify fee is a valid number
+		feeBigInt := new(big.Int)
+		_, ok := feeBigInt.SetString(feeResp.Fee, 10)
+		assert.True(ok, "fee should be a valid number")
+
+		// Fee should be positive
+		assert.GreaterOrEqual(0, feeBigInt.Cmp(big.NewInt(0)), "fee should be positive or zero")
+
+		t.Logf("✅ Native token fee estimated: %s", feeResp.Fee)
+	})
+
+	t.Run("2. Estimate Custom Token Fee", func(t *testing.T) {
+		// Issue a custom token first
+		suite.refreshCheckpoint()
+		symbol := fmt.Sprintf("FEE%d", time.Now().Unix()%100000)
+
+		issuePayload := TokenIssuePayload{
+			RecentCheckpoint: suite.RecentCheckpoint,
+			ChainID:          suite.ChainID,
+			Nonce:            suite.getNonce(suite.OperatorAccount.Address),
+			Symbol:           symbol,
+			Name:             "Fee Test Token",
+			Decimals:         6,
+			MasterAuthority:  suite.MasterAccount.Address,
+			IsPrivate:        false,
+		}
+
+		issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
+		issueReq := &IssueTokenRequest{
+			TokenIssuePayload: issuePayload,
+			Signature:         issueSignature,
+		}
+
+		t.Logf("📝 Issuing token for fee estimation test: %s", symbol)
+		issueResult, err := suite.Client.IssueToken(ctx, issueReq)
+		if !assert.NoError(err, "should issue token") {
+			return
+		}
+
+		issueReceipt := suite.waitForTransaction(issueResult.Hash, 60*time.Second)
+		assert.True(issueReceipt.Success, "token issue should succeed")
+		tokenAddr := common.HexToAddress(issueResult.Token)
+		t.Logf("✅ Token issued: %s", tokenAddr.Hex())
+
+		// Grant mint authority to a minter account
+		suite.refreshCheckpoint()
+		minterAccount := suite.generateOrGetAccount("")
+
+		grantPayload := TokenAuthorityPayload{
+			RecentCheckpoint: suite.RecentCheckpoint,
+			ChainID:          suite.ChainID,
+			Nonce:            suite.getNonce(suite.MasterAccount.Address),
+			Action:           AuthorityActionGrant,
+			AuthorityType:    AuthorityTypeMintBurnTokens,
+			AuthorityAddress: minterAccount.Address,
+			Token:            tokenAddr,
+			Value:            big.NewInt(1000000000000),
+		}
+
+		grantSignature := suite.signMessage(grantPayload, suite.MasterAccount.PrivateKey)
+		grantReq := &TokenAuthorityRequest{
+			TokenAuthorityPayload: grantPayload,
+			Signature:             grantSignature,
+		}
+
+		t.Logf("🔐 Granting mint authority to minter")
+		grantResult, err := suite.Client.GrantTokenAuthority(ctx, grantReq)
+		if !assert.NoError(err, "should grant mint authority") {
+			return
+		}
+
+		grantReceipt := suite.waitForTransaction(grantResult.Hash, 60*time.Second)
+		assert.True(grantReceipt.Success, "grant authority should succeed")
+
+		// Mint tokens to Account1
+		suite.refreshCheckpoint()
+		mintAmount := big.NewInt(100000000) // 100 tokens
+
+		mintPayload := TokenMintPayload{
+			RecentCheckpoint: suite.RecentCheckpoint,
+			ChainID:          suite.ChainID,
+			Nonce:            suite.getNonce(minterAccount.Address),
+			Recipient:        suite.Account1.Address,
+			Value:            mintAmount,
+			Token:            tokenAddr,
+		}
+
+		mintSignature := suite.signMessage(mintPayload, minterAccount.PrivateKey)
+		mintReq := &MintTokenRequest{
+			TokenMintPayload: mintPayload,
+			Signature:        mintSignature,
+		}
+
+		t.Logf("💰 Minting tokens to Account1 for fee estimation")
+		mintResult, err := suite.Client.MintToken(ctx, mintReq)
+		if !assert.NoError(err, "should mint tokens") {
+			return
+		}
+
+		mintReceipt := suite.waitForTransaction(mintResult.Hash, 60*time.Second)
+		assert.True(mintReceipt.Success, "mint should succeed")
+
+		// Now estimate fee for custom token transfer
+		transferValue := "50000000" // 50 tokens
+
+		t.Logf("💵 Estimating fee for custom token transfer")
+		t.Logf("   - From: %s", suite.Account1.Address.Hex())
+		t.Logf("   - Token: %s", tokenAddr.Hex())
+		t.Logf("   - Value: %s", transferValue)
+
+		feeResp, err := suite.Client.GetEstimateFee(ctx,
+			suite.Account1.Address,
+			tokenAddr,
+			transferValue)
+
+		if !assert.NoError(err, "should estimate custom token fee") {
+			return
+		}
+
+		// Verify fee response
+		assert.NotEmpty(feeResp.Fee, "fee should not be empty")
+
+		// Verify fee is a valid number
+		feeBigInt := new(big.Int)
+		_, ok := feeBigInt.SetString(feeResp.Fee, 10)
+		assert.True(ok, "fee should be a valid number")
+
+		// Fee should be positive
+		assert.GreaterOrEqual(0, feeBigInt.Cmp(big.NewInt(0)), "fee should be positive or zero")
+
+		t.Logf("✅ Custom token fee estimated: %s", feeResp.Fee)
+	})
+
+	t.Run("3. Estimate Fees for Different Amounts", func(t *testing.T) {
+		// Test that fee estimation works for various amounts
+		nativeToken := common.HexToAddress("0x0000000000000000000000000000000000000000")
+		amounts := []string{
+			"1",          // Minimal amount
+			"1000",       // Small amount
+			"1000000",    // Medium amount
+			"1000000000", // Large amount
+		}
+
+		for _, amount := range amounts {
+			t.Logf("💵 Estimating fee for amount: %s", amount)
+
+			feeResp, err := suite.Client.GetEstimateFee(ctx,
+				suite.Account1.Address,
+				nativeToken,
+				amount)
+
+			if !assert.NoError(err, "should estimate fee for amount %s", amount) {
+				continue
+			}
+
+			assert.NotEmpty(feeResp.Fee, "fee should not be empty for amount %s", amount)
+
+			// Parse and validate fee
+			feeBigInt := new(big.Int)
+			_, ok := feeBigInt.SetString(feeResp.Fee, 10)
+			assert.True(ok, "fee should be valid number for amount %s", amount)
+			assert.GreaterOrEqual(0, feeBigInt.Cmp(big.NewInt(0)), "fee should be positive or zero for amount %s", amount)
+
+			t.Logf("   - Amount: %s → Fee: %s", amount, feeResp.Fee)
+		}
+
+		t.Logf("✅ All amount variations estimated successfully")
+	})
+
+	t.Log("\n🎉 Fee estimation test passed!")
 }

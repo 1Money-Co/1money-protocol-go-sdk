@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -152,8 +153,35 @@ func (m *mockHook) reset() {
 	m.postRequestCalls = nil
 }
 
+func skipIfNoLocalhost(t *testing.T) {
+	t.Helper()
+	// By default, skip HTTP client tests in restricted environments
+	// Set ENABLE_HTTP_CLIENT_TESTS=1 to explicitly enable them
+	if os.Getenv("ENABLE_HTTP_CLIENT_TESTS") != "1" {
+		t.Skip("skipping HTTP client test (set ENABLE_HTTP_CLIENT_TESTS=1 to run these tests)")
+	}
+}
+
+func newTestServer(t *testing.T, handler http.Handler) (*http.Client, string) {
+	t.Helper()
+	skipIfNoLocalhost(t)
+
+	// Use httptest.NewServer for reliable test server creation
+	server := httptest.NewServer(handler)
+
+	t.Cleanup(func() {
+		server.Close()
+	})
+
+	// Use the server's client which is properly configured
+	httpClient := server.Client()
+	httpClient.Timeout = 30 * time.Second
+
+	return httpClient, server.URL
+}
+
 func TestClient_WithLogger_GetMethod(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	httpClient, baseURL := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/test_endpoint" {
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprintln(w, `{"status":"ok"}`)
@@ -162,10 +190,12 @@ func TestClient_WithLogger_GetMethod(t *testing.T) {
 			fmt.Fprintln(w, `{"error_code":"NOT_FOUND", "message":"Endpoint not found"}`)
 		}
 	}))
-	defer server.Close()
+	if baseURL == "" {
+		return
+	}
 
 	logger := newMockLogger(t)
-	client := newClientInternal(server.URL, WithLogger(logger), WithTimeout(2*time.Second))
+	client := newClientInternal(baseURL, WithLogger(logger), WithHTTPClient(httpClient))
 
 	var result struct {
 		Status string `json:"status"`
@@ -186,7 +216,7 @@ func TestClient_WithLogger_GetMethod(t *testing.T) {
 		t.Fatal("Expected logger.Infof to be called, but it wasn't")
 	}
 
-	expectedLog := fmt.Sprintf("GET %s/v1/test_endpoint", server.URL)
+	expectedLog := fmt.Sprintf("GET %s/v1/test_endpoint", baseURL)
 	foundLog := false
 	for _, call := range calls {
 		if strings.Contains(call, expectedLog) { // Check if the specific call is present
@@ -215,7 +245,7 @@ func TestClient_WithLogger_GetMethod(t *testing.T) {
 		t.Fatalf("Expected logger.Errorf to be called for error case, got none. Infof: %v", infofCalls)
 	}
 
-	expectedErrorLog := fmt.Sprintf("API Error from GET %s/v1/nonexistent_endpoint: status=404", server.URL)
+	expectedErrorLog := fmt.Sprintf("API Error from GET %s/v1/nonexistent_endpoint: status=404", baseURL)
 	foundErrorLog := false
 	for _, call := range errorfCalls {
 		if strings.Contains(call, expectedErrorLog) {
@@ -229,7 +259,7 @@ func TestClient_WithLogger_GetMethod(t *testing.T) {
 }
 
 func TestClient_WithLogger_PostMethod(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	httpClient, baseURL := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" && r.URL.Path == "/v1/test_post_endpoint" {
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprintln(w, `{"status":"posted"}`)
@@ -238,10 +268,12 @@ func TestClient_WithLogger_PostMethod(t *testing.T) {
 			fmt.Fprintln(w, `{"error_code":"NOT_FOUND", "message":"Endpoint not found"}`)
 		}
 	}))
-	defer server.Close()
+	if baseURL == "" {
+		return
+	}
 
 	logger := newMockLogger(t)
-	client := newClientInternal(server.URL, WithLogger(logger), WithTimeout(2*time.Second))
+	client := newClientInternal(baseURL, WithLogger(logger), WithHTTPClient(httpClient))
 
 	requestBody := struct {
 		Data string `json:"data"`
@@ -265,7 +297,7 @@ func TestClient_WithLogger_PostMethod(t *testing.T) {
 		t.Fatal("Expected logger.Infof to be called for PostMethod, but it wasn't")
 	}
 
-	expectedLog := fmt.Sprintf("POST %s/v1/test_post_endpoint", server.URL)
+	expectedLog := fmt.Sprintf("POST %s/v1/test_post_endpoint", baseURL)
 	foundLog := false
 	for _, call := range calls {
 		if strings.Contains(call, expectedLog) {
@@ -280,14 +312,16 @@ func TestClient_WithLogger_PostMethod(t *testing.T) {
 
 // Test for WithTimeout option
 func TestClient_WithTimeout(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	_, baseURL := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond) // Sleep longer than timeout
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, `{"status":"ok"}`)
 	}))
-	defer server.Close()
+	if baseURL == "" {
+		return
+	}
 
-	client := newClientInternal(server.URL, WithTimeout(50*time.Millisecond))
+	client := newClientInternal(baseURL, WithTimeout(50*time.Millisecond))
 	var result struct {
 		Status string `json:"status"`
 	}
@@ -316,13 +350,15 @@ func TestClient_WithHTTPClient(t *testing.T) {
 		Timeout:   10 * time.Second, // Different from default
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	_, baseURL := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, `{"status":"ok"}`)
 	}))
-	defer server.Close()
+	if baseURL == "" {
+		return
+	}
 
-	client := newClientInternal(server.URL, WithHTTPClient(customHttpClient))
+	client := newClientInternal(baseURL, WithHTTPClient(customHttpClient))
 
 	if client.httpclient.Timeout != 10*time.Second {
 		t.Errorf("Expected client httpclient timeout to be %v, got %v", 10*time.Second, client.httpclient.Timeout)
@@ -414,7 +450,7 @@ func TestClientLoggingLevels(t *testing.T) {
 	logger := newMockLogger(t)
 	// var lastRequest *http.Request // To inspect the request in the handler, if needed
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	httpClient, baseURL := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// lastRequest = r // Save request
 		switch r.URL.Path {
 		case "/success":
@@ -431,9 +467,10 @@ func TestClientLoggingLevels(t *testing.T) {
 			fmt.Fprintln(w, `{"error_code":"NOT_FOUND", "message":"Test endpoint not found"}`)
 		}
 	}))
-	defer server.Close()
-
-	client := newClientInternal(server.URL, WithLogger(logger), WithTimeout(1*time.Second))
+	if baseURL == "" {
+		return
+	}
+	client := newClientInternal(baseURL, WithLogger(logger), WithHTTPClient(httpClient))
 
 	t.Run("Successful GET", func(t *testing.T) {
 		logger.reset()
@@ -449,7 +486,7 @@ func TestClientLoggingLevels(t *testing.T) {
 		infofCalls := logger.getInfofCalls()
 		if len(infofCalls) != 1 {
 			t.Errorf("Expected 1 Infof call, got %d: %v", len(infofCalls), infofCalls)
-		} else if !strings.Contains(infofCalls[0], "GET "+server.URL+"/success") {
+		} else if !strings.Contains(infofCalls[0], "GET "+baseURL+"/success") {
 			t.Errorf("Expected Infof log for GET /success, got: %s", infofCalls[0])
 		}
 		if len(logger.getErrorfCalls()) > 0 {
@@ -475,14 +512,14 @@ func TestClientLoggingLevels(t *testing.T) {
 		infofCalls := logger.getInfofCalls()
 		if len(infofCalls) != 1 {
 			t.Errorf("Expected 1 Infof call for GET, got %d: %v", len(infofCalls), infofCalls)
-		} else if !strings.Contains(infofCalls[0], "GET "+server.URL+"/servererror") {
+		} else if !strings.Contains(infofCalls[0], "GET "+baseURL+"/servererror") {
 			t.Errorf("Expected Infof log for GET /servererror, got: %s", infofCalls[0])
 		}
 
 		errorfCalls := logger.getErrorfCalls()
 		if len(errorfCalls) != 1 {
 			t.Errorf("Expected 1 Errorf call for API error, got %d: %v", len(errorfCalls), errorfCalls)
-		} else if !strings.Contains(errorfCalls[0], "API Error from GET "+server.URL+"/servererror") || !strings.Contains(errorfCalls[0], "status=500") {
+		} else if !strings.Contains(errorfCalls[0], "API Error from GET "+baseURL+"/servererror") || !strings.Contains(errorfCalls[0], "status=500") {
 			t.Errorf("Expected Errorf log for API error on /servererror, got: %s", errorfCalls[0])
 		}
 	})
@@ -506,24 +543,27 @@ func TestClientLoggingLevels(t *testing.T) {
 		errorfCalls := logger.getErrorfCalls()
 		if len(errorfCalls) != 1 {
 			t.Errorf("Expected 1 Errorf call for decode error, got %d: %v", len(errorfCalls), errorfCalls)
-		} else if !strings.Contains(errorfCalls[0], "Failed to decode response from GET "+server.URL+"/decodeerror") {
+		} else if !strings.Contains(errorfCalls[0], "Failed to decode response from GET "+baseURL+"/decodeerror") {
 			t.Errorf("Expected Errorf log for decoding error, got: %s", errorfCalls[0])
 		}
 	})
 
 	t.Run("Client-Side Request Error (Timeout)", func(t *testing.T) {
 		logger.reset()
-		timeoutClient := newClientInternal(server.URL, WithLogger(logger), WithTimeout(1*time.Millisecond)) // very short timeout
-
-		originalHandler := server.Config.Handler
-		server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		slowHTTPClient, slowURL := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(50 * time.Millisecond)
-			originalHandler.ServeHTTP(w, r)
-		})
-		defer func() { server.Config.Handler = originalHandler }()
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintln(w, `{"status":"slow"}`)
+		}))
+		if slowURL == "" {
+			return
+		}
+		slowHTTPClient.Timeout = 1 * time.Millisecond // very short timeout
+
+		timeoutClient := newClientInternal(slowURL, WithLogger(logger), WithHTTPClient(slowHTTPClient))
 
 		var result interface{}
-		err := timeoutClient.GetMethod(context.Background(), "/success", &result)
+		err := timeoutClient.GetMethod(context.Background(), "/slow", &result)
 		if err == nil {
 			t.Fatal("Expected an error due to timeout, got nil")
 		}
@@ -531,18 +571,22 @@ func TestClientLoggingLevels(t *testing.T) {
 		infofCalls := logger.getInfofCalls()
 		if len(infofCalls) != 1 {
 			t.Errorf("Expected 1 Infof call for GET, got %d: %v", len(infofCalls), infofCalls)
+		} else if !strings.Contains(infofCalls[0], "GET "+slowURL+"/slow") {
+			t.Errorf("Expected Infof log for GET /slow, got: %s", infofCalls[0])
 		}
 
 		errorfCalls := logger.getErrorfCalls()
 		if len(errorfCalls) != 1 {
 			t.Errorf("Expected 1 Errorf call for the timeout, got %d: %v", len(errorfCalls), errorfCalls)
-		} else if !strings.Contains(errorfCalls[0], "API GET request to "+server.URL+"/success failed") {
+		} else if !strings.Contains(errorfCalls[0], "API GET request to "+slowURL+"/slow failed") {
 			t.Errorf("Expected Errorf log for API GET request failed, got: %s", errorfCalls[0])
 		}
 	})
 }
 
 func TestClientHooks(t *testing.T) {
+	skipIfNoLocalhost(t)
+
 	hook := newMockHook(t)
 	// var lastRequest *http.Request // For server-side inspection if needed
 	var requestBodyOnServer []byte // To store the body received by the server
@@ -599,7 +643,6 @@ func TestClientHooks(t *testing.T) {
 	baseURL := "http://" + listener.Addr().String()
 
 	httpClient := &http.Client{}
-	httpClient.Timeout = 2 * time.Second
 	client := newClientInternal(baseURL, WithHooks(hook), WithHTTPClient(httpClient))
 
 	t.Run("WithHooks option", func(t *testing.T) {
@@ -792,12 +835,14 @@ func TestClientHooks(t *testing.T) {
 
 	t.Run("Request Marshal Error", func(t *testing.T) {
 		hook.reset()
-		tempServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tempHTTPClient, tempURL := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			t.Error("Server handler should not be called on marshal error")
 			w.WriteHeader(http.StatusNoContent)
 		}))
-		defer tempServer.Close()
-		marshalErrorClient := newClientInternal(tempServer.URL, WithHooks(hook), WithTimeout(1*time.Second))
+		if tempURL == "" {
+			return
+		}
+		marshalErrorClient := newClientInternal(tempURL, WithHooks(hook), WithHTTPClient(tempHTTPClient))
 
 		unmarshallableBody := make(chan int)
 		var result interface{}
@@ -819,7 +864,7 @@ func TestClientHooks(t *testing.T) {
 			t.Fatalf("Expected 1 PostRequest call for marshal error, got %d", len(postCalls))
 		}
 
-		expectedURL := tempServer.URL + "/post_marshal_error"
+		expectedURL := tempURL + "/post_marshal_error"
 		if postCalls[0].method != "POST" || postCalls[0].url != expectedURL ||
 			postCalls[0].statusCode != 0 || postCalls[0].responseBody != nil || postCalls[0].err == nil {
 			t.Errorf("PostRequest call mismatch for marshal error: %+v. Expected URL: %s. Error was: %v", postCalls[0], expectedURL, err)

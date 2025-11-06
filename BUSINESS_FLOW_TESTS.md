@@ -33,6 +33,7 @@ This test simulates the complete lifecycle of a token from creation to destructi
    - Shows authority management capabilities
 
 **Verifications**:
+
 - Token metadata is correctly set
 - Balances are accurately updated after each operation
 - Authority grants and revocations take effect
@@ -52,6 +53,7 @@ This test verifies the token pause mechanism for emergency situations:
 4. **Unpause Token**: Resume token operations
 
 **Verifications**:
+
 - Pause authority is correctly granted
 - Token state changes to paused
 - Token state changes back to active after unpause
@@ -68,6 +70,7 @@ This test verifies blacklist functionality for compliance:
 4. **Remove Address from Blacklist**: Restore normal operations
 
 **Verifications**:
+
 - Addresses are correctly added to blacklist
 - Blacklist status is reflected in token metadata
 - Addresses are correctly removed from blacklist
@@ -83,6 +86,7 @@ This test verifies the ability to update token information:
 3. **Update Token Metadata**: Change name, URI, and additional metadata
 
 **Verifications**:
+
 - Metadata update authority is granted
 - Token name and URI are correctly updated
 - Additional metadata fields are stored
@@ -92,6 +96,7 @@ This test verifies the ability to update token information:
 ### Required Environment Variables
 
 - `TEST_OPERATOR_PRIVATE_KEY`: Network operator private key for issuing tokens
+
   - This account has the privilege to issue new tokens on the network
   - Must have native tokens to pay for transaction fees
   - Required for all business flow tests
@@ -107,7 +112,7 @@ This test verifies the ability to update token information:
 - `TEST_ENV`: Environment to test against (`testnet` or `local`, default: `testnet`)
 - `TEST_ACCOUNT1_PRIVATE_KEY`: Private key for first test account (generated if not provided)
 - `TEST_ACCOUNT2_PRIVATE_KEY`: Private key for second test account (generated if not provided)
-- `LOCAL_API_URL`: URL for local development (default: `http://localhost:8080`)
+- `LOCAL_API_URL`: URL for local development (default: `http://localhost:18555`)
 
 ## Running Business Flow Tests
 
@@ -116,7 +121,7 @@ This test verifies the ability to update token information:
 ```bash
 TEST_OPERATOR_PRIVATE_KEY=operator_key \
 TEST_MASTER_PRIVATE_KEY=master_key \
-go test -v -run "TestBusinessFlow" -timeout 10m
+go test -v -tags=integration -run "TestBusinessFlow" -timeout 10m
 ```
 
 ### Run Specific Business Flow Tests
@@ -125,22 +130,22 @@ go test -v -run "TestBusinessFlow" -timeout 10m
 # Test complete token lifecycle
 TEST_OPERATOR_PRIVATE_KEY=operator_key \
 TEST_MASTER_PRIVATE_KEY=master_key \
-go test -v -run "TestBusinessFlow_CompleteTokenLifecycle" -timeout 10m
+go test -v -tags=integration -run "TestBusinessFlow_CompleteTokenLifecycle" -timeout 10m
 
 # Test pause/unpause
 TEST_OPERATOR_PRIVATE_KEY=operator_key \
 TEST_MASTER_PRIVATE_KEY=master_key \
-go test -v -run "TestBusinessFlow_TokenPauseUnpause" -timeout 5m
+go test -v -tags=integration -run "TestBusinessFlow_TokenPauseUnpause" -timeout 5m
 
 # Test blacklist management
 TEST_OPERATOR_PRIVATE_KEY=operator_key \
 TEST_MASTER_PRIVATE_KEY=master_key \
-go test -v -run "TestBusinessFlow_BlacklistManagement" -timeout 5m
+go test -v -tags=integration -run "TestBusinessFlow_BlacklistManagement" -timeout 5m
 
 # Test metadata updates
 TEST_OPERATOR_PRIVATE_KEY=operator_key \
 TEST_MASTER_PRIVATE_KEY=master_key \
-go test -v -run "TestBusinessFlow_UpdateMetadata" -timeout 5m
+go test -v -tags=integration -run "TestBusinessFlow_UpdateMetadata" -timeout 5m
 ```
 
 ### Run on Local Development Environment
@@ -150,7 +155,7 @@ TEST_ENV=local \
 LOCAL_API_URL=http://localhost:8080 \
 TEST_OPERATOR_PRIVATE_KEY=operator_key \
 TEST_MASTER_PRIVATE_KEY=master_key \
-go test -v -run "TestBusinessFlow" -timeout 10m
+go test -v -tags=integration -run "TestBusinessFlow" -timeout 10m
 ```
 
 ### Use Specific Test Accounts
@@ -160,7 +165,7 @@ TEST_OPERATOR_PRIVATE_KEY=operator_key \
 TEST_MASTER_PRIVATE_KEY=master_key \
 TEST_ACCOUNT1_PRIVATE_KEY=account1_key \
 TEST_ACCOUNT2_PRIVATE_KEY=account2_key \
-go test -v -run "TestBusinessFlow" -timeout 10m
+go test -v -tags=integration -run "TestBusinessFlow" -timeout 10m
 ```
 
 ## Understanding the Test Output
@@ -232,14 +237,14 @@ Business Flow Test Suite Initialized:
 - 💸 Transfer operation
 - 🔥 Burn operation
 - 🔒 Revoke authority operation
-- ⏸️  Pause operation
-- ▶️  Unpause operation
+- ⏸️ Pause operation
+- ▶️ Unpause operation
 - 🚫 Blacklist operation
 - ⏳ Waiting for confirmation
 - 📋 Transaction details
 - ✅ Success
 - ❌ Failure
-- ⚠️  Warning
+- ⚠️ Warning
 
 ## Test Architecture
 
@@ -255,6 +260,7 @@ The `BusinessFlowTestSuite` struct provides:
 - **RecentCheckpoint**: Latest checkpoint number
 
 **Role Separation**:
+
 - **Operator Account**: Signs token issuance transactions (requires network operator privileges)
 - **Master Account**: Set as the master authority of issued tokens, manages token operations
 
@@ -294,11 +300,13 @@ The `BusinessFlowTestSuite` struct provides:
 Never use production accounts for testing. You need two types of accounts:
 
 **Operator Account**:
+
 - Requires network operator privileges (granted by network administrators)
 - Only needed for issuing new tokens
 - Should have sufficient balance for token issuance fees
 
 **Master Authority Account**:
+
 - Will be the master authority for all issued tokens
 - Needs balance for token management operations (mint, burn, pause, etc.)
 - Can be a regular account without special privileges
@@ -313,10 +321,12 @@ go run -c 'package main; import "github.com/ethereum/go-ethereum/crypto"; import
 Ensure both accounts have sufficient native tokens:
 
 **Operator Account**:
+
 - Transaction fees for issuing tokens
 - Usually requires more balance as issuance is more expensive
 
 **Master Authority Account**:
+
 - Transaction fees for token management operations
 - Multiple transactions per test
 - Account creation (if needed)
@@ -333,6 +343,7 @@ TEST_ENV=testnet TEST_MASTER_PRIVATE_KEY=your_testnet_key go test -v -run "TestB
 ### 4. Monitor Test Progress
 
 Business flow tests can take several minutes. Monitor:
+
 - Transaction confirmation times
 - Balance changes
 - Authority grants/revokes
@@ -341,6 +352,7 @@ Business flow tests can take several minutes. Monitor:
 ### 5. Clean Up After Tests
 
 Consider cleaning up test data:
+
 - Note all created token addresses
 - Document test accounts used
 - Track any authorities granted
@@ -350,6 +362,7 @@ Consider cleaning up test data:
 ### Test Skipped: "TEST_OPERATOR_PRIVATE_KEY not set" or "TEST_MASTER_PRIVATE_KEY not set"
 
 **Solution**: Set both required environment variables:
+
 ```bash
 TEST_OPERATOR_PRIVATE_KEY=operator_key \
 TEST_MASTER_PRIVATE_KEY=master_key \
@@ -361,6 +374,7 @@ go test -v -run "TestBusinessFlow"
 **Cause**: Operator or Master account doesn't have enough native tokens for fees
 
 **Solution**:
+
 1. Check both operator and master account balances
 2. Fund both accounts with native tokens (operator needs more for issuing tokens)
 3. Retry the test
@@ -370,6 +384,7 @@ go test -v -run "TestBusinessFlow"
 **Cause**: The operator account doesn't have token issuance privileges
 
 **Solution**:
+
 1. Verify the `TEST_OPERATOR_PRIVATE_KEY` is for an authorized network operator
 2. Contact network administrators to grant operator privileges
 3. Use a different operator account with proper permissions
@@ -379,6 +394,7 @@ go test -v -run "TestBusinessFlow"
 **Cause**: Network congestion or checkpoint delays
 
 **Solution**:
+
 1. Check network status
 2. Increase timeout: modify `maxWait` parameter in test
 3. Verify the API endpoint is responsive
@@ -388,6 +404,7 @@ go test -v -run "TestBusinessFlow"
 **Cause**: Running test multiple times with same account
 
 **Solution**:
+
 1. Use fresh accounts for each test run
 2. Or implement cleanup in test teardown
 3. Check token metadata to see existing authorities
@@ -397,71 +414,35 @@ go test -v -run "TestBusinessFlow"
 **Cause**: Nonce synchronization issue
 
 **Solution**:
+
 1. Test automatically refreshes nonces
 2. If persists, wait a few seconds between tests
 3. Verify no other processes are using the same account
-
-## CI/CD Integration
-
-### GitHub Actions Example
-
-```yaml
-name: Business Flow Tests
-
-on:
-  schedule:
-    - cron: '0 */6 * * *' # Run every 6 hours
-  workflow_dispatch: # Allow manual trigger
-
-jobs:
-  business-flow-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions/setup-go@v2
-        with:
-          go-version: 1.21
-
-      - name: Run Business Flow Tests
-        run: go test -v -run "TestBusinessFlow" -timeout 20m
-        env:
-          TEST_ENV: testnet
-          TEST_OPERATOR_PRIVATE_KEY: ${{ secrets.TEST_OPERATOR_PRIVATE_KEY }}
-          TEST_MASTER_PRIVATE_KEY: ${{ secrets.TEST_MASTER_PRIVATE_KEY }}
-
-      - name: Upload Test Results
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: test-results
-          path: |
-            *.log
-            test-output.txt
-```
 
 ## Adding New Business Flow Tests
 
 When adding new business flow tests:
 
 1. **Follow the Pattern**:
+
    - Use `setupBusinessFlowTest(t)` to initialize
    - Structure tests with clear steps using `t.Run()`
    - Use helper functions for common operations
 
 2. **Add Proper Logging**:
+
    - Use emoji indicators for operation types
    - Log important values (addresses, amounts, hashes)
    - Clearly indicate success/failure
 
 3. **Include Verification**:
+
    - Check balances after transfers
    - Verify metadata after updates
    - Confirm authority changes
 
 4. **Handle Timing**:
+
    - Refresh checkpoint before each transaction
    - Wait for confirmation before proceeding
    - Use appropriate timeouts
@@ -535,6 +516,7 @@ Typical execution times (on testnet):
 - **Metadata Updates**: 10-20 seconds (2 transactions)
 
 Times may vary based on:
+
 - Network congestion
 - Checkpoint generation rate
 - API response times
