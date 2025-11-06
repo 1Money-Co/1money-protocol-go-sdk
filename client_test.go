@@ -387,8 +387,8 @@ func TestClient_WithHTTPClient(t *testing.T) {
 
 func TestNewClient(t *testing.T) {
 	client := NewClient()
-	if client.baseHost != apiBaseHost {
-		t.Errorf("NewClient() baseHost = %s; want %s", client.baseHost, apiBaseHost)
+	if client.baseHost != mainnetEndpoint {
+		t.Errorf("NewClient() baseHost = %s; want %s", client.baseHost, mainnetEndpoint)
 	}
 	if client.httpclient == nil {
 		t.Error("NewClient() httpclient is nil")
@@ -397,8 +397,8 @@ func TestNewClient(t *testing.T) {
 
 func TestNewTestClient(t *testing.T) {
 	client := NewTestClient()
-	if client.baseHost != apiBaseHostTest {
-		t.Errorf("NewTestClient() baseHost = %s; want %s", client.baseHost, apiBaseHostTest)
+	if client.baseHost != testnetEndpoint {
+		t.Errorf("NewTestClient() baseHost = %s; want %s", client.baseHost, testnetEndpoint)
 	}
 	if client.httpclient == nil {
 		t.Error("NewTestClient() httpclient is nil")
@@ -411,8 +411,8 @@ func TestNewClientWithOpts(t *testing.T) {
 	timeout := 15 * time.Second
 	client := NewClientWithOpts(WithLogger(logger), WithTimeout(timeout), WithHooks(hook))
 
-	if client.baseHost != apiBaseHost {
-		t.Errorf("NewClientWithOpts() baseHost = %s; want %s", client.baseHost, apiBaseHost)
+	if client.baseHost != mainnetEndpoint {
+		t.Errorf("NewClientWithOpts() baseHost = %s; want %s", client.baseHost, mainnetEndpoint)
 	}
 	if client.logger != logger {
 		t.Error("NewClientWithOpts() logger not set correctly")
@@ -431,8 +431,8 @@ func TestNewTestClientWithOpts(t *testing.T) {
 	timeout := 18 * time.Second
 	client := NewTestClientWithOpts(WithLogger(logger), WithTimeout(timeout), WithHooks(hook))
 
-	if client.baseHost != apiBaseHostTest {
-		t.Errorf("NewTestClientWithOpts() baseHost = %s; want %s", client.baseHost, apiBaseHostTest)
+	if client.baseHost != testnetEndpoint {
+		t.Errorf("NewTestClientWithOpts() baseHost = %s; want %s", client.baseHost, testnetEndpoint)
 	}
 	if client.logger != logger {
 		t.Error("NewTestClientWithOpts() logger not set correctly")

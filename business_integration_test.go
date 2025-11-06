@@ -60,7 +60,7 @@ func setupBusinessFlowTest(t *testing.T) *BusinessFlowTestSuite {
 	case "local":
 		url := os.Getenv("LOCAL_API_URL")
 		if url == "" {
-			url = "http://localhost:18555"
+			url = localEndpoint
 		}
 		client = NewClientWithCustomUrl(url, WithTimeout(30*time.Second))
 	case "testnet":
