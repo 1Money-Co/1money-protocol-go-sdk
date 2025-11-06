@@ -1,15 +1,16 @@
-package onemoney_test
+//go:build integration
+
+package onemoney
 
 import (
 	"context"
-	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
 	"testing"
 )
 
 func TestGetTokenAccount(t *testing.T) {
-	client := onemoney.NewTestClient()
-	address := onemoney.TestOperatorAddress
-	token := onemoney.TestTokenAddress
+	client := NewTestClient()
+	address := TestOperatorAddress
+	token := TestTokenAddress
 	result, err := client.GetTokenAccount(context.Background(), address, token)
 	if err != nil {
 		t.Fatalf("GetTokenAccount failed: %v", err)
@@ -29,8 +30,8 @@ func TestGetTokenAccount(t *testing.T) {
 }
 
 func TestGetAccountNonce(t *testing.T) {
-	client := onemoney.NewTestClient()
-	result, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
+	client := NewTestClient()
+	result, err := client.GetAccountNonce(context.Background(), TestOperatorAddress)
 	if err != nil {
 		t.Fatalf("GetAccountNonce failed: %v", err)
 	}

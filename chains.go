@@ -5,7 +5,7 @@ import (
 )
 
 type ChainIdResponse struct {
-	ChainId int `json:"chain_id"`
+	ChainId uint64 `json:"chain_id"`
 }
 
 func (client *Client) GetChainId(ctx context.Context) (*ChainIdResponse, error) {

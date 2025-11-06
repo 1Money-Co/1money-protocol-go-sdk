@@ -52,7 +52,6 @@ type Client struct {
 }
 
 func PrivateKeyToAddress(privateKeyHex string) (string, error) {
-
 	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
@@ -85,6 +84,10 @@ func NewClient() *Client {
 
 func NewTestClient() *Client {
 	return newClientInternal(apiBaseHostTest)
+}
+
+func NewClientWithCustomUrl(url string, opts ...ClientOption) *Client {
+	return newClientInternal(url, opts...)
 }
 
 func NewClientWithOpts(opts ...ClientOption) *Client {

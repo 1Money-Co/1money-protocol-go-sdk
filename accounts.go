@@ -7,8 +7,8 @@ import (
 )
 
 type TokenAccountResponse struct {
-	Balance             string `json:"balance"`
-	Nonce               int    `json:"nonce"`
+	Balance             string `json:"balance"` // The balance of the token.
+	Nonce               uint64 `json:"nonce"`   // The nonce of the owner account.
 	TokenAccountAddress string `json:"token_account_address"`
 }
 

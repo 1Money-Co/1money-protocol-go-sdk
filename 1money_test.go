@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -546,7 +547,7 @@ func TestClientHooks(t *testing.T) {
 	// var lastRequest *http.Request // For server-side inspection if needed
 	var requestBodyOnServer []byte // To store the body received by the server
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// lastRequest = r
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -577,10 +578,29 @@ func TestClientHooks(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintln(w, `{"error_code":"NOT_FOUND", "message":"Test endpoint not found by hook test server"}`)
 		}
-	}))
-	// server.Close() will be called after all sub-tests that use it are done.
+	})
 
-	client := newClientInternal(server.URL, WithHooks(hook), WithTimeout(2*time.Second))
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("skipping TestClientHooks: unable to bind IPv4 loopback listener: %v", err)
+		return
+	}
+	srv := &http.Server{Handler: handler}
+	go func() {
+		if serveErr := srv.Serve(listener); serveErr != nil && serveErr != http.ErrServerClosed {
+			t.Logf("TestClientHooks: server error: %v", serveErr)
+		}
+	}()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Shutdown(ctx)
+	})
+	baseURL := "http://" + listener.Addr().String()
+
+	httpClient := &http.Client{}
+	httpClient.Timeout = 2 * time.Second
+	client := newClientInternal(baseURL, WithHooks(hook), WithHTTPClient(httpClient))
 
 	t.Run("WithHooks option", func(t *testing.T) {
 		if len(client.hooks) != 1 || client.hooks[0] != hook {
@@ -713,7 +733,7 @@ func TestClientHooks(t *testing.T) {
 		if len(preCalls) != 1 {
 			t.Fatalf("Expected 1 PreRequest call, got %d", len(preCalls))
 		}
-		expectedURL := server.URL + "/unmarshal_error_path"
+		expectedURL := baseURL + "/unmarshal_error_path"
 		if preCalls[0].method != "GET" || preCalls[0].url != expectedURL {
 			t.Errorf("PreRequest call mismatch: %+v. Expected URL: %s", preCalls[0], expectedURL)
 		}
@@ -735,9 +755,6 @@ func TestClientHooks(t *testing.T) {
 			t.Errorf("PostRequest error content mismatch. Expected JSON unmarshal error, got: %v", postCalls[0].err)
 		}
 	})
-
-	// Close the main server after tests that use it are done.
-	server.Close()
 
 	t.Run("Network Error", func(t *testing.T) {
 		hook.reset()
