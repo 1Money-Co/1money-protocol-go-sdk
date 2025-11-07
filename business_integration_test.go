@@ -1093,7 +1093,7 @@ func TestBusinessFlow_CheckpointEndpoints(t *testing.T) {
 	if !assert.NoError(err) {
 		return
 	}
-	assert.Greater(numberResp.Number, 0, "expected positive checkpoint number")
+	assert.Greater(numberResp.Number, uint64(0), "expected positive checkpoint number")
 
 	lightCheckpoint, err := suite.Client.GetCheckpointByNumber(ctx, numberResp.Number)
 	if !assert.NoError(err) {
@@ -1253,7 +1253,7 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 		assert.True(ok, "fee should be a valid number")
 
 		// Fee should be positive
-		assert.GreaterOrEqual(0, feeBigInt.Cmp(big.NewInt(0)), "fee should be positive or zero")
+		assert.GreaterOrEqual(feeBigInt.Cmp(big.NewInt(0)), 0, "fee should be positive or zero")
 
 		t.Logf("✅ Native token fee estimated: %s", feeResp.Fee)
 	})
@@ -1375,7 +1375,7 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 		assert.True(ok, "fee should be a valid number")
 
 		// Fee should be positive
-		assert.GreaterOrEqual(0, feeBigInt.Cmp(big.NewInt(0)), "fee should be positive or zero")
+		assert.GreaterOrEqual(feeBigInt.Cmp(big.NewInt(0)), 0, "fee should be positive or zero")
 
 		t.Logf("✅ Custom token fee estimated: %s", feeResp.Fee)
 	})
@@ -1408,7 +1408,7 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 			feeBigInt := new(big.Int)
 			_, ok := feeBigInt.SetString(feeResp.Fee, 10)
 			assert.True(ok, "fee should be valid number for amount %s", amount)
-			assert.GreaterOrEqual(0, feeBigInt.Cmp(big.NewInt(0)), "fee should be positive or zero for amount %s", amount)
+			assert.GreaterOrEqual(feeBigInt.Cmp(big.NewInt(0)), 0, "fee should be positive or zero for amount %s", amount)
 
 			t.Logf("   - Amount: %s → Fee: %s", amount, feeResp.Fee)
 		}

@@ -134,7 +134,7 @@ func TestCheckpointNumberJSON(t *testing.T) {
 		return
 	}
 
-	assert.Equal(t, 99, num.Number)
+	assert.Equal(t, uint64(99), num.Number)
 
 	data, err := json.Marshal(num)
 	if !assert.NoError(t, err) {

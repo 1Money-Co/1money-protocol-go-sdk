@@ -7,7 +7,7 @@ import (
 
 // CheckpointNumber contains the latest checkpoint index.
 type CheckpointNumber struct {
-	Number int `json:"number"`
+	Number uint64 `json:"number"`
 }
 
 // checkpointOptions controls optional parameters for checkpoint queries.

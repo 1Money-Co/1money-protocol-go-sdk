@@ -36,14 +36,14 @@ func (client *Client) GetCheckpointByHash(ctx context.Context, hash string, opts
 }
 
 // GetCheckpointByNumber retrieves a checkpoint by number. Use WithFullTransactions to fetch full transaction details.
-func (client *Client) GetCheckpointByNumber(ctx context.Context, number int, opts ...CheckpointOption) (*Checkpoint, error) {
+func (client *Client) GetCheckpointByNumber(ctx context.Context, number uint64, opts ...CheckpointOption) (*Checkpoint, error) {
 	options := &checkpointOptions{}
 	for _, opt := range opts {
 		opt(options)
 	}
 
 	params := url.Values{}
-	params.Set("number", strconv.Itoa(number))
+	params.Set("number", strconv.FormatUint(number, 10))
 	params.Set("full", fmt.Sprintf("%t", options.full))
 
 	result := new(Checkpoint)

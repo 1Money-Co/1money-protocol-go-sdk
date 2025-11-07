@@ -47,5 +47,5 @@ func (client *Client) GetAccountBbNonce(ctx context.Context, address common.Addr
 	result := new(AccountBbNonceResponse)
 	params := url.Values{}
 	params.Set("address", address.Hex())
-	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpointAccountsNonce, params.Encode()), result)
+	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpointAccountsBbNonce, params.Encode()), result)
 }
