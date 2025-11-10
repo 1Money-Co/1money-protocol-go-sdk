@@ -18,12 +18,15 @@ go get -u  https://github.com/1Money-Co/1money-protocol-go-sdk
 ## Example
 
 ### TestNetwork
+
     client := onemoney.NewTestClient()
-	result, err := client.GetCheckpointNumber()
+    result, err := client.GetCheckpointNumber()
+
 ### MainNetwork
+
     client := onemoney.NewClient()
     result, err := client.GetCheckpointNumber()
-    
+
 ## Where can I learn more?
 
 You can read more about the Go SDK documentation on [1Money developer portal](https://developer.1moneynetwork.com/integrations/sdks/golang)
@@ -34,8 +37,41 @@ You can read more about the Go SDK documentation on [1Money developer portal](ht
 2. Update the CHANGELOG.md
 3. Run `gofumpt -l -w .`
 4. Run `golangci-lint run`
-5. Commit with a good description
-6. Submit a PR
+5. Run tests: `go test ./...`
+   - Unit tests and transaction tests will run automatically
+   - HTTP client tests are disabled by default (enable with `ENABLE_HTTP_CLIENT_TESTS=1`)
+6. Commit with a good description
+7. Submit a PR
+
+## Testing
+
+### Quick Start
+
+```bash
+# Run all tests (HTTP client tests disabled by default)
+go test ./...
+
+# Enable HTTP client tests (requires localhost)
+ENABLE_HTTP_CLIENT_TESTS=1 go test ./...
+```
+
+### Business Flow Tests
+
+End-to-end tests simulating complete business workflows like token lifecycle management. See [BUSINESS_FLOW_TESTS.md](./BUSINESS_FLOW_TESTS.md) for details.
+
+```bash
+# Requires operator and master private keys
+TEST_ENV=local \
+TEST_OPERATOR_PRIVATE_KEY=operator_key \
+TEST_MASTER_PRIVATE_KEY=master_key \
+go test -v -tags=integration -run "TestBusinessFlow" -timeout 10m
+
+# Run all integration tests
+TEST_ENV=local \
+TEST_OPERATOR_PRIVATE_KEY=0xoperator_key \
+TEST_MASTER_PRIVATE_KEY=0xmaster_key \
+go test -v -tags=integration ./... -timeout 10m
+```
 
 # How to publish
 

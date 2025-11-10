@@ -1,634 +1,343 @@
-package onemoney_test
+package onemoney
 
 import (
-	"context"
+	"encoding/json"
 	"math/big"
 	"testing"
 
-	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestIssueToken(t *testing.T) {
-	t.Logf("TestIssueToken started")
-	client := onemoney.NewTestClient()
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	payload := onemoney.TokenIssuePayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Symbol:           "USDA",
-		Name:             "1Money Stable Coin Aaron",
-		Decimals:         6,
-		MasterAuthority:  common.HexToAddress(onemoney.TestOperatorAddress),
-		IsPrivate:        false,
-	}
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	req := &onemoney.IssueTokenRequest{
-		TokenIssuePayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
+func TestTokenPayloadJSONRoundTrip(t *testing.T) {
+	tests := []struct {
+		name     string
+		jsonData string
+		target   func() interface{}
+		validate func(*testing.T, interface{})
+	}{
+		{
+			name: "TokenIssuePayload",
+			jsonData: `{
+                "recent_checkpoint": 1,
+                "chain_id": 1212101,
+                "nonce": 9,
+                "symbol": "TEST",
+                "name": "Test Token",
+                "decimals": 6,
+                "master_authority": "0x5555555555555555555555555555555555555555",
+                "is_private": true
+            }`,
+			target: func() interface{} { return new(TokenIssuePayload) },
+			validate: func(t *testing.T, v interface{}) {
+				a := assert.New(t)
+				payload := v.(*TokenIssuePayload)
+				a.Equal(uint64(1), payload.RecentCheckpoint)
+				a.Equal(uint64(1212101), payload.ChainID)
+				a.Equal("TEST", payload.Symbol)
+				a.Equal(tokenAddr("0x5555555555555555555555555555555555555555"), payload.MasterAuthority)
+				a.True(payload.IsPrivate)
+			},
 		},
-	}
-	result, err := client.IssueToken(context.Background(), req)
-	if err != nil {
-		t.Fatalf("IssueToken failed: %v", err)
-	}
-	t.Logf("Successfully issued token: %s", result.Token)
-	t.Logf("Transaction hash: %s", result.Hash)
-}
-
-func TestGetTokenInfo(t *testing.T) {
-	client := onemoney.NewTestClient()
-	tokenAddress := onemoney.TestTokenAddress
-	result, err := client.GetTokenMetadata(context.Background(), tokenAddress)
-	if err != nil {
-		t.Fatalf("GetTokenMetadata failed: %v", err)
-	}
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-
-	t.Log("\nToken Information:")
-	t.Log("==================")
-	t.Logf("Basic Info:")
-	t.Logf("  Symbol:    %s", result.Symbol)
-	t.Logf("  Decimals:  %d", result.Decimals)
-	t.Logf("  Supply:    %s", result.Supply)
-	t.Logf("  Is Paused: %v", result.IsPaused)
-	t.Log("\nMeta:")
-	t.Logf("  Name: %s", result.Meta.Name)
-	t.Logf("  URI:  %s", result.Meta.URI)
-	t.Log("  Additional Metadata:")
-	for _, meta := range result.Meta.AdditionalMetadata {
-		t.Logf("    %s: %s", meta.Key, meta.Value)
-	}
-	t.Log("\nAuthorities:")
-	t.Logf("  Master:              %s", result.MasterAuthority)
-	t.Logf("  Master Mint:         %s", result.MasterMintBurnAuthority)
-	t.Log("\nMint Burn Authorities:")
-	for _, minter := range result.MintBurnAuthority {
-		t.Logf("  Minter: %s", minter.Minter)
-		t.Logf("  Allowance: %s", minter.Allowance)
-	}
-	t.Log("\nOther Authorities:")
-	t.Log("\nBlack List Authorities:")
-	for _, auth := range result.ListAuthorities {
-		t.Logf("    %s", auth)
-	}
-	t.Log("\nPause Authorities:")
-	for _, auth := range result.PauseAuthorities {
-		t.Logf("    %s", auth)
-	}
-	t.Log("\nBlack List:")
-	for _, addr := range result.BlackList {
-		t.Logf("  %s", addr)
-	}
-	t.Log("\nWhite List:")
-	for _, addr := range result.WhiteList {
-		t.Logf("  %s", addr)
-	}
-	t.Log("\nMetadata Update Authorities:")
-	for _, addr := range result.MetadataUpdateAuthorities {
-		t.Logf("  %s", addr)
-	}
-}
-
-func TestUpdateTokenMetadata(t *testing.T) {
-	client := onemoney.NewTestClient()
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	payload := onemoney.UpdateMetadataPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Name:             "USDFF Stablecoin",
-		URI:              "https://usdf.com",
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-		AdditionalMetadata: []onemoney.AdditionalMetadata{
-			{
-				Key:   "test",
-				Value: "test",
+		{
+			name: "UpdateMetadataPayload",
+			jsonData: `{
+                "recent_checkpoint": 2,
+                "chain_id": 1212101,
+                "nonce": 10,
+                "name": "Updated Token",
+                "uri": "ipfs://example",
+                "token": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "additional_metadata": [
+                    {"key": "color", "value": "blue"}
+                ]
+            }`,
+			target: func() interface{} { return new(UpdateMetadataPayload) },
+			validate: func(t *testing.T, v interface{}) {
+				a := assert.New(t)
+				payload := v.(*UpdateMetadataPayload)
+				a.Equal("Updated Token", payload.Name)
+				a.Equal(tokenAddr("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), payload.Token)
+				a.Equal(1, len(payload.AdditionalMetadata))
+				a.Equal("color", payload.AdditionalMetadata[0].Key)
+			},
+		},
+		{
+			name: "TokenAuthorityPayload",
+			jsonData: `{
+                "recent_checkpoint": 3,
+                "chain_id": 1212101,
+                "nonce": 11,
+                "action": "Grant",
+                "authority_type": "MintBurnTokens",
+                "authority_address": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "token": "0xcccccccccccccccccccccccccccccccccccccccc",
+                "value": 1000
+            }`,
+			target: func() interface{} { return new(TokenAuthorityPayload) },
+			validate: func(t *testing.T, v interface{}) {
+				payload := v.(*TokenAuthorityPayload)
+				assertBigIntEqual(t, "1000", payload.Value)
+				assert.Equal(t, tokenAddr("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), payload.AuthorityAddress)
+				assert.Equal(t, tokenAddr("0xcccccccccccccccccccccccccccccccccccccccc"), payload.Token)
+			},
+		},
+		{
+			name: "TokenBridgeAndMintPayload",
+			jsonData: `{
+                "recent_checkpoint": 4,
+                "chain_id": 1212101,
+                "nonce": 12,
+                "recipient": "0x1111111111111111111111111111111111111111",
+                "value": 5000,
+                "token": "0x2222222222222222222222222222222222222222",
+                "source_chain_id": 99,
+                "source_tx_hash": "0xsourcetx",
+                "bridge_metadata": "bridge"
+            }`,
+			target: func() interface{} { return new(TokenBridgeAndMintPayload) },
+			validate: func(t *testing.T, v interface{}) {
+				payload := v.(*TokenBridgeAndMintPayload)
+				assertBigIntEqual(t, "5000", payload.Value)
+				assert.Equal(t, tokenAddr("0x1111111111111111111111111111111111111111"), payload.Recipient)
+				assert.Equal(t, tokenAddr("0x2222222222222222222222222222222222222222"), payload.Token)
+				assert.Equal(t, uint64(99), payload.SourceChainID)
+			},
+		},
+		{
+			name: "TokenBurnAndBridgePayload",
+			jsonData: `{
+                "recent_checkpoint": 5,
+                "chain_id": 1212101,
+                "nonce": 13,
+                "sender": "0x1234567890123456789012345678901234567890",
+                "value": 42,
+                "token": "0x3333333333333333333333333333333333333333",
+                "destination_chain_id": 137,
+                "destination_address": "dest",
+                "escrow_fee": 3,
+                "bridge_metadata": "meta"
+            }`,
+			target: func() interface{} { return new(TokenBurnAndBridgePayload) },
+			validate: func(t *testing.T, v interface{}) {
+				payload := v.(*TokenBurnAndBridgePayload)
+				assertBigIntEqual(t, "42", payload.Value)
+				assertBigIntEqual(t, "3", payload.EscrowFee)
+				assert.Equal(t, tokenAddr("0x1234567890123456789012345678901234567890"), payload.Sender)
+				assert.Equal(t, tokenAddr("0x3333333333333333333333333333333333333333"), payload.Token)
+			},
+		},
+		{
+			name: "TokenManageListPayload",
+			jsonData: `{
+                "recent_checkpoint": 6,
+                "chain_id": 1212101,
+                "nonce": 14,
+                "action": "Add",
+                "address": "0x4444444444444444444444444444444444444444",
+                "token": "0x5555555555555555555555555555555555555555"
+            }`,
+			target: func() interface{} { return new(TokenManageListPayload) },
+			validate: func(t *testing.T, v interface{}) {
+				payload := v.(*TokenManageListPayload)
+				assert.Equal(t, ManageListActionAdd, payload.Action)
+				assert.Equal(t, tokenAddr("0x4444444444444444444444444444444444444444"), payload.Address)
+				assert.Equal(t, tokenAddr("0x5555555555555555555555555555555555555555"), payload.Token)
+			},
+		},
+		{
+			name: "PauseTokenPayload",
+			jsonData: `{
+                "recent_checkpoint": 7,
+                "chain_id": 1212101,
+                "nonce": 15,
+                "action": "Pause",
+                "token": "0x6666666666666666666666666666666666666666"
+            }`,
+			target: func() interface{} { return new(PauseTokenPayload) },
+			validate: func(t *testing.T, v interface{}) {
+				payload := v.(*PauseTokenPayload)
+				assert.Equal(t, PauseActionType("Pause"), payload.Action)
+				assert.Equal(t, tokenAddr("0x6666666666666666666666666666666666666666"), payload.Token)
 			},
 		},
 	}
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			target := tc.target()
+			a := assert.New(t)
+			if !a.NoError(json.Unmarshal([]byte(tc.jsonData), target)) {
+				return
+			}
+			tc.validate(t, target)
+			encoded, err := json.Marshal(target)
+			if !a.NoError(err) {
+				return
+			}
+			assertJSONEqual(t, tc.jsonData, encoded)
+		})
 	}
-	req := &onemoney.UpdateMetadataRequest{
-		UpdateMetadataPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	result, err := client.UpdateTokenMetadata(context.Background(), req)
-	if err != nil {
-		t.Fatalf("UpdateTokenMetadata failed: %v", err)
-	}
-	t.Log("\nMetadata Update Result:")
-	t.Log("=====================")
-	t.Logf("Transaction Hash: %s", result.Hash)
 }
 
-func TestGrantMintBurnAuthority(t *testing.T) {
-	client := onemoney.NewTestClient()
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	payload := onemoney.TokenAuthorityPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Action:           onemoney.AuthorityActionGrant,
-		AuthorityType:    onemoney.AuthorityTypeMintBurnTokens,
-		AuthorityAddress: common.HexToAddress(onemoney.TestOperatorAddress),
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-		Value:            big.NewInt(1500000),
-	}
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	t.Logf("\nGrant signature Result: %v", signature)
-	req := onemoney.TokenAuthorityRequest{
-		TokenAuthorityPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
+func TestTokenModelJSONRoundTrip(t *testing.T) {
+	tests := []struct {
+		name     string
+		jsonData string
+		target   func() interface{}
+		validate func(*testing.T, interface{})
+	}{
+		{
+			name: "IssueTokenRequest",
+			jsonData: `{
+                "recent_checkpoint": 1,
+                "chain_id": 1212101,
+                "nonce": 16,
+                "symbol": "REQ",
+                "name": "Request Token",
+                "decimals": 8,
+                "master_authority": "0x7777777777777777777777777777777777777777",
+                "is_private": false,
+                "signature": {"r": "0x1", "s": "0x2", "v": 1}
+            }`,
+			target: func() interface{} { return new(IssueTokenRequest) },
+			validate: func(t *testing.T, v interface{}) {
+				req := v.(*IssueTokenRequest)
+				assert.Equal(t, "REQ", req.Symbol)
+				assert.Equal(t, uint64(16), req.Nonce)
+				assert.Equal(t, tokenAddr("0x7777777777777777777777777777777777777777"), req.MasterAuthority)
+				assert.Equal(t, uint64(1), req.Signature.V)
+			},
+		},
+		{
+			name: "TokenAuthorityRequest",
+			jsonData: `{
+                "recent_checkpoint": 2,
+                "chain_id": 1212101,
+                "nonce": 17,
+                "action": "Grant",
+                "authority_type": "Bridge",
+                "authority_address": "0x8888888888888888888888888888888888888888",
+                "token": "0x9999999999999999999999999999999999999999",
+                "value": 256,
+                "signature": {"r": "0x3", "s": "0x4", "v": 27}
+            }`,
+			target: func() interface{} { return new(TokenAuthorityRequest) },
+			validate: func(t *testing.T, v interface{}) {
+				req := v.(*TokenAuthorityRequest)
+				assertBigIntEqual(t, "256", req.Value)
+				assert.Equal(t, tokenAddr("0x8888888888888888888888888888888888888888"), req.AuthorityAddress)
+				assert.Equal(t, tokenAddr("0x9999999999999999999999999999999999999999"), req.Token)
+				assert.Equal(t, uint64(27), req.Signature.V)
+			},
+		},
+		{
+			name: "MintTokenRequest",
+			jsonData: `{
+                "recent_checkpoint": 3,
+                "chain_id": 1212101,
+                "nonce": 18,
+                "recipient": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "value": 100,
+                "token": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "signature": {"r": "0x5", "s": "0x6", "v": 28}
+            }`,
+			target: func() interface{} { return new(MintTokenRequest) },
+			validate: func(t *testing.T, v interface{}) {
+				req := v.(*MintTokenRequest)
+				assertBigIntEqual(t, "100", req.Value)
+				assert.Equal(t, tokenAddr("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), req.Recipient)
+				assert.Equal(t, tokenAddr("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), req.Token)
+				assert.Equal(t, uint64(28), req.Signature.V)
+			},
+		},
+		{
+			name: "TokenInfoResponse",
+			jsonData: `{
+                "symbol": "INFO",
+                "master_authority": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "master_mint_burn_authority": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "mint_burn_authorities": [{"allowance": "10", "minter": "0x1"}],
+                "pause_authorities": ["0x2"],
+                "list_authorities": ["0x3"],
+                "black_list": ["0x4"],
+                "white_list": ["0x5"],
+                "metadata_update_authorities": ["0x6"],
+                "bridge_mint_authorities": ["0x7"],
+                "supply": "9999",
+                "decimals": 4,
+                "is_paused": false,
+                "is_private": true,
+                "meta": {
+                    "name": "Info Token",
+                    "uri": "ipfs://info",
+                    "additional_metadata": [{"key": "env", "value": "test"}]
+                }
+            }`,
+			target: func() interface{} { return new(TokenInfoResponse) },
+			validate: func(t *testing.T, v interface{}) {
+				resp := v.(*TokenInfoResponse)
+				assert.Equal(t, "INFO", resp.Symbol)
+				assert.Equal(t, "9999", resp.Supply)
+				if assert.Len(t, resp.Meta.AdditionalMetadata, 1) {
+					assert.Equal(t, "env", resp.Meta.AdditionalMetadata[0].Key)
+				}
+			},
 		},
 	}
-	result, err := client.GrantTokenAuthority(context.Background(), &req)
-	if err != nil {
-		t.Fatalf("GrantAuthority failed: %v", err)
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			target := tc.target()
+			a := assert.New(t)
+			if !a.NoError(json.Unmarshal([]byte(tc.jsonData), target)) {
+				return
+			}
+			tc.validate(t, target)
+			encoded, err := json.Marshal(target)
+			if !a.NoError(err) {
+				return
+			}
+			assertJSONEqual(t, tc.jsonData, encoded)
+		})
 	}
-	t.Log("\nGrant Authority Result:")
-	t.Log("=====================")
-	t.Logf("Transaction Hash:  %s", result.Hash)
 }
 
-func TestGrantMasterMintAuthority(t *testing.T) {
-	client := onemoney.NewTestClient()
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
+func assertJSONEqual(t *testing.T, expected string, actual []byte) {
+	t.Helper()
+	var expObj interface{}
+	var actObj interface{}
+	a := assert.New(t)
+	if !a.NoError(json.Unmarshal([]byte(expected), &expObj)) {
+		return
 	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
+	if !a.NoError(json.Unmarshal(actual, &actObj)) {
+		return
 	}
-
-	payload := onemoney.TokenAuthorityPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Action:           onemoney.AuthorityActionGrant,
-		AuthorityType:    onemoney.AuthorityTypeMasterMintBurn,
-		AuthorityAddress: common.HexToAddress(onemoney.TestOperatorAddress),
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-		Value:            big.NewInt(1500000),
-	}
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	t.Logf("\nGrant signature Result: %v", signature)
-	req := onemoney.TokenAuthorityRequest{
-		TokenAuthorityPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	result, err := client.GrantTokenAuthority(context.Background(), &req)
-	if err != nil {
-		t.Fatalf("GrantAuthority failed: %v", err)
-	}
-	t.Log("\nGrant Authority Result:")
-	t.Log("=====================")
-	t.Logf("Transaction Hash:  %s", result.Hash)
+	a.Equal(expObj, actObj)
 }
 
-func TestGrantMasterUpdateMetadata(t *testing.T) {
-	client := onemoney.NewTestClient()
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	payload := onemoney.TokenAuthorityPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Action:           onemoney.AuthorityActionGrant,
-		AuthorityType:    onemoney.AuthorityTypeUpdateMetadata,
-		AuthorityAddress: common.HexToAddress(onemoney.TestOperatorAddress),
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-		Value:            big.NewInt(1500000),
-	}
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	t.Logf("\nGrant signature Result: %v", signature)
-	req := onemoney.TokenAuthorityRequest{
-		TokenAuthorityPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	result, err := client.GrantTokenAuthority(context.Background(), &req)
-	if err != nil {
-		t.Fatalf("GrantAuthority failed: %v", err)
-	}
-	t.Log("\nGrant Authority Result:")
-	t.Log("=====================")
-	t.Logf("Transaction Hash:  %s", result.Hash)
+func tokenAddr(hex string) common.Address {
+	return common.HexToAddress(hex)
 }
 
-func TestGrantMasterUpdatePause(t *testing.T) {
-	client := onemoney.NewTestClient()
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
+func assertBigIntEqual(t *testing.T, expected string, actual *big.Int) {
+	t.Helper()
+	a := assert.New(t)
+	if !a.NotNil(actual) {
+		return
 	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
+	exp, ok := new(big.Int).SetString(expected, 10)
+	if !a.True(ok, "invalid big.Int string") {
+		return
 	}
-
-	payload := onemoney.TokenAuthorityPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Action:           onemoney.AuthorityActionGrant,
-		AuthorityType:    onemoney.AuthorityTypePause,
-		AuthorityAddress: common.HexToAddress(onemoney.TestOperatorAddress),
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-		Value:            big.NewInt(1500000),
-	}
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	t.Logf("\nGrant signature Result: %v", signature)
-	req := onemoney.TokenAuthorityRequest{
-		TokenAuthorityPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	result, err := client.GrantTokenAuthority(context.Background(), &req)
-	if err != nil {
-		t.Fatalf("GrantAuthority failed: %v", err)
-	}
-	t.Log("\nGrant Authority Result:")
-	t.Log("=====================")
-	t.Logf("Transaction Hash:  %s", result.Hash)
-}
-
-func TestGrantManageListPause(t *testing.T) {
-	client := onemoney.NewTestClient()
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	payload := onemoney.TokenAuthorityPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Action:           onemoney.AuthorityActionGrant,
-		AuthorityType:    onemoney.AuthorityTypeManageList,
-		AuthorityAddress: common.HexToAddress(onemoney.TestOperatorAddress),
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-		Value:            big.NewInt(1500000),
-	}
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	t.Logf("\nGrant signature Result: %v", signature)
-	req := onemoney.TokenAuthorityRequest{
-		TokenAuthorityPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	result, err := client.GrantTokenAuthority(context.Background(), &req)
-	if err != nil {
-		t.Fatalf("GrantAuthority failed: %v", err)
-	}
-	t.Log("\nGrant Authority Result:")
-	t.Log("=====================")
-	t.Logf("Transaction Hash:  %s", result.Hash)
-}
-
-func TestMintToken(t *testing.T) {
-	client := onemoney.NewTestClient()
-	// Get the current nonce
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	// Create mint payload
-	payload := onemoney.TokenMintPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Recipient:        common.HexToAddress(onemoney.TestOperatorAddress),
-		Value:            big.NewInt(150000),
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-	}
-	// Sign the payload
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	// Create mint request
-	req := &onemoney.MintTokenRequest{
-		TokenMintPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	// Send mint request
-	result, err := client.MintToken(context.Background(), req)
-	if err != nil {
-		t.Fatalf("MintToken failed: %v", err)
-	}
-	t.Log("\nMint Token Result:")
-	t.Log("=================")
-	t.Logf("Transaction Hash: %s", result.Hash)
-}
-
-func TestBurnToken(t *testing.T) {
-	client := onemoney.NewTestClient()
-	// Get the current nonce
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	// Create burn payload
-	payload := onemoney.TokenBurnPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Recipient:        common.HexToAddress(onemoney.TestOperatorAddress),
-		Value:            big.NewInt(15000),
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-	}
-	// Sign the payload
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	// Create burn request
-	req := &onemoney.BurnTokenRequest{
-		TokenBurnPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	// Send burn request
-	result, err := client.BurnToken(context.Background(), req)
-	if err != nil {
-		t.Fatalf("BurnToken failed: %v", err)
-	}
-	t.Log("\nBurn Token Result:")
-	t.Log("=================")
-	t.Logf("Transaction Hash: %s", result.Hash)
-}
-
-func TestBlacklist(t *testing.T) {
-	client := onemoney.NewTestClient()
-	// Get the current nonce
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	// Create SetTokenManagelist payload
-	payload := onemoney.TokenManageListPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Action:           onemoney.ManageListActionRemove,
-		Address:          common.HexToAddress(onemoney.BlacklistAddress),
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-	}
-	// Sign the payload
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	// Create SetTokenManagelist request
-	req := &onemoney.SetTokenManageListRequest{
-		TokenManageListPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	// Send mint request
-	result, err := client.SetTokenBlacklist(context.Background(), req)
-	if err != nil {
-		t.Fatalf("SetTokenManagelist failed: %v", err)
-	}
-	t.Log("\nSetTokenManagelist Result:")
-	t.Log("=================")
-	t.Logf("Transaction Hash: %s", result.Hash)
-}
-
-func TestPauseToken(t *testing.T) {
-	client := onemoney.NewTestClient()
-	// Get the current nonce
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	// Create pause payload
-	payload := onemoney.PauseTokenPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Action:           onemoney.Pause, // Unpause
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-	}
-	// Sign the payload
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	// Create mint request
-	req := &onemoney.PauseTokenRequest{
-		PauseTokenPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	// Send mint request
-	result, err := client.PauseToken(context.Background(), req)
-	if err != nil {
-		t.Fatalf("PauseToken failed: %v", err)
-	}
-	t.Log("\nPause Token Result:")
-	t.Log("=================")
-	t.Logf("Transaction Hash: %s", result.Hash)
-}
-
-func TestUnPauseToken(t *testing.T) {
-	client := onemoney.NewTestClient()
-	// Get the current nonce
-	accountNonce, err := client.GetAccountNonce(context.Background(), onemoney.TestOperatorAddress)
-	if err != nil {
-		t.Fatalf("Failed to get account nonce: %v", err)
-	}
-	var nonce uint64 = accountNonce.Nonce
-
-	// Get latest checkpoint
-	latestCheckpoint, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to get latest checkpoint number: %v", err)
-	}
-
-	// Create pause payload
-	payload := onemoney.PauseTokenPayload{
-		RecentCheckpoint: uint64(latestCheckpoint.Number),
-		ChainID:          1212101,
-		Nonce:            nonce,
-		Action:           onemoney.UnPause,
-		Token:            common.HexToAddress(onemoney.TestTokenAddress),
-	}
-	// Sign the payload
-	signature, err := client.SignMessage(payload, onemoney.TestOperatorPrivateKey)
-	if err != nil {
-		t.Fatalf("Failed to generate signature: %v", err)
-	}
-	// Create pause request
-	req := &onemoney.PauseTokenRequest{
-		PauseTokenPayload: payload,
-		Signature: onemoney.Signature{
-			R: signature.R,
-			S: signature.S,
-			V: signature.V,
-		},
-	}
-	// Send pause request
-	result, err := client.PauseToken(context.Background(), req)
-	if err != nil {
-		t.Fatalf("PauseToken failed: %v", err)
-	}
-	t.Log("\nPause Token Result:")
-	t.Log("=================")
-	t.Logf("Transaction Hash: %s", result.Hash)
+	a.Zero(exp.Cmp(actual))
 }
 
 func TestDeriveTokenAccountAddress(t *testing.T) {
-	client := onemoney.NewTestClient()
+	client := NewTestClient()
 	address := client.DeriveTokenAccountAddress(common.HexToAddress("0xA634dfba8c7550550817898bC4820cD10888Aac5"), common.HexToAddress("0x8E9d1b45293e30EF38564582979195DD16A16E13"))
 	t.Logf("address: %s", address)
 }

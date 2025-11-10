@@ -7,10 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
-
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // Logger defines a simple logging interface.
@@ -32,16 +29,10 @@ type Hook interface {
 }
 
 const (
-	apiBaseHost     = "https://api.1money.network"
-	apiBaseHostTest = "https://api.testnet.1money.network"
-)
-
-const (
-	TestOperatorPrivateKey = ""
-	TestOperatorAddress    = ""
-	TestTokenAddress       = ""
-	Test2ndAddress         = ""
-	BlacklistAddress       = ""
+	mainnetEndpoint = "https://api.1money.network"
+	testnetEndpoint = "https://api.testnet.1money.network"
+	devnetEndpoint  = "https://api.devnet.1money.network"
+	localEndpoint   = "http://127.0.0.1:18555"
 )
 
 type Client struct {
@@ -49,20 +40,6 @@ type Client struct {
 	httpclient *http.Client
 	logger     Logger
 	hooks      []Hook // New field
-}
-
-func PrivateKeyToAddress(privateKeyHex string) (string, error) {
-
-	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
-	privateKey, err := crypto.HexToECDSA(privateKeyHex)
-	if err != nil {
-		return "", fmt.Errorf("invalid private key: %v", err)
-	}
-
-	publicKeyECDSA := &privateKey.PublicKey
-	address := crypto.PubkeyToAddress(*publicKeyECDSA)
-
-	return address.Hex(), nil
 }
 
 func newClientInternal(baseHost string, options ...ClientOption) *Client {
@@ -80,19 +57,23 @@ func newClientInternal(baseHost string, options ...ClientOption) *Client {
 }
 
 func NewClient() *Client {
-	return newClientInternal(apiBaseHost)
+	return newClientInternal(mainnetEndpoint)
 }
 
 func NewTestClient() *Client {
-	return newClientInternal(apiBaseHostTest)
+	return newClientInternal(testnetEndpoint)
+}
+
+func NewClientWithCustomUrl(url string, opts ...ClientOption) *Client {
+	return newClientInternal(url, opts...)
 }
 
 func NewClientWithOpts(opts ...ClientOption) *Client {
-	return newClientInternal(apiBaseHost, opts...)
+	return newClientInternal(mainnetEndpoint, opts...)
 }
 
 func NewTestClientWithOpts(opts ...ClientOption) *Client {
-	return newClientInternal(apiBaseHostTest, opts...)
+	return newClientInternal(testnetEndpoint, opts...)
 }
 
 // ClientOption defines a function that configures a Client

@@ -1,116 +1,145 @@
-package onemoney_test
+package onemoney
 
 import (
-	"context"
+	"encoding/json"
 	"testing"
 
-	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestGetCheckpointNumber(t *testing.T) {
-	client := onemoney.NewTestClient()
-	result, err := client.GetCheckpointNumber(context.Background())
-	if err != nil {
-		t.Fatalf("GetCheckpointNumber failed: %v", err)
-	}
-	// Verify the result is not nil
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-	// Verify the number is positive
-	if result.Number <= 0 {
-		t.Errorf("Expected number to be positive, got %d", result.Number)
-	}
-	// Log the result for manual verification
-	t.Logf("Successfully retrieved checkpoint number: %d", result.Number)
+func TestCheckpointTransactions_JSON(t *testing.T) {
+	t.Run("hashes", func(t *testing.T) {
+		input := `{"transactions": ["0x1", "0x2"]}`
+		target := struct {
+			Transactions CheckpointTransactions `json:"transactions"`
+		}{}
+		require := assert.New(t)
+		if !require.NoError(json.Unmarshal([]byte(input), &target)) {
+			return
+		}
+		require.Nil(target.Transactions.Full)
+		require.Equal([]string{"0x1", "0x2"}, target.Transactions.Hashes)
+
+		encoded, err := json.Marshal(target)
+		require.NoError(err)
+		require.JSONEq(input, string(encoded))
+	})
+
+	t.Run("full", func(t *testing.T) {
+		input := `{"transactions": [{"hash": "0xabc", "checkpoint_hash": "0xparent", "checkpoint_number": 1, "from": "0x1111111111111111111111111111111111111111", "transaction_type": "TokenMint", "recent_checkpoint": 1, "chain_id": 1212101, "nonce": 1, "signature": null, "transaction_index": 0}]}`
+		target := struct {
+			Transactions CheckpointTransactions `json:"transactions"`
+		}{}
+		require := assert.New(t)
+		if !require.NoError(json.Unmarshal([]byte(input), &target)) {
+			return
+		}
+		require.Nil(target.Transactions.Hashes)
+		require.Len(target.Transactions.Full, 1)
+		require.Equal("0xabc", target.Transactions.Full[0].Hash)
+
+		encoded, err := json.Marshal(target)
+		require.NoError(err)
+		require.JSONEq(input, string(encoded))
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		input := `{"transactions": 123}`
+		target := struct {
+			Transactions CheckpointTransactions `json:"transactions"`
+		}{}
+		assert.Error(t, json.Unmarshal([]byte(input), &target))
+	})
 }
 
-func TestGetCheckpointByHashFull(t *testing.T) {
-	client := onemoney.NewTestClient()
-	hash := "0xbdbbaa943cde023d600e2601fe7f2f8e13843e27392e03027b263ac386c1cfb5"
-	result, err := client.GetCheckpointByHashFull(context.Background(), hash)
-	if err != nil {
-		t.Fatalf("GetCheckpointByHashFull failed: %v", err)
+func TestCheckpointJSONRoundTrip(t *testing.T) {
+	original := Checkpoint{
+		ExtraData:        "extra",
+		Hash:             "0xhash",
+		Number:           42,
+		ParentHash:       "0xparent",
+		ReceiptsRoot:     "0xreceipts",
+		StateRoot:        "0xstate",
+		Timestamp:        123456,
+		TransactionsRoot: "0xtrx",
+		Transactions: CheckpointTransactions{
+			Hashes: []string{"0x1", "0x2"},
+		},
+		Size: 2,
 	}
-	// Verify the result is not nil
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
+
+	data, err := json.Marshal(original)
+	if !assert.NoError(t, err) {
+		return
 	}
-	if result.Hash == "" {
-		t.Error("Expected Hash to be present")
+
+	var decoded Checkpoint
+	if !assert.NoError(t, json.Unmarshal(data, &decoded)) {
+		return
 	}
-	if result.ParentHash == "" {
-		t.Error("Expected ParentHash to be present")
+
+	assert.Equal(t, original, decoded)
+
+	// Full transactions
+	full := Checkpoint{
+		ExtraData:        "extra",
+		Hash:             "0xhash",
+		Number:           43,
+		ParentHash:       "0xparent",
+		ReceiptsRoot:     "0xreceipts",
+		StateRoot:        "0xstate",
+		Timestamp:        654321,
+		TransactionsRoot: "0xtrx",
+		Transactions: CheckpointTransactions{
+			Full: []Transaction{
+				{
+					Hash:             "0xabc",
+					CheckpointHash:   "0xparent",
+					CheckpointNumber: 43,
+					From:             common.HexToAddress("0x1111111111111111111111111111111111111111"),
+					TransactionType:  TransactionTypeTokenMint,
+					RecentCheckpoint: 43,
+					ChainID:          1212101,
+					Nonce:            1,
+					TransactionIndex: 0,
+				},
+			},
+		},
+		Size: 1,
 	}
-	// Log the result for manual verification
-	t.Logf("Successfully retrieved checkpoint detail for hash: %s", hash)
-	t.Logf("Size of transactions: %d", result.Size)
-	t.Log("result: ", result)
+
+	dataFull, err := json.Marshal(full)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	var decodedFull Checkpoint
+	if !assert.NoError(t, json.Unmarshal(dataFull, &decodedFull)) {
+		return
+	}
+
+	assert.Equal(t, full.Hash, decodedFull.Hash)
+	assert.Len(t, decodedFull.Transactions.Full, len(full.Transactions.Full))
+	for i := range full.Transactions.Full {
+		assert.Equal(t, full.Transactions.Full[i].Hash, decodedFull.Transactions.Full[i].Hash)
+		assert.Equal(t, full.Transactions.Full[i].TransactionType, decodedFull.Transactions.Full[i].TransactionType)
+	}
 }
 
-func TestGetCheckpointByHash(t *testing.T) {
-	client := onemoney.NewTestClient()
-	hash := "0xbdbbaa943cde023d600e2601fe7f2f8e13843e27392e03027b263ac386c1cfb5"
-	result, err := client.GetCheckpointByHash(context.Background(), hash)
-	if err != nil {
-		t.Fatalf("GetCheckpointByHashFull failed: %v", err)
+func TestCheckpointNumberJSON(t *testing.T) {
+	jsonData := `{"number": 99}`
+	var num CheckpointNumber
+	if !assert.NoError(t, json.Unmarshal([]byte(jsonData), &num)) {
+		return
 	}
-	// Verify the result is not nil
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-	if result.Hash == "" {
-		t.Error("Expected Hash to be present")
-	}
-	if result.ParentHash == "" {
-		t.Error("Expected ParentHash to be present")
-	}
-	// Log the result for manual verification
-	t.Logf("Successfully retrieved checkpoint detail for hash: %s", hash)
-	t.Logf("Size of transactions: %d", result.Size)
-	t.Log("result: ", result)
-}
 
-func TestGetCheckpointByNumberFull(t *testing.T) {
-	client := onemoney.NewTestClient()
-	result, err := client.GetCheckpointByNumberFull(context.Background(), 99331)
-	if err != nil {
-		t.Fatalf("GetCheckpointByNumberFull failed: %v", err)
-	}
-	// Verify the result is not nil
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-	if result.Hash == "" {
-		t.Error("Expected Hash to be present")
-	}
-	if result.ParentHash == "" {
-		t.Error("Expected ParentHash to be present")
-	}
-	// Log the result for manual verification
-	t.Logf("Successfully retrieved checkpoint detail for number: %d", result.Number)
-	t.Logf("Size of transactions: %d", result.Size)
-	t.Log("result: ", result)
-}
+	assert.Equal(t, uint64(99), num.Number)
 
-func TestGetCheckpointByNumber(t *testing.T) {
-	client := onemoney.NewTestClient()
-	result, err := client.GetCheckpointByNumber(context.Background(), 10)
-	if err != nil {
-		t.Fatalf("GetCheckpointByNumberFull failed: %v", err)
+	data, err := json.Marshal(num)
+	if !assert.NoError(t, err) {
+		return
 	}
-	// Verify the result is not nil
-	if result == nil {
-		t.Fatal("Expected result to not be nil")
-	}
-	if result.Hash == "" {
-		t.Error("Expected Hash to be present")
-	}
-	if result.ParentHash == "" {
-		t.Error("Expected ParentHash to be present")
-	}
-	// Log the result for manual verification
-	t.Logf("Successfully retrieved checkpoint detail for number: %d", result.Number)
-	t.Logf("Number of transactions: %d", result.Size)
-	t.Log("result: ", result)
+
+	assert.JSONEq(t, jsonData, string(data))
 }
