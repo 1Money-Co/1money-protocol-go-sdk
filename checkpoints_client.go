@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	endpointCheckpointsNumber   = "/v1/checkpoints/number"
-	endpointCheckpointsByHash   = "/v1/checkpoints/by_hash"
-	endpointCheckpointsByNumber = "/v1/checkpoints/by_number"
+	endpointCheckpointsNumber           = "/v1/checkpoints/number"
+	endpointCheckpointsByHash           = "/v1/checkpoints/by_hash"
+	endpointCheckpointsByNumber         = "/v1/checkpoints/by_number"
+	endpointCheckpointsReceiptsByNumber = "/v1/checkpoints/receipts/by_number"
 )
 
 // GetCheckpointNumber fetches the latest checkpoint number.
@@ -48,4 +49,13 @@ func (client *Client) GetCheckpointByNumber(ctx context.Context, number uint64, 
 
 	result := new(Checkpoint)
 	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpointCheckpointsByNumber, params.Encode()), result)
+}
+
+// GetCheckpointReceiptsByNumber retrieves transaction receipts for a checkpoint by number.
+func (client *Client) GetCheckpointReceiptsByNumber(ctx context.Context, number uint64) ([]TransactionReceiptResponse, error) {
+	params := url.Values{}
+	params.Set("number", strconv.FormatUint(number, 10))
+
+	var result []TransactionReceiptResponse
+	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpointCheckpointsReceiptsByNumber, params.Encode()), &result)
 }

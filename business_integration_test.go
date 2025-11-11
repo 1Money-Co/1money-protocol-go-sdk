@@ -1119,6 +1119,33 @@ func TestBusinessFlow_CheckpointEndpoints(t *testing.T) {
 		assert.Equal(lightCheckpoint.Hash, fullByHash.Hash, "full checkpoint hash mismatch")
 		assert.NotNil(fullByHash.Transactions.Full, "expected full transactions by hash")
 	}
+
+	// Test GetCheckpointReceiptsByNumber and compare with full transactions
+	receipts, err := suite.Client.GetCheckpointReceiptsByNumber(ctx, numberResp.Number)
+	if !assert.NoError(err) {
+		return
+	}
+	assert.NotNil(receipts, "expected receipts to be returned")
+
+	// Compare receipts with full transactions from checkpoint
+	if fullByNumber.Transactions.Full != nil {
+		assert.Equal(len(fullByNumber.Transactions.Full), len(receipts), "receipts count should match transactions count")
+
+		// Compare each transaction with its corresponding receipt by index
+		for i, tx := range fullByNumber.Transactions.Full {
+			receipt := &receipts[i]
+
+			// Verify receipt fields match transaction fields at the same index
+			assert.Equal(tx.Hash, receipt.TransactionHash, "transaction hash mismatch at index %d", i)
+			assert.Equal(tx.From, receipt.From, "from address mismatch at index %d for tx %s", i, tx.Hash)
+			assert.Equal(tx.CheckpointNumber, receipt.CheckpointNumber, "checkpoint number mismatch at index %d for tx %s", i, tx.Hash)
+			assert.Equal(tx.CheckpointHash, receipt.CheckpointHash, "checkpoint hash mismatch at index %d for tx %s", i, tx.Hash)
+			assert.Equal(tx.TransactionIndex, receipt.TransactionIndex, "transaction index mismatch at index %d for tx %s", i, tx.Hash)
+			assert.NotEmpty(receipt.FeeUsed, "fee used should be populated at index %d for tx %s", i, tx.Hash)
+		}
+
+		t.Logf("✅ GetCheckpointReceiptsByNumber verified: %d receipts match %d transactions in order", len(receipts), len(fullByNumber.Transactions.Full))
+	}
 }
 
 func TestBusinessFlow_AccountEndpoints(t *testing.T) {
