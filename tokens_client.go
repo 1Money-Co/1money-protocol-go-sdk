@@ -4,9 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
@@ -85,8 +82,8 @@ func (client *Client) PauseToken(ctx context.Context, req *PauseTokenRequest) (*
 // Address is 20 byte, 160 bits. Let's say if we want to support 50 billion accounts on 1money.
 // That's about 36 bits. There are 124 bits remaining. In other words, the collision probability
 // is 1/2^124, which is negligible. We therefore use the keccak256 hash of the wallet and mint address.
-func (client *Client) DeriveTokenAccountAddress(walletAddress common.Address, mintAddress common.Address) common.Address {
-	buf := append(walletAddress.Bytes(), mintAddress.Bytes()...)
-	hash := crypto.Keccak256(buf)
-	return common.BytesToAddress(hash[12:])
-}
+// func (client *Client) DeriveTokenAccountAddress(walletAddress common.Address, mintAddress common.Address) common.Address {
+// 	buf := append(walletAddress.Bytes(), mintAddress.Bytes()...)
+// 	hash := crypto.Keccak256(buf)
+// 	return common.BytesToAddress(hash[12:])
+// }

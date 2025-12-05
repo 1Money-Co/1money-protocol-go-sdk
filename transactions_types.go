@@ -79,7 +79,6 @@ type Transaction struct {
 	From             common.Address  `json:"from"`
 	ChainID          uint64          `json:"chain_id"`
 	Nonce            uint64          `json:"nonce"`
-	RecentCheckpoint uint64          `json:"recent_checkpoint"`
 	TransactionType  TransactionType `json:"transaction_type"`
 	// Data holds the specific payload for the transaction, which varies based on TransactionType.
 	//
@@ -232,12 +231,11 @@ type EstimateFeeResponse struct {
 }
 
 type PaymentPayload struct {
-	RecentCheckpoint uint64         `json:"recent_checkpoint"`
-	ChainID          uint64         `json:"chain_id"`
-	Nonce            uint64         `json:"nonce"`
-	Recipient        common.Address `json:"recipient"`
-	Value            *big.Int       `json:"value"`
-	Token            common.Address `json:"token"`
+	ChainID   uint64         `json:"chain_id"`
+	Nonce     uint64         `json:"nonce"`
+	Recipient common.Address `json:"recipient"`
+	Value     *big.Int       `json:"value"`
+	Token     common.Address `json:"token"`
 }
 
 type PaymentRequest struct {
