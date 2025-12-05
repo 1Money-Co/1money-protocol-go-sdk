@@ -27,7 +27,7 @@ func TestCheckpointTransactions_JSON(t *testing.T) {
 	})
 
 	t.Run("full", func(t *testing.T) {
-		input := `{"transactions": [{"hash": "0xabc", "checkpoint_hash": "0xparent", "checkpoint_number": 1, "from": "0x1111111111111111111111111111111111111111", "transaction_type": "TokenMint", "recent_checkpoint": 1, "chain_id": 1212101, "nonce": 1, "signature": null, "transaction_index": 0}]}`
+		input := `{"transactions": [{"hash": "0xabc", "checkpoint_hash": "0xparent", "checkpoint_number": 1, "from": "0x1111111111111111111111111111111111111111", "transaction_type": "TokenMint", "chain_id": 1212101, "nonce": 1, "signature": null, "transaction_index": 0}]}`
 		target := struct {
 			Transactions CheckpointTransactions `json:"transactions"`
 		}{}
@@ -99,7 +99,6 @@ func TestCheckpointJSONRoundTrip(t *testing.T) {
 					CheckpointNumber: 43,
 					From:             common.HexToAddress("0x1111111111111111111111111111111111111111"),
 					TransactionType:  TransactionTypeTokenMint,
-					RecentCheckpoint: 43,
 					ChainID:          1212101,
 					Nonce:            1,
 					TransactionIndex: 0,

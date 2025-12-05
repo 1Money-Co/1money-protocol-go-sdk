@@ -11,14 +11,13 @@ import (
 // -----------------------------------------------------------------------------
 
 type TokenIssuePayload struct {
-	RecentCheckpoint uint64         `json:"recent_checkpoint"`
-	ChainID          uint64         `json:"chain_id"`
-	Nonce            uint64         `json:"nonce"`
-	Symbol           string         `json:"symbol"`
-	Name             string         `json:"name"`
-	Decimals         uint8          `json:"decimals"`
-	MasterAuthority  common.Address `json:"master_authority"`
-	IsPrivate        bool           `json:"is_private"`
+	ChainID         uint64         `json:"chain_id"`
+	Nonce           uint64         `json:"nonce"`
+	Symbol          string         `json:"symbol"`
+	Name            string         `json:"name"`
+	Decimals        uint8          `json:"decimals"`
+	MasterAuthority common.Address `json:"master_authority"`
+	IsPrivate       bool           `json:"is_private"`
 }
 
 type AdditionalMetadata struct {
@@ -27,7 +26,6 @@ type AdditionalMetadata struct {
 }
 
 type UpdateMetadataPayload struct {
-	RecentCheckpoint   uint64               `json:"recent_checkpoint"`
 	ChainID            uint64               `json:"chain_id"`
 	Nonce              uint64               `json:"nonce"`
 	Name               string               `json:"name"`
@@ -69,7 +67,6 @@ const (
 )
 
 type TokenAuthorityPayload struct {
-	RecentCheckpoint uint64          `json:"recent_checkpoint"`
 	ChainID          uint64          `json:"chain_id"`
 	Nonce            uint64          `json:"nonce"`
 	Action           AuthorityAction `json:"action"`
@@ -80,37 +77,33 @@ type TokenAuthorityPayload struct {
 }
 
 type TokenMintPayload struct {
-	RecentCheckpoint uint64         `json:"recent_checkpoint"`
-	ChainID          uint64         `json:"chain_id"`
-	Nonce            uint64         `json:"nonce"`
-	Recipient        common.Address `json:"recipient"`
-	Value            *big.Int       `json:"value"`
-	Token            common.Address `json:"token"`
+	ChainID   uint64         `json:"chain_id"`
+	Nonce     uint64         `json:"nonce"`
+	Recipient common.Address `json:"recipient"`
+	Value     *big.Int       `json:"value"`
+	Token     common.Address `json:"token"`
 }
 
 type TokenBridgeAndMintPayload struct {
-	RecentCheckpoint uint64         `json:"recent_checkpoint"`
-	ChainID          uint64         `json:"chain_id"`
-	Nonce            uint64         `json:"nonce"`
-	Recipient        common.Address `json:"recipient"`
-	Value            *big.Int       `json:"value"`
-	Token            common.Address `json:"token"`
-	SourceChainID    uint64         `json:"source_chain_id"`
-	SourceTxHash     string         `json:"source_tx_hash"`
-	BridgeMetadata   string         `json:"bridge_metadata"`
+	ChainID        uint64         `json:"chain_id"`
+	Nonce          uint64         `json:"nonce"`
+	Recipient      common.Address `json:"recipient"`
+	Value          *big.Int       `json:"value"`
+	Token          common.Address `json:"token"`
+	SourceChainID  uint64         `json:"source_chain_id"`
+	SourceTxHash   string         `json:"source_tx_hash"`
+	BridgeMetadata string         `json:"bridge_metadata"`
 }
 
 type TokenBurnPayload struct {
-	RecentCheckpoint uint64         `json:"recent_checkpoint"`
-	ChainID          uint64         `json:"chain_id"`
-	Nonce            uint64         `json:"nonce"`
-	Recipient        common.Address `json:"recipient"`
-	Value            *big.Int       `json:"value"`
-	Token            common.Address `json:"token"`
+	ChainID   uint64         `json:"chain_id"`
+	Nonce     uint64         `json:"nonce"`
+	Recipient common.Address `json:"recipient"`
+	Value     *big.Int       `json:"value"`
+	Token     common.Address `json:"token"`
 }
 
 type TokenBurnAndBridgePayload struct {
-	RecentCheckpoint   uint64         `json:"recent_checkpoint"`
 	ChainID            uint64         `json:"chain_id"`
 	Nonce              uint64         `json:"nonce"`
 	Sender             common.Address `json:"sender"`
@@ -123,18 +116,16 @@ type TokenBurnAndBridgePayload struct {
 }
 
 type TokenManageListPayload struct {
-	RecentCheckpoint uint64               `json:"recent_checkpoint"`
-	ChainID          uint64               `json:"chain_id"`
-	Nonce            uint64               `json:"nonce"`
-	Action           ManageListActionType `json:"action"`
-	Address          common.Address       `json:"address"`
-	Token            common.Address       `json:"token"`
+	ChainID uint64               `json:"chain_id"`
+	Nonce   uint64               `json:"nonce"`
+	Action  ManageListActionType `json:"action"`
+	Address common.Address       `json:"address"`
+	Token   common.Address       `json:"token"`
 }
 
 type PauseTokenPayload struct {
-	RecentCheckpoint uint64          `json:"recent_checkpoint"`
-	ChainID          uint64          `json:"chain_id"`
-	Nonce            uint64          `json:"nonce"`
-	Action           PauseActionType `json:"action"`
-	Token            common.Address  `json:"token"`
+	ChainID uint64          `json:"chain_id"`
+	Nonce   uint64          `json:"nonce"`
+	Action  PauseActionType `json:"action"`
+	Token   common.Address  `json:"token"`
 }

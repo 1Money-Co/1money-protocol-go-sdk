@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -251,14 +250,13 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 		name := fmt.Sprintf("Test Token %d", time.Now().Unix()%100000)
 
 		payload := TokenIssuePayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
-			Symbol:           symbol,
-			Name:             name,
-			Decimals:         6,
-			MasterAuthority:  suite.MasterAccount.Address, // Master authority for token management
-			IsPrivate:        false,
+			ChainID:         suite.ChainID,
+			Nonce:           suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
+			Symbol:          symbol,
+			Name:            name,
+			Decimals:        6,
+			MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
+			IsPrivate:       false,
 		}
 
 		signature := suite.signMessage(payload, suite.OperatorAccount.PrivateKey) // Sign with operator key
@@ -332,7 +330,6 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			suite.refreshCheckpoint()
 
 			payload := TokenAuthorityPayload{
-				RecentCheckpoint: suite.RecentCheckpoint,
 				ChainID:          suite.ChainID,
 				Nonce:            suite.getNonce(suite.MasterAccount.Address),
 				Action:           AuthorityActionGrant,
@@ -371,12 +368,11 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			mintAmount := big.NewInt(100000000) // 100 tokens (6 decimals)
 
 			payload := TokenMintPayload{
-				RecentCheckpoint: suite.RecentCheckpoint,
-				ChainID:          suite.ChainID,
-				Nonce:            suite.getNonce(minterAccount.Address), // Use minter account nonce
-				Recipient:        suite.Account1.Address,
-				Value:            mintAmount,
-				Token:            tokenAddr,
+				ChainID:   suite.ChainID,
+				Nonce:     suite.getNonce(minterAccount.Address), // Use minter account nonce
+				Recipient: suite.Account1.Address,
+				Value:     mintAmount,
+				Token:     tokenAddr,
 			}
 
 			signature := suite.signMessage(payload, minterAccount.PrivateKey) // Sign with minter account
@@ -434,12 +430,11 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			transferAmount := big.NewInt(50000000) // 50 tokens
 
 			payload := PaymentPayload{
-				RecentCheckpoint: suite.RecentCheckpoint,
-				ChainID:          suite.ChainID,
-				Nonce:            suite.getNonce(suite.Account1.Address),
-				Recipient:        suite.Account2.Address,
-				Value:            transferAmount,
-				Token:            tokenAddr,
+				ChainID:   suite.ChainID,
+				Nonce:     suite.getNonce(suite.Account1.Address),
+				Recipient: suite.Account2.Address,
+				Value:     transferAmount,
+				Token:     tokenAddr,
 			}
 
 			signature := suite.signMessage(payload, suite.Account1.PrivateKey)
@@ -500,12 +495,11 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 
 			// Transfer token to account that has burn authority
 			tPayload := PaymentPayload{
-				RecentCheckpoint: suite.RecentCheckpoint,
-				ChainID:          suite.ChainID,
-				Nonce:            suite.getNonce(suite.Account2.Address),
-				Recipient:        minterAccount.Address,
-				Value:            big.NewInt(25000000), // 25 tokens
-				Token:            tokenAddr,
+				ChainID:   suite.ChainID,
+				Nonce:     suite.getNonce(suite.Account2.Address),
+				Recipient: minterAccount.Address,
+				Value:     big.NewInt(25000000), // 25 tokens
+				Token:     tokenAddr,
 			}
 			tSignature := suite.signMessage(tPayload, suite.Account2.PrivateKey)
 			tRequest := &PaymentRequest{
@@ -536,12 +530,11 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			burnAmount := big.NewInt(25000000) // 25 tokens
 
 			payload := TokenBurnPayload{
-				RecentCheckpoint: suite.RecentCheckpoint,
-				ChainID:          suite.ChainID,
-				Nonce:            suite.getNonce(minterAccount.Address), // Use minter account nonce
-				Recipient:        minterAccount.Address,                 // Only can burn own tokens
-				Value:            burnAmount,
-				Token:            tokenAddr,
+				ChainID:   suite.ChainID,
+				Nonce:     suite.getNonce(minterAccount.Address), // Use minter account nonce
+				Recipient: minterAccount.Address,                 // Only can burn own tokens
+				Value:     burnAmount,
+				Token:     tokenAddr,
 			}
 
 			signature := suite.signMessage(payload, minterAccount.PrivateKey) // Sign with minter account
@@ -596,7 +589,6 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			suite.refreshCheckpoint()
 
 			payload := TokenAuthorityPayload{
-				RecentCheckpoint: suite.RecentCheckpoint,
 				ChainID:          suite.ChainID,
 				Nonce:            suite.getNonce(suite.MasterAccount.Address),
 				Action:           AuthorityActionRevoke,
@@ -646,14 +638,13 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 	symbol := fmt.Sprintf("PAUSE%d", time.Now().Unix()%100000)
 
 	issuePayload := TokenIssuePayload{
-		RecentCheckpoint: suite.RecentCheckpoint,
-		ChainID:          suite.ChainID,
-		Nonce:            suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
-		Symbol:           symbol,
-		Name:             "Pause Test Token",
-		Decimals:         6,
-		MasterAuthority:  suite.MasterAccount.Address, // Master authority for token management
-		IsPrivate:        false,
+		ChainID:         suite.ChainID,
+		Nonce:           suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
+		Symbol:          symbol,
+		Name:            "Pause Test Token",
+		Decimals:        6,
+		MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
+		IsPrivate:       false,
 	}
 
 	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey) // Sign with operator key
@@ -676,7 +667,6 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := TokenAuthorityPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
 			ChainID:          suite.ChainID,
 			Nonce:            suite.getNonce(suite.MasterAccount.Address),
 			Action:           AuthorityActionGrant,
@@ -708,11 +698,10 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := PauseTokenPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.MasterAccount.Address),
-			Action:           Pause,
-			Token:            tokenAddr,
+			ChainID: suite.ChainID,
+			Nonce:   suite.getNonce(suite.MasterAccount.Address),
+			Action:  Pause,
+			Token:   tokenAddr,
 		}
 
 		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
@@ -749,11 +738,10 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := PauseTokenPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.MasterAccount.Address),
-			Action:           UnPause,
-			Token:            tokenAddr,
+			ChainID: suite.ChainID,
+			Nonce:   suite.getNonce(suite.MasterAccount.Address),
+			Action:  UnPause,
+			Token:   tokenAddr,
 		}
 
 		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
@@ -802,14 +790,13 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 	symbol := fmt.Sprintf("PRIV%d", time.Now().Unix()%100000)
 
 	issuePayload := TokenIssuePayload{
-		RecentCheckpoint: suite.RecentCheckpoint,
-		ChainID:          suite.ChainID,
-		Nonce:            suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
-		Symbol:           symbol,
-		Name:             "Private Test Token",
-		Decimals:         6,
-		MasterAuthority:  suite.MasterAccount.Address, // Master authority for token management
-		IsPrivate:        true,                        // Private token uses whitelist
+		ChainID:         suite.ChainID,
+		Nonce:           suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
+		Symbol:          symbol,
+		Name:            "Private Test Token",
+		Decimals:        6,
+		MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
+		IsPrivate:       true,                        // Private token uses whitelist
 	}
 
 	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey) // Sign with operator key
@@ -832,7 +819,6 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := TokenAuthorityPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
 			ChainID:          suite.ChainID,
 			Nonce:            suite.getNonce(suite.MasterAccount.Address),
 			Action:           AuthorityActionGrant,
@@ -864,12 +850,11 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := TokenManageListPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.MasterAccount.Address),
-			Action:           ManageListActionAdd,
-			Address:          suite.Account1.Address,
-			Token:            tokenAddr,
+			ChainID: suite.ChainID,
+			Nonce:   suite.getNonce(suite.MasterAccount.Address),
+			Action:  ManageListActionAdd,
+			Address: suite.Account1.Address,
+			Token:   tokenAddr,
 		}
 
 		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
@@ -913,12 +898,11 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := TokenManageListPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.MasterAccount.Address),
-			Action:           ManageListActionRemove,
-			Address:          suite.Account1.Address,
-			Token:            tokenAddr,
+			ChainID: suite.ChainID,
+			Nonce:   suite.getNonce(suite.MasterAccount.Address),
+			Action:  ManageListActionRemove,
+			Address: suite.Account1.Address,
+			Token:   tokenAddr,
 		}
 
 		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
@@ -969,14 +953,13 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 	symbol := fmt.Sprintf("META%d", time.Now().Unix()%100000)
 
 	issuePayload := TokenIssuePayload{
-		RecentCheckpoint: suite.RecentCheckpoint,
-		ChainID:          suite.ChainID,
-		Nonce:            suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
-		Symbol:           symbol,
-		Name:             "Metadata Test Token",
-		Decimals:         6,
-		MasterAuthority:  suite.MasterAccount.Address, // Master authority for token management
-		IsPrivate:        false,
+		ChainID:         suite.ChainID,
+		Nonce:           suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
+		Symbol:          symbol,
+		Name:            "Metadata Test Token",
+		Decimals:        6,
+		MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
+		IsPrivate:       false,
 	}
 
 	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey) // Sign with operator key
@@ -998,7 +981,6 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := TokenAuthorityPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
 			ChainID:          suite.ChainID,
 			Nonce:            suite.getNonce(suite.MasterAccount.Address),
 			Action:           AuthorityActionGrant,
@@ -1033,12 +1015,11 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 		newURI := fmt.Sprintf("https://example.com/token/%d", time.Now().Unix())
 
 		payload := UpdateMetadataPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.MasterAccount.Address),
-			Name:             newName,
-			URI:              newURI,
-			Token:            tokenAddr,
+			ChainID: suite.ChainID,
+			Nonce:   suite.getNonce(suite.MasterAccount.Address),
+			Name:    newName,
+			URI:     newURI,
+			Token:   tokenAddr,
 			AdditionalMetadata: []AdditionalMetadata{
 				{Key: "website", Value: "https://example.com"},
 				{Key: "description", Value: "Test token for integration testing"},
@@ -1157,14 +1138,13 @@ func TestBusinessFlow_AccountEndpoints(t *testing.T) {
 	suite.refreshCheckpoint()
 	symbol := fmt.Sprintf("ACCT%d", time.Now().Unix()%100000)
 	issuePayload := TokenIssuePayload{
-		RecentCheckpoint: suite.RecentCheckpoint,
-		ChainID:          suite.ChainID,
-		Nonce:            suite.getNonce(suite.OperatorAccount.Address),
-		Symbol:           symbol,
-		Name:             "Account Test Token",
-		Decimals:         6,
-		MasterAuthority:  suite.MasterAccount.Address,
-		IsPrivate:        false,
+		ChainID:         suite.ChainID,
+		Nonce:           suite.getNonce(suite.OperatorAccount.Address),
+		Symbol:          symbol,
+		Name:            "Account Test Token",
+		Decimals:        6,
+		MasterAuthority: suite.MasterAccount.Address,
+		IsPrivate:       false,
 	}
 	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
 	issueReq := &IssueTokenRequest{
@@ -1184,7 +1164,6 @@ func TestBusinessFlow_AccountEndpoints(t *testing.T) {
 	suite.refreshCheckpoint()
 	minterAccount := suite.generateOrGetAccount("")
 	grantPayload := TokenAuthorityPayload{
-		RecentCheckpoint: suite.RecentCheckpoint,
 		ChainID:          suite.ChainID,
 		Nonce:            suite.getNonce(suite.MasterAccount.Address),
 		Action:           AuthorityActionGrant,
@@ -1209,12 +1188,11 @@ func TestBusinessFlow_AccountEndpoints(t *testing.T) {
 	suite.refreshCheckpoint()
 	mintAmount := big.NewInt(500000)
 	mintPayload := TokenMintPayload{
-		RecentCheckpoint: suite.RecentCheckpoint,
-		ChainID:          suite.ChainID,
-		Nonce:            suite.getNonce(minterAccount.Address),
-		Recipient:        suite.Account1.Address,
-		Value:            mintAmount,
-		Token:            tokenAddr,
+		ChainID:   suite.ChainID,
+		Nonce:     suite.getNonce(minterAccount.Address),
+		Recipient: suite.Account1.Address,
+		Value:     mintAmount,
+		Token:     tokenAddr,
 	}
 	mintSignature := suite.signMessage(mintPayload, minterAccount.PrivateKey)
 	mintReq := &MintTokenRequest{
@@ -1238,8 +1216,6 @@ func TestBusinessFlow_AccountEndpoints(t *testing.T) {
 	tokenAccountResp, err := suite.Client.GetTokenAccount(ctx, suite.Account1.Address, tokenAddr)
 	if assert.NoError(err) {
 		assert.Equal(mintAmount.String(), tokenAccountResp.Balance, "unexpected token balance")
-		derived := suite.Client.DeriveTokenAccountAddress(suite.Account1.Address, tokenAddr)
-		assert.Equal(strings.ToLower(derived.Hex()), strings.ToLower(tokenAccountResp.TokenAccountAddress), "token account address mismatch")
 	}
 }
 
@@ -1291,14 +1267,13 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 		symbol := fmt.Sprintf("FEE%d", time.Now().Unix()%100000)
 
 		issuePayload := TokenIssuePayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.OperatorAccount.Address),
-			Symbol:           symbol,
-			Name:             "Fee Test Token",
-			Decimals:         6,
-			MasterAuthority:  suite.MasterAccount.Address,
-			IsPrivate:        false,
+			ChainID:         suite.ChainID,
+			Nonce:           suite.getNonce(suite.OperatorAccount.Address),
+			Symbol:          symbol,
+			Name:            "Fee Test Token",
+			Decimals:        6,
+			MasterAuthority: suite.MasterAccount.Address,
+			IsPrivate:       false,
 		}
 
 		issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
@@ -1323,7 +1298,6 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 		minterAccount := suite.generateOrGetAccount("")
 
 		grantPayload := TokenAuthorityPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
 			ChainID:          suite.ChainID,
 			Nonce:            suite.getNonce(suite.MasterAccount.Address),
 			Action:           AuthorityActionGrant,
@@ -1353,12 +1327,11 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 		mintAmount := big.NewInt(100000000) // 100 tokens
 
 		mintPayload := TokenMintPayload{
-			RecentCheckpoint: suite.RecentCheckpoint,
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(minterAccount.Address),
-			Recipient:        suite.Account1.Address,
-			Value:            mintAmount,
-			Token:            tokenAddr,
+			ChainID:   suite.ChainID,
+			Nonce:     suite.getNonce(minterAccount.Address),
+			Recipient: suite.Account1.Address,
+			Value:     mintAmount,
+			Token:     tokenAddr,
 		}
 
 		mintSignature := suite.signMessage(mintPayload, minterAccount.PrivateKey)

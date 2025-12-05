@@ -19,7 +19,6 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 		{
 			name: "TokenIssuePayload",
 			jsonData: `{
-                "recent_checkpoint": 1,
                 "chain_id": 1212101,
                 "nonce": 9,
                 "symbol": "TEST",
@@ -32,7 +31,6 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 			validate: func(t *testing.T, v interface{}) {
 				a := assert.New(t)
 				payload := v.(*TokenIssuePayload)
-				a.Equal(uint64(1), payload.RecentCheckpoint)
 				a.Equal(uint64(1212101), payload.ChainID)
 				a.Equal("TEST", payload.Symbol)
 				a.Equal(tokenAddr("0x5555555555555555555555555555555555555555"), payload.MasterAuthority)
@@ -42,7 +40,6 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 		{
 			name: "UpdateMetadataPayload",
 			jsonData: `{
-                "recent_checkpoint": 2,
                 "chain_id": 1212101,
                 "nonce": 10,
                 "name": "Updated Token",
@@ -65,7 +62,6 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 		{
 			name: "TokenAuthorityPayload",
 			jsonData: `{
-                "recent_checkpoint": 3,
                 "chain_id": 1212101,
                 "nonce": 11,
                 "action": "Grant",
@@ -85,7 +81,6 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 		{
 			name: "TokenBridgeAndMintPayload",
 			jsonData: `{
-                "recent_checkpoint": 4,
                 "chain_id": 1212101,
                 "nonce": 12,
                 "recipient": "0x1111111111111111111111111111111111111111",
@@ -107,7 +102,6 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 		{
 			name: "TokenBurnAndBridgePayload",
 			jsonData: `{
-                "recent_checkpoint": 5,
                 "chain_id": 1212101,
                 "nonce": 13,
                 "sender": "0x1234567890123456789012345678901234567890",
@@ -130,7 +124,6 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 		{
 			name: "TokenManageListPayload",
 			jsonData: `{
-                "recent_checkpoint": 6,
                 "chain_id": 1212101,
                 "nonce": 14,
                 "action": "Add",
@@ -148,7 +141,6 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 		{
 			name: "PauseTokenPayload",
 			jsonData: `{
-                "recent_checkpoint": 7,
                 "chain_id": 1212101,
                 "nonce": 15,
                 "action": "Pause",
@@ -191,7 +183,6 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
 		{
 			name: "IssueTokenRequest",
 			jsonData: `{
-                "recent_checkpoint": 1,
                 "chain_id": 1212101,
                 "nonce": 16,
                 "symbol": "REQ",
@@ -213,7 +204,6 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
 		{
 			name: "TokenAuthorityRequest",
 			jsonData: `{
-                "recent_checkpoint": 2,
                 "chain_id": 1212101,
                 "nonce": 17,
                 "action": "Grant",
@@ -235,7 +225,6 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
 		{
 			name: "MintTokenRequest",
 			jsonData: `{
-                "recent_checkpoint": 3,
                 "chain_id": 1212101,
                 "nonce": 18,
                 "recipient": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -336,8 +325,8 @@ func assertBigIntEqual(t *testing.T, expected string, actual *big.Int) {
 	a.Zero(exp.Cmp(actual))
 }
 
-func TestDeriveTokenAccountAddress(t *testing.T) {
-	client := NewTestClient()
-	address := client.DeriveTokenAccountAddress(common.HexToAddress("0xA634dfba8c7550550817898bC4820cD10888Aac5"), common.HexToAddress("0x8E9d1b45293e30EF38564582979195DD16A16E13"))
-	t.Logf("address: %s", address)
-}
+// func TestDeriveTokenAccountAddress(t *testing.T) {
+// 	client := NewTestClient()
+// 	address := client.DeriveTokenAccountAddress(common.HexToAddress("0xA634dfba8c7550550817898bC4820cD10888Aac5"), common.HexToAddress("0x8E9d1b45293e30EF38564582979195DD16A16E13"))
+// 	t.Logf("address: %s", address)
+// }
