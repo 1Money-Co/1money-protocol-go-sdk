@@ -112,7 +112,7 @@ type TokenBurnAndBridgePayload struct {
 	DestinationAddress string         `json:"destination_address"`
 	EscrowFee          *big.Int       `json:"escrow_fee"`
 	BridgeMetadata     string         `json:"bridge_metadata"`
-	BridgeParam        string         `json:"bridge_param"`
+	BridgeParam        HexBytes       `json:"bridge_param"`
 }
 
 type TokenManageListPayload struct {
