@@ -77,5 +77,4 @@ type Checkpoint struct {
 	Timestamp        uint64                 `json:"timestamp"`
 	Size             int                    `json:"size"`         // Integer the size of this checkpoint in bytes.
 	Transactions     CheckpointTransactions `json:"transactions"` // Checkpoint transactions.
-	ExtraData        string                 `json:"extra_data"`
 }

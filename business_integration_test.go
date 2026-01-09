@@ -532,7 +532,6 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			payload := TokenBurnPayload{
 				ChainID:   suite.ChainID,
 				Nonce:     suite.getNonce(minterAccount.Address), // Use minter account nonce
-				Recipient: minterAccount.Address,                 // Only can burn own tokens
 				Value:     burnAmount,
 				Token:     tokenAddr,
 			}

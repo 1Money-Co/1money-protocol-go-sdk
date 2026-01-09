@@ -29,6 +29,7 @@ const (
 	TransactionTypeTokenPause            TransactionType = "TokenPause"
 	TransactionTypeTokenUnpause          TransactionType = "TokenUnpause"
 	TransactionTypeTokenUpdateMetadata   TransactionType = "TokenUpdateMetadata"
+	TransactionTypeEmpty                 TransactionType = "Empty"
 	TransactionTypeRaw                   TransactionType = "Raw"
 )
 
@@ -196,6 +197,10 @@ func (t *Transaction) AsTokenUnpauseData() (*TokenUnpauseData, bool) {
 
 func (t *Transaction) AsTokenUpdateMetadataData() (*TokenUpdateMetadataData, bool) {
 	return asPayload[*TokenUpdateMetadataData](t, TransactionTypeTokenUpdateMetadata)
+}
+
+func (t *Transaction) AsEmptyData() (*EmptyData, bool) {
+	return asPayload[*EmptyData](t, TransactionTypeEmpty)
 }
 
 func (t *Transaction) AsRawTransactionData() (*RawTransactionData, bool) {

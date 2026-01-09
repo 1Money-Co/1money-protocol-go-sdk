@@ -110,7 +110,8 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
                 "destination_chain_id": 137,
                 "destination_address": "dest",
                 "escrow_fee": 3,
-                "bridge_metadata": "meta"
+                "bridge_metadata": "meta",
+                "bridge_param": "0xdeadbeef"
             }`,
 			target: func() interface{} { return new(TokenBurnAndBridgePayload) },
 			validate: func(t *testing.T, v interface{}) {
@@ -119,6 +120,7 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 				assertBigIntEqual(t, "3", payload.EscrowFee)
 				assert.Equal(t, tokenAddr("0x1234567890123456789012345678901234567890"), payload.Sender)
 				assert.Equal(t, tokenAddr("0x3333333333333333333333333333333333333333"), payload.Token)
+				assert.Equal(t, "0xdeadbeef", payload.BridgeParam)
 			},
 		},
 		{

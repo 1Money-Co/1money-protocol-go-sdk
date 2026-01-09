@@ -98,7 +98,6 @@ type TokenBridgeAndMintPayload struct {
 type TokenBurnPayload struct {
 	ChainID   uint64         `json:"chain_id"`
 	Nonce     uint64         `json:"nonce"`
-	Recipient common.Address `json:"recipient"`
 	Value     *big.Int       `json:"value"`
 	Token     common.Address `json:"token"`
 }
@@ -113,6 +112,7 @@ type TokenBurnAndBridgePayload struct {
 	DestinationAddress string         `json:"destination_address"`
 	EscrowFee          *big.Int       `json:"escrow_fee"`
 	BridgeMetadata     string         `json:"bridge_metadata"`
+	BridgeParam        string         `json:"bridge_param"`
 }
 
 type TokenManageListPayload struct {
