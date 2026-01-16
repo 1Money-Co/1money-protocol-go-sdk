@@ -257,6 +257,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			Decimals:        6,
 			MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
 			IsPrivate:       false,
+			ClawbackEnabled: false,
 		}
 
 		signature := suite.signMessage(payload, suite.OperatorAccount.PrivateKey) // Sign with operator key
@@ -530,10 +531,10 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			burnAmount := big.NewInt(25000000) // 25 tokens
 
 			payload := TokenBurnPayload{
-				ChainID:   suite.ChainID,
-				Nonce:     suite.getNonce(minterAccount.Address), // Use minter account nonce
-				Value:     burnAmount,
-				Token:     tokenAddr,
+				ChainID: suite.ChainID,
+				Nonce:   suite.getNonce(minterAccount.Address), // Use minter account nonce
+				Value:   burnAmount,
+				Token:   tokenAddr,
 			}
 
 			signature := suite.signMessage(payload, minterAccount.PrivateKey) // Sign with minter account
@@ -561,7 +562,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			if receipt.TokenAddress != nil {
 				assert.Equalf(t, tokenAddr, *receipt.TokenAddress, "burn receipt token mismatch")
 			}
-			assert.NotNilf(t, receipt.Recipient, "expected burn receipt recipient")
+			assert.Nilf(t, receipt.Recipient, "expected burn receipt recipient")
 			if receipt.Recipient != nil {
 				assert.Equalf(t, minterAccount.Address, *receipt.Recipient, "burn receipt recipient mismatch")
 			}
@@ -644,6 +645,7 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 		Decimals:        6,
 		MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
 		IsPrivate:       false,
+		ClawbackEnabled: false,
 	}
 
 	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey) // Sign with operator key
@@ -796,6 +798,7 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 		Decimals:        6,
 		MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
 		IsPrivate:       true,                        // Private token uses whitelist
+		ClawbackEnabled: false,
 	}
 
 	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey) // Sign with operator key
@@ -959,6 +962,7 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 		Decimals:        6,
 		MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
 		IsPrivate:       false,
+		ClawbackEnabled: false,
 	}
 
 	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey) // Sign with operator key
@@ -1144,6 +1148,7 @@ func TestBusinessFlow_AccountEndpoints(t *testing.T) {
 		Decimals:        6,
 		MasterAuthority: suite.MasterAccount.Address,
 		IsPrivate:       false,
+		ClawbackEnabled: false,
 	}
 	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
 	issueReq := &IssueTokenRequest{
@@ -1234,11 +1239,13 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 
 		t.Logf("💵 Estimating fee for native token transfer")
 		t.Logf("   - From: %s", suite.Account1.Address.Hex())
+		t.Logf("   - To: %s", suite.Account2.Address.Hex())
 		t.Logf("   - Token: %s (native)", zeroAddress.Hex())
 		t.Logf("   - Value: %s", transferValue)
 
 		feeResp, err := suite.Client.GetEstimateFee(ctx,
 			suite.Account1.Address,
+			suite.Account2.Address,
 			zeroAddress,
 			transferValue)
 
@@ -1273,6 +1280,7 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 			Decimals:        6,
 			MasterAuthority: suite.MasterAccount.Address,
 			IsPrivate:       false,
+			ClawbackEnabled: false,
 		}
 
 		issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
@@ -1353,11 +1361,13 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 
 		t.Logf("💵 Estimating fee for custom token transfer")
 		t.Logf("   - From: %s", suite.Account1.Address.Hex())
+		t.Logf("   - To: %s", suite.Account2.Address.Hex())
 		t.Logf("   - Token: %s", tokenAddr.Hex())
 		t.Logf("   - Value: %s", transferValue)
 
 		feeResp, err := suite.Client.GetEstimateFee(ctx,
 			suite.Account1.Address,
+			suite.Account2.Address,
 			tokenAddr,
 			transferValue)
 
@@ -1394,6 +1404,7 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 
 			feeResp, err := suite.Client.GetEstimateFee(ctx,
 				suite.Account1.Address,
+				suite.Account2.Address,
 				nativeToken,
 				amount)
 

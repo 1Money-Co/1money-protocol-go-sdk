@@ -27,7 +27,8 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
                 "name": "Test Token",
                 "decimals": 6,
                 "master_authority": "0x5555555555555555555555555555555555555555",
-                "is_private": true
+                "is_private": true,
+                "clawback_enabled": true
             }`,
 			target: func() interface{} { return new(TokenIssuePayload) },
 			validate: func(t *testing.T, v interface{}) {
@@ -37,6 +38,7 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 				a.Equal("TEST", payload.Symbol)
 				a.Equal(tokenAddr("0x5555555555555555555555555555555555555555"), payload.MasterAuthority)
 				a.True(payload.IsPrivate)
+				a.True(payload.ClawbackEnabled)
 			},
 		},
 		{
@@ -190,11 +192,12 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
                 "chain_id": 1212101,
                 "nonce": 16,
                 "symbol": "REQ",
-                "name": "Request Token",
-                "decimals": 8,
-                "master_authority": "0x7777777777777777777777777777777777777777",
-                "is_private": false,
-                "signature": {"r": "0x1", "s": "0x2", "v": 1}
+				"name": "Request Token",
+				"decimals": 8,
+				"master_authority": "0x7777777777777777777777777777777777777777",
+				"is_private": false,
+				"clawback_enabled": false,
+				"signature": {"r": "0x1", "s": "0x2", "v": 1}
             }`,
 			target: func() interface{} { return new(IssueTokenRequest) },
 			validate: func(t *testing.T, v interface{}) {
@@ -202,6 +205,7 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
 				assert.Equal(t, "REQ", req.Symbol)
 				assert.Equal(t, uint64(16), req.Nonce)
 				assert.Equal(t, tokenAddr("0x7777777777777777777777777777777777777777"), req.MasterAuthority)
+				assert.False(t, req.ClawbackEnabled)
 				assert.Equal(t, uint64(1), req.Signature.V)
 			},
 		},

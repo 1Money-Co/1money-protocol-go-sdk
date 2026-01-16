@@ -41,10 +41,11 @@ func (client *Client) GetFinalizedTransaction(ctx context.Context, hash string) 
 }
 
 // GetEstimateFee retrieves the estimated fee for a transaction.
-func (client *Client) GetEstimateFee(ctx context.Context, from, token common.Address, value string) (*EstimateFeeResponse, error) {
+func (client *Client) GetEstimateFee(ctx context.Context, from, to, token common.Address, value string) (*EstimateFeeResponse, error) {
 	result := new(EstimateFeeResponse)
 	params := url.Values{}
 	params.Set("from", from.Hex())
+	params.Set("to", to.Hex())
 	params.Set("token", token.Hex())
 	params.Set("value", value)
 	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpointTransactionsEstimateFeeV1, params.Encode()), result)

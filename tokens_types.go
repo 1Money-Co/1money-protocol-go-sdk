@@ -18,6 +18,7 @@ type TokenIssuePayload struct {
 	Decimals        uint8          `json:"decimals"`
 	MasterAuthority common.Address `json:"master_authority"`
 	IsPrivate       bool           `json:"is_private"`
+	ClawbackEnabled bool           `json:"clawback_enabled"`
 }
 
 type AdditionalMetadata struct {
@@ -96,10 +97,10 @@ type TokenBridgeAndMintPayload struct {
 }
 
 type TokenBurnPayload struct {
-	ChainID   uint64         `json:"chain_id"`
-	Nonce     uint64         `json:"nonce"`
-	Value     *big.Int       `json:"value"`
-	Token     common.Address `json:"token"`
+	ChainID uint64         `json:"chain_id"`
+	Nonce   uint64         `json:"nonce"`
+	Value   *big.Int       `json:"value"`
+	Token   common.Address `json:"token"`
 }
 
 type TokenBurnAndBridgePayload struct {
