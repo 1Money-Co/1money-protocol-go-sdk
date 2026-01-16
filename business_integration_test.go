@@ -1068,64 +1068,250 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 	t.Log("\n🎉 Update metadata test passed!")
 }
 
+// ============================================================================
+// Test: Token Bridge and Mint / Burn and Bridge
+// ============================================================================
+
+func TestBusinessFlow_BridgeMintAndBurnBridge(t *testing.T) {
+	suite := setupBusinessFlowTest(t)
+	ctx := context.Background()
+
+	// Issue a token for bridge tests.
+	suite.refreshCheckpoint()
+	symbol := fmt.Sprintf("BRG%d", time.Now().Unix()%100000)
+
+	issuePayload := TokenIssuePayload{
+		ChainID:         suite.ChainID,
+		Nonce:           suite.getNonce(suite.OperatorAccount.Address),
+		Symbol:          symbol,
+		Name:            "Bridge Test Token",
+		Decimals:        6,
+		MasterAuthority: suite.MasterAccount.Address,
+		IsPrivate:       false,
+		ClawbackEnabled: false,
+	}
+
+	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
+	issueReq := &IssueTokenRequest{
+		TokenIssuePayload: issuePayload,
+		Signature:         issueSignature,
+	}
+
+	t.Logf("📝 Issuing token for bridge tests: %s", symbol)
+	issueResult, err := suite.Client.IssueToken(ctx, issueReq)
+	if !assert.NoError(t, err, "issue token for bridge tests") {
+		return
+	}
+	issueReceipt := suite.waitForTransaction(issueResult.Hash, 60*time.Second)
+	assert.True(t, issueReceipt.Success, "token issue should succeed")
+	suite.assertReceiptBasics(t, issueReceipt, issueResult.Hash, suite.OperatorAccount.Address)
+	tokenAddr := common.HexToAddress(issueResult.Token)
+
+	// Grant bridge authority to a bridge account.
+	suite.refreshCheckpoint()
+	bridgeAccount := suite.generateOrGetAccount("")
+	grantPayload := TokenAuthorityPayload{
+		ChainID:          suite.ChainID,
+		Nonce:            suite.getNonce(suite.MasterAccount.Address),
+		Action:           AuthorityActionGrant,
+		AuthorityType:    AuthorityTypeBridge,
+		AuthorityAddress: bridgeAccount.Address,
+		Token:            tokenAddr,
+		Value:            big.NewInt(0),
+	}
+	grantSignature := suite.signMessage(grantPayload, suite.MasterAccount.PrivateKey)
+	grantReq := &TokenAuthorityRequest{
+		TokenAuthorityPayload: grantPayload,
+		Signature:             grantSignature,
+	}
+	t.Logf("🔐 Granting bridge authority to %s", bridgeAccount.Address.Hex())
+	grantResult, err := suite.Client.GrantTokenAuthority(ctx, grantReq)
+	if !assert.NoError(t, err, "grant bridge authority") {
+		return
+	}
+	grantReceipt := suite.waitForTransaction(grantResult.Hash, 60*time.Second)
+	assert.True(t, grantReceipt.Success, "grant bridge authority should succeed")
+
+	t.Run("1. Bridge And Mint Tokens", func(t *testing.T) {
+		suite.refreshCheckpoint()
+
+		mintAmount := big.NewInt(100000000) // 100 tokens
+		payload := TokenBridgeAndMintPayload{
+			ChainID:        suite.ChainID,
+			Nonce:          suite.getNonce(bridgeAccount.Address),
+			Recipient:      suite.Account1.Address,
+			Value:          mintAmount,
+			Token:          tokenAddr,
+			SourceChainID:  1,
+			SourceTxHash:   "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			BridgeMetadata: "bridge-and-mint",
+		}
+
+		signature := suite.signMessage(payload, bridgeAccount.PrivateKey)
+		request := &BridgeAndMintTokenRequest{
+			TokenBridgeAndMintPayload: payload,
+			Signature:                 signature,
+		}
+
+		t.Logf("🌉 Bridging and minting %s tokens to %s", mintAmount.String(), suite.Account1.Address.Hex())
+		result, err := suite.Client.BridgeAndMintToken(ctx, request)
+		if !assert.NoError(t, err, "bridge and mint token") {
+			return
+		}
+
+		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
+		assert.True(t, receipt.Success, "bridge and mint transaction should succeed")
+		suite.assertReceiptBasics(t, receipt, result.Hash, bridgeAccount.Address)
+		if receipt.TokenAddress != nil {
+			assert.Equal(t, tokenAddr, *receipt.TokenAddress, "bridge mint receipt token mismatch")
+		}
+		if receipt.Recipient != nil {
+			assert.Equal(t, suite.Account1.Address, *receipt.Recipient, "bridge mint receipt recipient mismatch")
+		}
+
+		tx := suite.fetchTransaction(t, result.Hash)
+		assert.Equal(t, TransactionTypeTokenBridgeAndMint, tx.TransactionType, "unexpected transaction type")
+		assert.Equal(t, bridgeAccount.Address, tx.From, "unexpected bridge mint sender")
+		if data, ok := tx.AsTokenBridgeAndMintData(); ok {
+			assert.Equal(t, suite.Account1.Address, data.Recipient, "bridge mint recipient mismatch")
+			assert.Equal(t, tokenAddr, data.Token, "bridge mint token mismatch")
+			assert.Equal(t, uint64(1), data.SourceChainID, "bridge mint source chain mismatch")
+			assert.Equal(t, payload.SourceTxHash, data.SourceTxHash, "bridge mint source tx hash mismatch")
+			assert.Equal(t, payload.BridgeMetadata, data.BridgeMetadata, "bridge mint metadata mismatch")
+			valueInt, ok := new(big.Int).SetString(data.Value, 10)
+			assert.True(t, ok, "failed to parse bridge mint value %s", data.Value)
+			assert.Zero(t, valueInt.Cmp(mintAmount), "bridge mint amount mismatch")
+		}
+
+		balance := suite.getTokenBalance(suite.Account1.Address, tokenAddr)
+		assert.Equal(t, mintAmount.String(), balance, "bridge mint balance mismatch")
+	})
+
+	t.Run("2. Burn And Bridge Tokens", func(t *testing.T) {
+		suite.refreshCheckpoint()
+
+		burnAmount := big.NewInt(40000000) // 40 tokens
+		escrowFee := big.NewInt(1000)
+		payload := TokenBurnAndBridgePayload{
+			ChainID:            suite.ChainID,
+			Nonce:              suite.getNonce(suite.Account1.Address),
+			Sender:             suite.Account1.Address,
+			Value:              burnAmount,
+			Token:              tokenAddr,
+			DestinationChainID: 137,
+			DestinationAddress: "0x1111111111111111111111111111111111111111",
+			EscrowFee:          escrowFee,
+			BridgeMetadata:     "burn-and-bridge",
+			BridgeParam:        HexBytes{0xde, 0xad, 0xbe, 0xef},
+		}
+
+		signature := suite.signMessage(payload, suite.Account1.PrivateKey)
+		request := &BurnAndBridgeTokenRequest{
+			TokenBurnAndBridgePayload: payload,
+			Signature:                 signature,
+		}
+
+		balanceBefore := suite.getTokenBalance(suite.Account1.Address, tokenAddr)
+		t.Logf("🔥 Burning and bridging %s tokens from %s", burnAmount.String(), suite.Account1.Address.Hex())
+		result, err := suite.Client.BurnAndBridgeToken(ctx, request)
+		if !assert.NoError(t, err, "burn and bridge token") {
+			return
+		}
+
+		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
+		assert.True(t, receipt.Success, "burn and bridge transaction should succeed")
+		suite.assertReceiptBasics(t, receipt, result.Hash, suite.Account1.Address)
+		if receipt.TokenAddress != nil {
+			assert.Equal(t, tokenAddr, *receipt.TokenAddress, "burn and bridge receipt token mismatch")
+		}
+
+		tx := suite.fetchTransaction(t, result.Hash)
+		assert.Equal(t, TransactionTypeTokenBurnAndBridge, tx.TransactionType, "unexpected transaction type")
+		assert.Equal(t, suite.Account1.Address, tx.From, "unexpected burn and bridge sender")
+		if data, ok := tx.AsTokenBurnAndBridgeData(); ok {
+			assert.Equal(t, suite.Account1.Address, data.Sender, "burn and bridge sender mismatch")
+			assert.Equal(t, tokenAddr, data.Token, "burn and bridge token mismatch")
+			assert.Equal(t, uint64(137), data.DestinationChainID, "burn and bridge destination chain mismatch")
+			assert.Equal(t, payload.DestinationAddress, data.DestinationAddress, "burn and bridge destination address mismatch")
+			assert.Equal(t, payload.BridgeMetadata, data.BridgeMetadata, "burn and bridge metadata mismatch")
+			assert.Equal(t, "0xdeadbeef", data.BridgeParam, "burn and bridge param mismatch")
+			valueInt, ok := new(big.Int).SetString(data.Value, 10)
+			assert.True(t, ok, "failed to parse burn and bridge value %s", data.Value)
+			assert.Zero(t, valueInt.Cmp(burnAmount), "burn and bridge amount mismatch")
+			feeInt, ok := new(big.Int).SetString(data.EscrowFee, 10)
+			assert.True(t, ok, "failed to parse burn and bridge escrow fee %s", data.EscrowFee)
+			assert.Zero(t, feeInt.Cmp(escrowFee), "burn and bridge escrow fee mismatch")
+		}
+
+		balanceAfter := suite.getTokenBalance(suite.Account1.Address, tokenAddr)
+		expectedBalance := new(big.Int)
+		if _, ok := expectedBalance.SetString(balanceBefore, 10); ok {
+			totalSpent := burnAmount.Add(burnAmount, escrowFee)
+			expectedBalance.Sub(expectedBalance, totalSpent)
+			assert.Equal(t, expectedBalance.String(), balanceAfter, "burn and bridge balance mismatch")
+		}
+	})
+
+	t.Log("\n🎉 Bridge and burn bridge tests passed!")
+}
+
 func TestBusinessFlow_CheckpointEndpoints(t *testing.T) {
 	suite := setupBusinessFlowTest(t)
 	ctx := context.Background()
-	assert := assert.New(t)
 
 	numberResp, err := suite.Client.GetCheckpointNumber(ctx)
-	if !assert.NoError(err) {
+	if !assert.NoError(t, err) {
 		return
 	}
-	assert.Greater(numberResp.Number, uint64(0), "expected positive checkpoint number")
+	assert.Greater(t, numberResp.Number, uint64(0), "expected positive checkpoint number")
 
 	lightCheckpoint, err := suite.Client.GetCheckpointByNumber(ctx, numberResp.Number)
-	if !assert.NoError(err) {
+	if !assert.NoError(t, err) {
 		return
 	}
-	assert.Equal(uint64(numberResp.Number), lightCheckpoint.Number, "light checkpoint number mismatch")
-	assert.Nil(lightCheckpoint.Transactions.Full, "expected light checkpoint without full transactions")
+	assert.Equal(t, uint64(numberResp.Number), lightCheckpoint.Number, "light checkpoint number mismatch")
+	assert.Nil(t, lightCheckpoint.Transactions.Full, "expected light checkpoint without full transactions")
 
 	byHash, err := suite.Client.GetCheckpointByHash(ctx, lightCheckpoint.Hash)
-	if assert.NoError(err) {
-		assert.Equal(lightCheckpoint.Hash, byHash.Hash, "checkpoint hash mismatch")
+	if assert.NoError(t, err) {
+		assert.Equal(t, lightCheckpoint.Hash, byHash.Hash, "checkpoint hash mismatch")
 	}
 
 	fullByNumber, err := suite.Client.GetCheckpointByNumber(ctx, numberResp.Number, WithFullTransactions())
-	if !assert.NoError(err) {
+	if !assert.NoError(t, err) {
 		return
 	}
-	assert.Nil(fullByNumber.Transactions.Hashes, "expected hashes slice to be nil when requesting full transactions")
-	assert.NotNil(fullByNumber.Transactions.Full, "expected full transactions slice")
+	assert.Nil(t, fullByNumber.Transactions.Hashes, "expected hashes slice to be nil when requesting full transactions")
+	assert.NotNil(t, fullByNumber.Transactions.Full, "expected full transactions slice")
 
 	fullByHash, err := suite.Client.GetCheckpointByHash(ctx, lightCheckpoint.Hash, WithFullTransactions())
-	if assert.NoError(err) {
-		assert.Equal(lightCheckpoint.Hash, fullByHash.Hash, "full checkpoint hash mismatch")
-		assert.NotNil(fullByHash.Transactions.Full, "expected full transactions by hash")
+	if assert.NoError(t, err) {
+		assert.Equal(t, lightCheckpoint.Hash, fullByHash.Hash, "full checkpoint hash mismatch")
+		assert.NotNil(t, fullByHash.Transactions.Full, "expected full transactions by hash")
 	}
 
 	// Test GetCheckpointReceiptsByNumber and compare with full transactions
 	receipts, err := suite.Client.GetCheckpointReceiptsByNumber(ctx, numberResp.Number)
-	if !assert.NoError(err) {
+	if !assert.NoError(t, err) {
 		return
 	}
-	assert.NotNil(receipts, "expected receipts to be returned")
+	assert.NotNil(t, receipts, "expected receipts to be returned")
 
 	// Compare receipts with full transactions from checkpoint
 	if fullByNumber.Transactions.Full != nil {
-		assert.Equal(len(fullByNumber.Transactions.Full), len(receipts), "receipts count should match transactions count")
+		assert.Equal(t, len(fullByNumber.Transactions.Full), len(receipts), "receipts count should match transactions count")
 
 		// Compare each transaction with its corresponding receipt by index
 		for i, tx := range fullByNumber.Transactions.Full {
 			receipt := &receipts[i]
 
 			// Verify receipt fields match transaction fields at the same index
-			assert.Equal(tx.Hash, receipt.TransactionHash, "transaction hash mismatch at index %d", i)
-			assert.Equal(tx.From, receipt.From, "from address mismatch at index %d for tx %s", i, tx.Hash)
-			assert.Equal(tx.CheckpointNumber, receipt.CheckpointNumber, "checkpoint number mismatch at index %d for tx %s", i, tx.Hash)
-			assert.Equal(tx.CheckpointHash, receipt.CheckpointHash, "checkpoint hash mismatch at index %d for tx %s", i, tx.Hash)
-			assert.Equal(tx.TransactionIndex, receipt.TransactionIndex, "transaction index mismatch at index %d for tx %s", i, tx.Hash)
-			assert.NotEmpty(receipt.FeeUsed, "fee used should be populated at index %d for tx %s", i, tx.Hash)
+			assert.Equal(t, tx.Hash, receipt.TransactionHash, "transaction hash mismatch at index %d", i)
+			assert.Equal(t, tx.From, receipt.From, "from address mismatch at index %d for tx %s", i, tx.Hash)
+			assert.Equal(t, tx.CheckpointNumber, receipt.CheckpointNumber, "checkpoint number mismatch at index %d for tx %s", i, tx.Hash)
+			assert.Equal(t, tx.CheckpointHash, receipt.CheckpointHash, "checkpoint hash mismatch at index %d for tx %s", i, tx.Hash)
+			assert.Equal(t, tx.TransactionIndex, receipt.TransactionIndex, "transaction index mismatch at index %d for tx %s", i, tx.Hash)
+			assert.NotEmpty(t, receipt.FeeUsed, "fee used should be populated at index %d for tx %s", i, tx.Hash)
 		}
 
 		t.Logf("✅ GetCheckpointReceiptsByNumber verified: %d receipts match %d transactions in order", len(receipts), len(fullByNumber.Transactions.Full))

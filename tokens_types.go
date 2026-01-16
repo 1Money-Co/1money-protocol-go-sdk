@@ -51,6 +51,7 @@ const (
 	AuthorityTypeManageList     AuthorityType = "ManageList"
 	AuthorityTypeUpdateMetadata AuthorityType = "UpdateMetadata"
 	AuthorityTypeBridge         AuthorityType = "Bridge"
+	AuthorityTypeClawback       AuthorityType = "Clawback"
 )
 
 type PauseActionType string
