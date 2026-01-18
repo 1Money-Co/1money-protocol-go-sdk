@@ -1,8 +1,10 @@
 package onemoney
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -25,7 +27,8 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
                 "name": "Test Token",
                 "decimals": 6,
                 "master_authority": "0x5555555555555555555555555555555555555555",
-                "is_private": true
+                "is_private": true,
+                "clawback_enabled": true
             }`,
 			target: func() interface{} { return new(TokenIssuePayload) },
 			validate: func(t *testing.T, v interface{}) {
@@ -35,6 +38,7 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 				a.Equal("TEST", payload.Symbol)
 				a.Equal(tokenAddr("0x5555555555555555555555555555555555555555"), payload.MasterAuthority)
 				a.True(payload.IsPrivate)
+				a.True(payload.ClawbackEnabled)
 			},
 		},
 		{
@@ -110,7 +114,8 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
                 "destination_chain_id": 137,
                 "destination_address": "dest",
                 "escrow_fee": 3,
-                "bridge_metadata": "meta"
+                "bridge_metadata": "meta",
+                "bridge_param": "0xdeadbeef"
             }`,
 			target: func() interface{} { return new(TokenBurnAndBridgePayload) },
 			validate: func(t *testing.T, v interface{}) {
@@ -119,6 +124,7 @@ func TestTokenPayloadJSONRoundTrip(t *testing.T) {
 				assertBigIntEqual(t, "3", payload.EscrowFee)
 				assert.Equal(t, tokenAddr("0x1234567890123456789012345678901234567890"), payload.Sender)
 				assert.Equal(t, tokenAddr("0x3333333333333333333333333333333333333333"), payload.Token)
+				assert.Equal(t, hexBytesFromString(t, "0xdeadbeef"), payload.BridgeParam)
 			},
 		},
 		{
@@ -186,11 +192,12 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
                 "chain_id": 1212101,
                 "nonce": 16,
                 "symbol": "REQ",
-                "name": "Request Token",
-                "decimals": 8,
-                "master_authority": "0x7777777777777777777777777777777777777777",
-                "is_private": false,
-                "signature": {"r": "0x1", "s": "0x2", "v": 1}
+				"name": "Request Token",
+				"decimals": 8,
+				"master_authority": "0x7777777777777777777777777777777777777777",
+				"is_private": false,
+				"clawback_enabled": false,
+				"signature": {"r": "0x1", "s": "0x2", "v": 1}
             }`,
 			target: func() interface{} { return new(IssueTokenRequest) },
 			validate: func(t *testing.T, v interface{}) {
@@ -198,6 +205,7 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
 				assert.Equal(t, "REQ", req.Symbol)
 				assert.Equal(t, uint64(16), req.Nonce)
 				assert.Equal(t, tokenAddr("0x7777777777777777777777777777777777777777"), req.MasterAuthority)
+				assert.False(t, req.ClawbackEnabled)
 				assert.Equal(t, uint64(1), req.Signature.V)
 			},
 		},
@@ -294,6 +302,56 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTokenBridgeAndMintPayloadSignatureHash(t *testing.T) {
+	value, ok := new(big.Int).SetString("0xde0b6b3a7640000", 0)
+	if !assert.True(t, ok) {
+		return
+	}
+
+	payload := TokenBridgeAndMintPayload{
+		ChainID:        1212101,
+		Nonce:          5,
+		Recipient:      tokenAddr("0x742d35cc6634c0532925a3b8d91d6f4a81b8cbc0"),
+		Value:          value,
+		Token:          tokenAddr("0x1234567890abcdef1234567890abcdef12345678"),
+		SourceChainID:  1,
+		SourceTxHash:   "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+		BridgeMetadata: "",
+	}
+
+	hash, err := HashMessage(payload)
+	assert.Nil(t, err)
+	assert.Equal(t, "0x872fa69f0c491b401fdef9e945db6896117fe43d09aa750b261813ac7b93ef10", common.BytesToHash(hash).Hex())
+}
+
+func TestTokenBurnAndBridgePayloadSignatureHash(t *testing.T) {
+	value, ok := new(big.Int).SetString("0x1dcd6500", 0)
+	if !assert.True(t, ok) {
+		return
+	}
+	escrowFee, ok := new(big.Int).SetString("0xf4240", 0)
+	if !assert.True(t, ok) {
+		return
+	}
+
+	payload := TokenBurnAndBridgePayload{
+		ChainID:            1212101,
+		Nonce:              5,
+		Sender:             tokenAddr("0x742d35cc6634c0532925a3b8d91d6f4a81b8cbc0"),
+		Value:              value,
+		Token:              tokenAddr("0x1234567890abcdef1234567890abcdef12345678"),
+		DestinationChainID: 1,
+		DestinationAddress: "0x1234567890abcdef1234567890abcdef12345678",
+		EscrowFee:          escrowFee,
+		BridgeMetadata:     "",
+		BridgeParam:        hexBytesFromString(t, "0x"),
+	}
+
+	hash, err := HashMessage(payload)
+	assert.Nil(t, err)
+	assert.Equal(t, "0xa48e2a8591f8bfa35ef26dd41d4ccb0a2f9550e3f6f06cd9e958cf91c89afefa", common.BytesToHash(hash).Hex())
+}
+
 func assertJSONEqual(t *testing.T, expected string, actual []byte) {
 	t.Helper()
 	var expObj interface{}
@@ -325,8 +383,15 @@ func assertBigIntEqual(t *testing.T, expected string, actual *big.Int) {
 	a.Zero(exp.Cmp(actual))
 }
 
-// func TestDeriveTokenAccountAddress(t *testing.T) {
-// 	client := NewTestClient()
-// 	address := client.DeriveTokenAccountAddress(common.HexToAddress("0xA634dfba8c7550550817898bC4820cD10888Aac5"), common.HexToAddress("0x8E9d1b45293e30EF38564582979195DD16A16E13"))
-// 	t.Logf("address: %s", address)
-// }
+func hexBytesFromString(t *testing.T, value string) HexBytes {
+	t.Helper()
+	value = strings.TrimPrefix(value, "0x")
+	if value == "" {
+		return HexBytes{}
+	}
+	bytes, err := hex.DecodeString(value)
+	if !assert.NoError(t, err) {
+		return nil
+	}
+	return HexBytes(bytes)
+}

@@ -10,6 +10,8 @@ type TokenCreateData struct {
 	Symbol          string         `json:"symbol"`
 }
 
+type EmptyData struct{}
+
 type TokenTransferData struct {
 	Recipient common.Address `json:"recipient"`
 	Token     common.Address `json:"token"`
@@ -47,28 +49,28 @@ type TokenMintData struct {
 }
 
 type TokenBridgeAndMintData struct {
-	BridgeMetadata string         `json:"bridge_metadata"`
 	Recipient      common.Address `json:"recipient"`
+	Value          string         `json:"value"`
 	SourceChainID  uint64         `json:"source_chain_id"`
 	SourceTxHash   string         `json:"source_tx_hash"`
+	BridgeMetadata string         `json:"bridge_metadata"`
 	Token          common.Address `json:"token"`
-	Value          string         `json:"value"`
 }
 
 type TokenBurnData struct {
-	Recipient common.Address `json:"recipient"`
-	Token     common.Address `json:"token"`
-	Value     string         `json:"value"`
+	Value string         `json:"value"`
+	Token common.Address `json:"token"`
 }
 
 type TokenBurnAndBridgeData struct {
-	BridgeMetadata     string         `json:"bridge_metadata"`
-	DestinationAddress string         `json:"destination_address"`
-	DestinationChainID uint64         `json:"destination_chain_id"`
-	EscrowFee          string         `json:"escrow_fee"`
-	Sender             common.Address `json:"sender"`
-	Token              common.Address `json:"token"`
 	Value              string         `json:"value"`
+	Sender             common.Address `json:"sender"`
+	DestinationChainID uint64         `json:"destination_chain_id"`
+	DestinationAddress string         `json:"destination_address"`
+	EscrowFee          string         `json:"escrow_fee"`
+	BridgeMetadata     string         `json:"bridge_metadata"`
+	BridgeParam        string         `json:"bridge_param"`
+	Token              common.Address `json:"token"`
 }
 
 type TokenCloseAccountData struct {
@@ -119,6 +121,7 @@ var defaultTransactionPayloadConstructors = map[TransactionType]func() Transacti
 	TransactionTypeTokenPause:            func() TransactionPayload { return &TokenPauseData{} },
 	TransactionTypeTokenUnpause:          func() TransactionPayload { return &TokenUnpauseData{} },
 	TransactionTypeTokenUpdateMetadata:   func() TransactionPayload { return &TokenUpdateMetadataData{} },
+	TransactionTypeEmpty:                 func() TransactionPayload { return &EmptyData{} },
 	TransactionTypeRaw:                   func() TransactionPayload { return &RawTransactionData{} },
 }
 
@@ -130,6 +133,7 @@ func init() {
 
 // isTransactionPayload is a compile-time marker; it intentionally has no runtime behavior.
 func (*TokenCreateData) isTransactionPayload()           {}
+func (*EmptyData) isTransactionPayload()                 {}
 func (*TokenTransferData) isTransactionPayload()         {}
 func (*TokenGrantAuthorityData) isTransactionPayload()   {}
 func (*TokenRevokeAuthorityData) isTransactionPayload()  {}

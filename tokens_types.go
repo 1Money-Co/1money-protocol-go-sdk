@@ -18,6 +18,7 @@ type TokenIssuePayload struct {
 	Decimals        uint8          `json:"decimals"`
 	MasterAuthority common.Address `json:"master_authority"`
 	IsPrivate       bool           `json:"is_private"`
+	ClawbackEnabled bool           `json:"clawback_enabled"`
 }
 
 type AdditionalMetadata struct {
@@ -50,6 +51,7 @@ const (
 	AuthorityTypeManageList     AuthorityType = "ManageList"
 	AuthorityTypeUpdateMetadata AuthorityType = "UpdateMetadata"
 	AuthorityTypeBridge         AuthorityType = "Bridge"
+	AuthorityTypeClawback       AuthorityType = "Clawback"
 )
 
 type PauseActionType string
@@ -96,11 +98,10 @@ type TokenBridgeAndMintPayload struct {
 }
 
 type TokenBurnPayload struct {
-	ChainID   uint64         `json:"chain_id"`
-	Nonce     uint64         `json:"nonce"`
-	Recipient common.Address `json:"recipient"`
-	Value     *big.Int       `json:"value"`
-	Token     common.Address `json:"token"`
+	ChainID uint64         `json:"chain_id"`
+	Nonce   uint64         `json:"nonce"`
+	Value   *big.Int       `json:"value"`
+	Token   common.Address `json:"token"`
 }
 
 type TokenBurnAndBridgePayload struct {
@@ -113,6 +114,7 @@ type TokenBurnAndBridgePayload struct {
 	DestinationAddress string         `json:"destination_address"`
 	EscrowFee          *big.Int       `json:"escrow_fee"`
 	BridgeMetadata     string         `json:"bridge_metadata"`
+	BridgeParam        HexBytes       `json:"bridge_param"`
 }
 
 type TokenManageListPayload struct {

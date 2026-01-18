@@ -15,17 +15,25 @@ type Signature struct {
 	V uint64 `json:"v"`
 }
 
-func (client *Client) SignMessage(msg interface{}, privateKey string) (*Signature, error) {
-	privateKey = strings.TrimPrefix(privateKey, "0x")
+// HashMessage encodes the message via RLP and returns the Keccak256 hash.
+func HashMessage(msg interface{}) ([]byte, error) {
 	encoded, err := rlp.EncodeToBytes(msg)
 	if err != nil {
 		return nil, fmt.Errorf("encode message: %w", err)
 	}
+	return crypto.Keccak256(encoded), nil
+}
+
+func (client *Client) SignMessage(msg interface{}, privateKey string) (*Signature, error) {
+	privateKey = strings.TrimPrefix(privateKey, "0x")
 	key, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("invalid private key: %w", err)
 	}
-	hash := crypto.Keccak256(encoded)
+	hash, err := HashMessage(msg)
+	if err != nil {
+		return nil, err
+	}
 	signature, err := crypto.Sign(hash, key)
 	if err != nil {
 		return nil, fmt.Errorf("sign message: %w", err)

@@ -55,7 +55,6 @@ func TestCheckpointTransactions_JSON(t *testing.T) {
 
 func TestCheckpointJSONRoundTrip(t *testing.T) {
 	original := Checkpoint{
-		ExtraData:        "extra",
 		Hash:             "0xhash",
 		Number:           42,
 		ParentHash:       "0xparent",
@@ -83,7 +82,6 @@ func TestCheckpointJSONRoundTrip(t *testing.T) {
 
 	// Full transactions
 	full := Checkpoint{
-		ExtraData:        "extra",
 		Hash:             "0xhash",
 		Number:           43,
 		ParentHash:       "0xparent",

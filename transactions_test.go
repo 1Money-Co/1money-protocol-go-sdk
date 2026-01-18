@@ -169,7 +169,6 @@ func payloadCases() []payloadTestCase {
 			name:   "TokenBurn",
 			txType: TransactionTypeTokenBurn,
 			data: `{
-                "recipient": "0x1111111111111111111111111111111111111111",
                 "value": "10",
                 "token": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
             }`,
@@ -191,7 +190,8 @@ func payloadCases() []payloadTestCase {
                 "destination_chain_id": 42161,
                 "destination_address": "0xcccccccccccccccccccccccccccccccccccccccc",
                 "escrow_fee": "1",
-                "bridge_metadata": "burn-bridge"
+                "bridge_metadata": "burn-bridge",
+                "bridge_param": "0x1234abcd"
             }`,
 			assert: func(t *testing.T, tx *Transaction) {
 				payload, ok := tx.AsTokenBurnAndBridgeData()
@@ -200,6 +200,7 @@ func payloadCases() []payloadTestCase {
 				}
 				assert.Equal(t, uint64(42161), payload.DestinationChainID)
 				assert.Equal(t, "burn-bridge", payload.BridgeMetadata)
+				assert.Equal(t, "0x1234abcd", payload.BridgeParam)
 			},
 		},
 		{
@@ -267,6 +268,15 @@ func payloadCases() []payloadTestCase {
 					assert.Equal(t, "color", payload.Metadata.AdditionalMetadata[0].Key)
 					assert.Equal(t, "blue", payload.Metadata.AdditionalMetadata[0].Value)
 				}
+			},
+		},
+		{
+			name:   "Empty",
+			txType: TransactionTypeEmpty,
+			data:   `{}`,
+			assert: func(t *testing.T, tx *Transaction) {
+				_, ok := tx.AsEmptyData()
+				assert.True(t, ok)
 			},
 		},
 		{
