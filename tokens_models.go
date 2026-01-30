@@ -1,8 +1,15 @@
 package onemoney
 
+import "github.com/ethereum/go-ethereum/common"
+
 type IssueTokenRequest struct {
 	TokenIssuePayload
 	Signature Signature `json:"signature"`
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r IssueTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenIssuePayload, r.Signature)
 }
 
 type IssueTokenResponse struct {
@@ -44,6 +51,11 @@ type UpdateMetadataRequest struct {
 	Signature Signature `json:"signature"`
 }
 
+// Hash returns the transaction hash for the request (payload + signature).
+func (r UpdateMetadataRequest) Hash() (common.Hash, error) {
+	return Hash(r.UpdateMetadataPayload, r.Signature)
+}
+
 type UpdateMetadataResponse struct {
 	Hash string `json:"hash"`
 }
@@ -51,6 +63,11 @@ type UpdateMetadataResponse struct {
 type TokenAuthorityRequest struct {
 	TokenAuthorityPayload
 	Signature Signature `json:"signature"`
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r TokenAuthorityRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenAuthorityPayload, r.Signature)
 }
 
 type GrantAuthorityResponse struct {
@@ -62,6 +79,11 @@ type MintTokenRequest struct {
 	Signature Signature `json:"signature"`
 }
 
+// Hash returns the transaction hash for the request (payload + signature).
+func (r MintTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenMintPayload, r.Signature)
+}
+
 type MintTokenResponse struct {
 	Hash string `json:"hash"`
 }
@@ -69,6 +91,11 @@ type MintTokenResponse struct {
 type BridgeAndMintTokenRequest struct {
 	TokenBridgeAndMintPayload
 	Signature Signature `json:"signature"`
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r BridgeAndMintTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenBridgeAndMintPayload, r.Signature)
 }
 
 type BridgeAndMintTokenResponse struct {
@@ -80,6 +107,11 @@ type BurnTokenRequest struct {
 	Signature Signature `json:"signature"`
 }
 
+// Hash returns the transaction hash for the request (payload + signature).
+func (r BurnTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenBurnPayload, r.Signature)
+}
+
 type BurnTokenResponse struct {
 	Hash string `json:"hash"`
 }
@@ -87,6 +119,11 @@ type BurnTokenResponse struct {
 type BurnAndBridgeTokenRequest struct {
 	TokenBurnAndBridgePayload
 	Signature Signature `json:"signature"`
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r BurnAndBridgeTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenBurnAndBridgePayload, r.Signature)
 }
 
 type BurnAndBridgeTokenResponse struct {
@@ -98,6 +135,11 @@ type SetTokenManageListRequest struct {
 	Signature Signature `json:"signature"`
 }
 
+// Hash returns the transaction hash for the request (payload + signature).
+func (r SetTokenManageListRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenManageListPayload, r.Signature)
+}
+
 type SetTokenManageListResponse struct {
 	Hash string `json:"hash"`
 }
@@ -105,6 +147,11 @@ type SetTokenManageListResponse struct {
 type PauseTokenRequest struct {
 	PauseTokenPayload
 	Signature Signature `json:"signature"`
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r PauseTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.PauseTokenPayload, r.Signature)
 }
 
 type PauseTokenResponse struct {
