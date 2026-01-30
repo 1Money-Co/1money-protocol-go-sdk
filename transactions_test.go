@@ -3,6 +3,7 @@ package onemoney
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -445,4 +446,40 @@ func TestFinalizedTransactionResponse_UnmarshalJSON(t *testing.T) {
 	assert.Equal(t, "0x1", finalized.CounterSignatures[0].R)
 	assert.Equal(t, "0x2", finalized.CounterSignatures[0].S)
 	assert.Equal(t, uint64(0), finalized.CounterSignatures[0].V)
+}
+
+func TestPaymentRequestHash(t *testing.T) {
+	// 0xd002ef79e1b20b132d3bc679df4db240c891d5408c50b883f9020e9d65ac3740
+	req := PaymentRequest{
+		PaymentPayload: PaymentPayload{
+			ChainID:   1212101,
+			Nonce:     0,
+			Recipient: addr("0xA634dfba8c7550550817898bC4820cD10888Aac5"),
+			Value:     big.NewInt(10),
+			Token:     addr("0x5458747a0efb9ebeb8696fcac1479278c0872fbe"),
+		},
+		Signature: Signature{
+			R: "0x29799431026396113297345952769532737771367335026226509821050116192126323991602",
+			S: "0x15357736211266391569611566560819218221258872050529851723622905759192743831009",
+			V: 0,
+		},
+	}
+
+	hash, err := req.Hash()
+	if !assert.NoError(t, err) {
+		return
+	}
+	t.Logf("--- %s", hash.Hex())
+
+	expected, err := Hash(req.PaymentPayload, req.Signature)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, expected, hash)
+
+	payloadBytes, err := HashMessage(req.PaymentPayload)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NotEqual(t, common.BytesToHash(payloadBytes), hash)
 }

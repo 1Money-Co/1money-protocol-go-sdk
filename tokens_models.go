@@ -1,5 +1,7 @@
 package onemoney
 
+import "github.com/ethereum/go-ethereum/common"
+
 type IssueTokenRequest struct {
 	TokenIssuePayload
 	Signature Signature `json:"signature"`
@@ -109,4 +111,49 @@ type PauseTokenRequest struct {
 
 type PauseTokenResponse struct {
 	Hash string `json:"hash"`
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r IssueTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenIssuePayload, r.Signature)
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r UpdateMetadataRequest) Hash() (common.Hash, error) {
+	return Hash(r.UpdateMetadataPayload, r.Signature)
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r TokenAuthorityRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenAuthorityPayload, r.Signature)
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r MintTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenMintPayload, r.Signature)
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r BridgeAndMintTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenBridgeAndMintPayload, r.Signature)
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r BurnTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenBurnPayload, r.Signature)
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r BurnAndBridgeTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenBurnAndBridgePayload, r.Signature)
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r SetTokenManageListRequest) Hash() (common.Hash, error) {
+	return Hash(r.TokenManageListPayload, r.Signature)
+}
+
+// Hash returns the transaction hash for the request (payload + signature).
+func (r PauseTokenRequest) Hash() (common.Hash, error) {
+	return Hash(r.PauseTokenPayload, r.Signature)
 }
