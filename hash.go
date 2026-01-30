@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -16,36 +17,29 @@ func Hash(payload interface{}, signature Signature) (common.Hash, error) {
 		return common.Hash{}, err
 	}
 
-	var vBytes []byte
-	if signature.V == 0 {
-		vBytes = []byte{}
-	} else {
-		vBytes = []byte{byte(signature.V)}
-	}
-	vEnc, err := rlp.EncodeToBytes(vBytes)
+	vEnc, err := encodeSignatureV(signature.V)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("%w", err)
 	}
 
-	rBigInt, ok := big.NewInt(0).SetString(signature.R, 10)
-	if !ok {
-		return common.Hash{}, errors.New("")
+	rEnc, err := encodeSignatureRS(signature.R)
+	if err != nil {
+		return common.Hash{}, err
 	}
-	rEnc, err := rlp.EncodeToBytes(rBigInt)
 
-	sBigInt, ok := big.NewInt(0).SetString(signature.S, 10)
-	if !ok {
-		return common.Hash{}, errors.New("")
+	sEnc, err := encodeSignatureRS(signature.S)
+	if err != nil {
+		return common.Hash{}, err
 	}
-	sEnc, err := rlp.EncodeToBytes(sBigInt)
 
 	vrsBytes := append(append(vEnc, rEnc...), sEnc...)
 
 	totalLen := len(pEncode) + len(vrsBytes)
 	header := encodeRLPListHeader(totalLen)
-	fullEncoded := append(append(header, pEncode...), vrsBytes...)
 
-	hash := crypto.Keccak256(fullEncoded)
+	txEnc := append(append(header, pEncode...), vrsBytes...)
+	hash := crypto.Keccak256(txEnc)
+
 	return common.BytesToHash(hash), nil
 }
 
@@ -61,4 +55,27 @@ func encodeRLPListHeader(length int) []byte {
 		temp >>= 8
 	}
 	return append([]byte{byte(0xf7 + len(lenBytes))}, lenBytes...)
+}
+
+func encodeSignatureV(value uint64) ([]byte, error) {
+	var vBytes []byte
+	if value == 0 {
+		vBytes = []byte{}
+	} else {
+		vBytes = []byte{byte(value)}
+	}
+	return rlp.EncodeToBytes(vBytes)
+}
+
+func encodeSignatureRS(value string) ([]byte, error) {
+	base := 10
+	if strings.HasPrefix(value, "0x") || strings.HasPrefix(value, "0X") {
+		value = value[2:]
+		base = 16
+	}
+	component, ok := big.NewInt(0).SetString(value, base)
+	if !ok {
+		return nil, errors.New("invalid signature component: expected base-10 string or 0x-prefixed hex string")
+	}
+	return rlp.EncodeToBytes(component)
 }
