@@ -234,6 +234,18 @@ func (s *BusinessFlowTestSuite) assertReceiptBasics(t *testing.T, receipt *Trans
 	assert.NotEmptyf(t, receipt.FeeUsed, "expected fee used to be populated")
 }
 
+type hashableRequest interface {
+	Hash() (common.Hash, error)
+}
+
+func (s *BusinessFlowTestSuite) assertRequestHashMatches(t *testing.T, req hashableRequest, resultHash string) {
+	t.Helper()
+	assert.NotEmptyf(t, resultHash, "expected result hash to be populated")
+	localHash, err := req.Hash()
+	assert.NoErrorf(t, err, "failed to compute request hash")
+	assert.Equalf(t, common.HexToHash(resultHash), localHash, "request hash mismatch")
+}
+
 // ============================================================================
 // Test: Complete Token Lifecycle
 // ============================================================================
@@ -274,6 +286,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to issue token: %v", err)
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		t.Logf("✅ Token issued successfully")
 		t.Logf("   - Transaction Hash: %s", result.Hash)
@@ -354,6 +367,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to grant authority: %v", err)
 			}
+			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -389,6 +403,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to mint token: %v", err)
 			}
+			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -450,6 +465,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to send payment: %v", err)
 			}
+			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -511,6 +527,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to send payment: %v", err)
 			}
+			suite.assertRequestHashMatches(t, tRequest, tResult.Hash)
 
 			tReceipt := suite.waitForTransaction(tResult.Hash, 60*time.Second)
 			if !tReceipt.Success {
@@ -552,6 +569,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to burn token: %v", err)
 			}
+			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -612,6 +630,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to revoke authority: %v", err)
 			}
+			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -659,6 +678,7 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to issue token: %v", err)
 	}
+	suite.assertRequestHashMatches(t, issueRequest, issueResult.Hash)
 
 	suite.waitForTransaction(issueResult.Hash, 60*time.Second)
 	tokenAddr := common.HexToAddress(issueResult.Token)
@@ -688,6 +708,7 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to grant pause authority: %v", err)
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
@@ -716,6 +737,7 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to pause token: %v", err)
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
@@ -756,6 +778,7 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to unpause token: %v", err)
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
@@ -841,6 +864,7 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to grant manage list authority: %v", err)
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
@@ -870,6 +894,7 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to add to whitelist: %v", err)
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
@@ -918,6 +943,7 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to remove from whitelist: %v", err)
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
@@ -1004,6 +1030,7 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to grant update metadata authority: %v", err)
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
@@ -1040,6 +1067,7 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to update metadata: %v", err)
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
@@ -1102,6 +1130,7 @@ func TestBusinessFlow_BridgeMintAndBurnBridge(t *testing.T) {
 	if !assert.NoError(t, err, "issue token for bridge tests") {
 		return
 	}
+	suite.assertRequestHashMatches(t, issueReq, issueResult.Hash)
 	issueReceipt := suite.waitForTransaction(issueResult.Hash, 60*time.Second)
 	assert.True(t, issueReceipt.Success, "token issue should succeed")
 	suite.assertReceiptBasics(t, issueReceipt, issueResult.Hash, suite.OperatorAccount.Address)
@@ -1129,6 +1158,7 @@ func TestBusinessFlow_BridgeMintAndBurnBridge(t *testing.T) {
 	if !assert.NoError(t, err, "grant bridge authority") {
 		return
 	}
+	suite.assertRequestHashMatches(t, grantReq, grantResult.Hash)
 	grantReceipt := suite.waitForTransaction(grantResult.Hash, 60*time.Second)
 	assert.True(t, grantReceipt.Success, "grant bridge authority should succeed")
 
@@ -1158,6 +1188,7 @@ func TestBusinessFlow_BridgeMintAndBurnBridge(t *testing.T) {
 		if !assert.NoError(t, err, "bridge and mint token") {
 			return
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		assert.True(t, receipt.Success, "bridge and mint transaction should succeed")
@@ -1217,6 +1248,7 @@ func TestBusinessFlow_BridgeMintAndBurnBridge(t *testing.T) {
 		if !assert.NoError(t, err, "burn and bridge token") {
 			return
 		}
+		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		assert.True(t, receipt.Success, "burn and bridge transaction should succeed")
@@ -1345,6 +1377,7 @@ func TestBusinessFlow_AccountEndpoints(t *testing.T) {
 	if !assert.NoError(err, "issue token for account tests") {
 		return
 	}
+	suite.assertRequestHashMatches(t, issueReq, issueResult.Hash)
 	issueReceipt := suite.waitForTransaction(issueResult.Hash, 60*time.Second)
 	assert.True(issueReceipt.Success, "token issue transaction should succeed")
 	suite.assertReceiptBasics(t, issueReceipt, issueResult.Hash, suite.OperatorAccount.Address)
@@ -1371,6 +1404,7 @@ func TestBusinessFlow_AccountEndpoints(t *testing.T) {
 	if !assert.NoError(err, "grant authority for account tests") {
 		return
 	}
+	suite.assertRequestHashMatches(t, grantReq, grantResult.Hash)
 	grantReceipt := suite.waitForTransaction(grantResult.Hash, 60*time.Second)
 	assert.True(grantReceipt.Success, "grant authority transaction should succeed")
 
@@ -1393,6 +1427,7 @@ func TestBusinessFlow_AccountEndpoints(t *testing.T) {
 	if !assert.NoError(err, "mint token for account tests") {
 		return
 	}
+	suite.assertRequestHashMatches(t, mintReq, mintResult.Hash)
 	mintReceipt := suite.waitForTransaction(mintResult.Hash, 60*time.Second)
 	assert.True(mintReceipt.Success, "mint transaction should succeed")
 
@@ -1480,6 +1515,7 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 		if !assert.NoError(err, "should issue token") {
 			return
 		}
+		suite.assertRequestHashMatches(t, issueReq, issueResult.Hash)
 
 		issueReceipt := suite.waitForTransaction(issueResult.Hash, 60*time.Second)
 		assert.True(issueReceipt.Success, "token issue should succeed")
@@ -1511,6 +1547,7 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 		if !assert.NoError(err, "should grant mint authority") {
 			return
 		}
+		suite.assertRequestHashMatches(t, grantReq, grantResult.Hash)
 
 		grantReceipt := suite.waitForTransaction(grantResult.Hash, 60*time.Second)
 		assert.True(grantReceipt.Success, "grant authority should succeed")
@@ -1538,6 +1575,7 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 		if !assert.NoError(err, "should mint tokens") {
 			return
 		}
+		suite.assertRequestHashMatches(t, mintReq, mintResult.Hash)
 
 		mintReceipt := suite.waitForTransaction(mintResult.Hash, 60*time.Second)
 		assert.True(mintReceipt.Success, "mint should succeed")
