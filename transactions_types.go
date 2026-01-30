@@ -248,6 +248,11 @@ type PaymentRequest struct {
 	Signature Signature `json:"signature"`
 }
 
+// Hash returns the transaction hash for the request (payload + signature).
+func (r PaymentRequest) Hash() (common.Hash, error) {
+	return Hash(r.PaymentPayload, r.Signature)
+}
+
 type PaymentResponse struct {
 	Hash string `json:"hash"`
 }

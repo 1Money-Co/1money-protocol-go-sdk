@@ -15,11 +15,19 @@ type Signature struct {
 	V uint64 `json:"v"`
 }
 
+func EncodePayload(payload interface{}) ([]byte, error) {
+	encoded, err := rlp.EncodeToBytes(payload)
+	if err != nil {
+		return nil, fmt.Errorf("rlp encode payload failed: %w", err)
+	}
+	return encoded, nil
+}
+
 // HashMessage encodes the message via RLP and returns the Keccak256 hash.
 func HashMessage(msg interface{}) ([]byte, error) {
-	encoded, err := rlp.EncodeToBytes(msg)
+	encoded, err := EncodePayload(msg)
 	if err != nil {
-		return nil, fmt.Errorf("encode message: %w", err)
+		return nil, err
 	}
 	return crypto.Keccak256(encoded), nil
 }
