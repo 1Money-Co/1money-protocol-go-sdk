@@ -3,23 +3,17 @@ package onemoney
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 )
 
 func TestGetChainIdUsesChainsEndpoint(t *testing.T) {
+	// In-memory transport (no socket) so this runs under the default `go test`,
+	// matching the other routing tests (see fakeHTTPClient in api_v2_test.go).
 	var gotPath string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.URL.Path
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(ChainIdResponse{ChainId: 1_212_101}); err != nil {
-			t.Errorf("encode response: %v", err)
-		}
-	}))
-	defer server.Close()
-
-	client := NewClientWithCustomUrl(server.URL)
+	hc := fakeHTTPClient(&gotPath, func(_ string, _ map[string]json.RawMessage) interface{} {
+		return ChainIdResponse{ChainId: 1_212_101}
+	})
+	client := NewClientWithCustomUrl("http://sdk.test", WithHTTPClient(hc))
 	response, err := client.GetChainId(context.Background())
 	if err != nil {
 		t.Fatalf("GetChainId: %v", err)

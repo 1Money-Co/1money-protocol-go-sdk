@@ -16,10 +16,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestAccount represents a test account with private key
+// TestAccount represents a test account with its private key and a Signer built
+// from it. The v2 namespace API signs through the Signer; the raw PrivateKey is
+// retained only for logging and for constructing new signers.
 type TestAccount struct {
 	PrivateKey string
 	Address    common.Address
+	Signer     Signer
 }
 
 // BusinessFlowTestSuite holds the test environment and accounts
@@ -68,25 +71,14 @@ func setupBusinessFlowTest(t *testing.T) *BusinessFlowTestSuite {
 		t.Fatalf("Unsupported TEST_ENV for business flow tests: %s", env)
 	}
 
-	// Create operator account (for issuing tokens)
-	operatorSigner, err := NewPrivateKeySigner(operatorPrivateKey)
-	assert.Nil(t, err, "Should get operator address")
-
-	// Create master account (for token management)
-	masterSigner, err := NewPrivateKeySigner(masterPrivateKey)
-	assert.Nil(t, err, "Should get master address")
+	operatorAccount := newTestAccount(t, operatorPrivateKey)
+	masterAccount := newTestAccount(t, masterPrivateKey)
 
 	suite := &BusinessFlowTestSuite{
-		Client: client,
-		OperatorAccount: &TestAccount{
-			PrivateKey: operatorPrivateKey,
-			Address:    operatorSigner.Address(),
-		},
-		MasterAccount: &TestAccount{
-			PrivateKey: masterPrivateKey,
-			Address:    masterSigner.Address(),
-		},
-		t: t,
+		Client:          client,
+		OperatorAccount: operatorAccount,
+		MasterAccount:   masterAccount,
+		t:               t,
 	}
 
 	// Get chain ID
@@ -116,16 +108,23 @@ func setupBusinessFlowTest(t *testing.T) *BusinessFlowTestSuite {
 	return suite
 }
 
+// newTestAccount builds a TestAccount (address + Signer) from a hex private key.
+func newTestAccount(t *testing.T, privateKeyHex string) *TestAccount {
+	t.Helper()
+	signer, err := NewPrivateKeySigner(privateKeyHex)
+	assert.Nil(t, err, "Should build signer from private key")
+	return &TestAccount{
+		PrivateKey: privateKeyHex,
+		Address:    signer.Address(),
+		Signer:     signer,
+	}
+}
+
 // generateOrGetAccount generates a new account or uses an existing one from env
 func (s *BusinessFlowTestSuite) generateOrGetAccount(envVar string) *TestAccount {
 	privateKeyHex := os.Getenv(envVar)
 	if privateKeyHex != "" {
-		signer, err := NewPrivateKeySigner(privateKeyHex)
-		assert.Nil(s.t, err, fmt.Sprintf("Should get address from: %s", envVar))
-		return &TestAccount{
-			PrivateKey: privateKeyHex,
-			Address:    signer.Address(),
-		}
+		return newTestAccount(s.t, privateKeyHex)
 	}
 
 	// Generate new account
@@ -133,13 +132,14 @@ func (s *BusinessFlowTestSuite) generateOrGetAccount(envVar string) *TestAccount
 	assert.Nil(s.t, err, "Should random generate private key")
 
 	privateKeyHex = fmt.Sprintf("%x", crypto.FromECDSA(privateKey))
-	address := crypto.PubkeyToAddress(privateKey.PublicKey)
+	account := newTestAccount(s.t, privateKeyHex)
 
-	s.t.Logf("Generated new account for %s: %s", envVar, address.Hex())
-	return &TestAccount{
-		PrivateKey: privateKeyHex,
-		Address:    address,
+	if envVar != "" {
+		s.t.Logf("Generated new account for %s: %s", envVar, account.Address.Hex())
+	} else {
+		s.t.Logf("Generated new account: %s", account.Address.Hex())
 	}
+	return account
 }
 
 // refreshCheckpoint updates the recent checkpoint
@@ -210,15 +210,6 @@ func (s *BusinessFlowTestSuite) waitForTransaction(txHash string, maxWait time.D
 	}
 }
 
-// signMessage signs a message with the given private key
-func (s *BusinessFlowTestSuite) signMessage(payload interface{}, privateKey string) Signature {
-	signature, err := s.Client.SignMessage(payload, privateKey)
-	if err != nil {
-		s.t.Fatalf("Failed to sign message: %v", err)
-	}
-	return *signature
-}
-
 func (s *BusinessFlowTestSuite) fetchTransaction(t *testing.T, hash string) *Transaction {
 	t.Helper()
 	ctx := context.Background()
@@ -232,18 +223,6 @@ func (s *BusinessFlowTestSuite) assertReceiptBasics(t *testing.T, receipt *Trans
 	assert.Equalf(t, expectedHash, receipt.TransactionHash, "receipt hash mismatch")
 	assert.Equalf(t, expectedFrom, receipt.From, "receipt from mismatch")
 	assert.NotEmptyf(t, receipt.FeeUsed, "expected fee used to be populated")
-}
-
-type hashableRequest interface {
-	Hash() (common.Hash, error)
-}
-
-func (s *BusinessFlowTestSuite) assertRequestHashMatches(t *testing.T, req hashableRequest, resultHash string) {
-	t.Helper()
-	assert.NotEmptyf(t, resultHash, "expected result hash to be populated")
-	localHash, err := req.Hash()
-	assert.NoErrorf(t, err, "failed to compute request hash")
-	assert.Equalf(t, common.HexToHash(resultHash), localHash, "request hash mismatch")
 }
 
 // ============================================================================
@@ -272,21 +251,13 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			ClawbackEnabled: false,
 		}
 
-		signature := suite.signMessage(payload, suite.OperatorAccount.PrivateKey) // Sign with operator key
-
-		request := &IssueTokenRequest{
-			TokenIssuePayload: payload,
-			Signature:         signature,
-		}
-
 		t.Logf("📝 Issuing token: %s (%s)", symbol, name)
 		t.Logf("   - Signed by operator: %s", suite.OperatorAccount.Address.Hex())
 		t.Logf("   - Master authority: %s", suite.MasterAccount.Address.Hex())
-		result, err := suite.Client.IssueToken(ctx, request)
+		result, err := suite.Client.Tokens().Issue(ctx, payload, suite.OperatorAccount.Signer)
 		if err != nil {
 			t.Fatalf("Failed to issue token: %v", err)
 		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		t.Logf("✅ Token issued successfully")
 		t.Logf("   - Transaction Hash: %s", result.Hash)
@@ -316,7 +287,7 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 		}
 
 		// Verify token metadata
-		metadata, err := suite.Client.GetTokenMetadata(ctx, tokenAddr.Hex())
+		metadata, err := suite.Client.Tokens().Metadata(ctx, tokenAddr)
 		if err != nil {
 			t.Fatalf("Failed to get token metadata: %v", err)
 		}
@@ -346,28 +317,19 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			payload := TokenAuthorityPayload{
 				ChainID:          suite.ChainID,
 				Nonce:            suite.getNonce(suite.MasterAccount.Address),
-				Action:           AuthorityActionGrant,
 				AuthorityType:    AuthorityTypeMintBurnTokens,
 				AuthorityAddress: minterAccount.Address, // Grant to the new minter account
 				Token:            tokenAddr,
 				Value:            big.NewInt(1000000000000), // 1M tokens with 6 decimals
 			}
 
-			signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-
-			request := &TokenAuthorityRequest{
-				TokenAuthorityPayload: payload,
-				Signature:             signature,
-			}
-
 			t.Logf("🔐 Granting mint authority from master to minter account")
 			t.Logf("   - Master authority: %s", suite.MasterAccount.Address.Hex())
 			t.Logf("   - Minter account: %s", minterAccount.Address.Hex())
-			result, err := suite.Client.GrantTokenAuthority(ctx, request)
+			result, err := suite.Client.Tokens().GrantAuthority(ctx, payload, suite.MasterAccount.Signer)
 			if err != nil {
 				t.Fatalf("Failed to grant authority: %v", err)
 			}
-			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -390,20 +352,12 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 				Token:     tokenAddr,
 			}
 
-			signature := suite.signMessage(payload, minterAccount.PrivateKey) // Sign with minter account
-
-			request := &MintTokenRequest{
-				TokenMintPayload: payload,
-				Signature:        signature,
-			}
-
 			t.Logf("💰 Minting %s tokens to %s", mintAmount.String(), suite.Account1.Address.Hex())
 			t.Logf("   - Minted by: %s", minterAccount.Address.Hex())
-			result, err := suite.Client.MintToken(ctx, request)
+			result, err := suite.Client.Tokens().Mint(ctx, payload, minterAccount.Signer)
 			if err != nil {
 				t.Fatalf("Failed to mint token: %v", err)
 			}
-			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -453,19 +407,11 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 				Token:     tokenAddr,
 			}
 
-			signature := suite.signMessage(payload, suite.Account1.PrivateKey)
-
-			request := &PaymentRequest{
-				PaymentPayload: payload,
-				Signature:      signature,
-			}
-
 			t.Logf("💸 Transferring %s tokens from Account1 to Account2", transferAmount.String())
-			result, err := suite.Client.SendPayment(ctx, request)
+			result, err := suite.Client.Transactions().Payment(ctx, payload, suite.Account1.Signer)
 			if err != nil {
 				t.Fatalf("Failed to send payment: %v", err)
 			}
-			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -518,16 +464,10 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 				Value:     big.NewInt(25000000), // 25 tokens
 				Token:     tokenAddr,
 			}
-			tSignature := suite.signMessage(tPayload, suite.Account2.PrivateKey)
-			tRequest := &PaymentRequest{
-				PaymentPayload: tPayload,
-				Signature:      tSignature,
-			}
-			tResult, err := suite.Client.SendPayment(ctx, tRequest)
+			tResult, err := suite.Client.Transactions().Payment(ctx, tPayload, suite.Account2.Signer)
 			if err != nil {
 				t.Fatalf("Failed to send payment: %v", err)
 			}
-			suite.assertRequestHashMatches(t, tRequest, tResult.Hash)
 
 			tReceipt := suite.waitForTransaction(tResult.Hash, 60*time.Second)
 			if !tReceipt.Success {
@@ -554,22 +494,14 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 				Token:   tokenAddr,
 			}
 
-			signature := suite.signMessage(payload, minterAccount.PrivateKey) // Sign with minter account
-
-			request := &BurnTokenRequest{
-				TokenBurnPayload: payload,
-				Signature:        signature,
-			}
-
 			balanceBefore := suite.getTokenBalance(minterAccount.Address, tokenAddr)
 			t.Logf("🔥 Burning %s tokens from Account2 (current balance: %s)", burnAmount.String(), balanceBefore)
 			t.Logf("   - Burned by: %s", minterAccount.Address.Hex())
 
-			result, err := suite.Client.BurnToken(ctx, request)
+			result, err := suite.Client.Tokens().Burn(ctx, payload, minterAccount.Signer)
 			if err != nil {
 				t.Fatalf("Failed to burn token: %v", err)
 			}
-			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -609,28 +541,19 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			payload := TokenAuthorityPayload{
 				ChainID:          suite.ChainID,
 				Nonce:            suite.getNonce(suite.MasterAccount.Address),
-				Action:           AuthorityActionRevoke,
 				AuthorityType:    AuthorityTypeMintBurnTokens,
 				AuthorityAddress: minterAccount.Address, // Revoke from the minter account
 				Token:            tokenAddr,
 				Value:            big.NewInt(0),
 			}
 
-			signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-
-			request := &TokenAuthorityRequest{
-				TokenAuthorityPayload: payload,
-				Signature:             signature,
-			}
-
 			t.Logf("🔒 Revoking mint authority from minter account")
 			t.Logf("   - Revoked by master: %s", suite.MasterAccount.Address.Hex())
 			t.Logf("   - Revoked from: %s", minterAccount.Address.Hex())
-			result, err := suite.Client.GrantTokenAuthority(ctx, request)
+			result, err := suite.Client.Tokens().RevokeAuthority(ctx, payload, suite.MasterAccount.Signer)
 			if err != nil {
 				t.Fatalf("Failed to revoke authority: %v", err)
 			}
-			suite.assertRequestHashMatches(t, request, result.Hash)
 
 			receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 			if !receipt.Success {
@@ -644,6 +567,59 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 	t.Logf("\n🎉 Complete token lifecycle test passed!")
 }
 
+// issueTokenForTest issues a token signed by the operator and returns its
+// address, sharing the boilerplate across the focused business-flow tests.
+func (s *BusinessFlowTestSuite) issueTokenForTest(t *testing.T, ctx context.Context, prefix, name string, private, clawback bool) common.Address {
+	t.Helper()
+	s.refreshCheckpoint()
+	symbol := fmt.Sprintf("%s%d", prefix, time.Now().Unix()%100000)
+	payload := TokenIssuePayload{
+		ChainID:         s.ChainID,
+		Nonce:           s.getNonce(s.OperatorAccount.Address),
+		Symbol:          symbol,
+		Name:            name,
+		Decimals:        6,
+		MasterAuthority: s.MasterAccount.Address,
+		IsPrivate:       private,
+		ClawbackEnabled: clawback,
+	}
+	result, err := s.Client.Tokens().Issue(ctx, payload, s.OperatorAccount.Signer)
+	if err != nil {
+		t.Fatalf("Failed to issue token: %v", err)
+	}
+	receipt := s.waitForTransaction(result.Hash, 60*time.Second)
+	if !receipt.Success {
+		t.Fatal("Token issuance transaction failed")
+	}
+	tokenAddr := common.HexToAddress(result.Token)
+	t.Logf("✅ Token issued: %s (%s)", symbol, tokenAddr.Hex())
+	return tokenAddr
+}
+
+// grantAuthority grants a token authority from the master account and waits for
+// confirmation.
+func (s *BusinessFlowTestSuite) grantAuthority(t *testing.T, ctx context.Context, authorityType AuthorityType, to, token common.Address, value *big.Int) {
+	t.Helper()
+	s.refreshCheckpoint()
+	payload := TokenAuthorityPayload{
+		ChainID:          s.ChainID,
+		Nonce:            s.getNonce(s.MasterAccount.Address),
+		AuthorityType:    authorityType,
+		AuthorityAddress: to,
+		Token:            token,
+		Value:            value,
+	}
+	result, err := s.Client.Tokens().GrantAuthority(ctx, payload, s.MasterAccount.Signer)
+	if err != nil {
+		t.Fatalf("Failed to grant %s authority: %v", authorityType, err)
+	}
+	receipt := s.waitForTransaction(result.Hash, 60*time.Second)
+	if !receipt.Success {
+		t.Fatalf("Grant %s authority transaction failed", authorityType)
+	}
+	t.Logf("🔐 Granted %s authority to %s", authorityType, to.Hex())
+}
+
 // ============================================================================
 // Test: Token Pause and Unpause
 // ============================================================================
@@ -652,104 +628,33 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 	suite := setupBusinessFlowTest(t)
 	ctx := context.Background()
 
-	// First issue a token
-	suite.refreshCheckpoint()
-	symbol := fmt.Sprintf("PAUSE%d", time.Now().Unix()%100000)
+	tokenAddr := suite.issueTokenForTest(t, ctx, "PAUSE", "Pause Test Token", false, false)
+	suite.grantAuthority(t, ctx, AuthorityTypePause, suite.MasterAccount.Address, tokenAddr, big.NewInt(0))
 
-	issuePayload := TokenIssuePayload{
-		ChainID:         suite.ChainID,
-		Nonce:           suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
-		Symbol:          symbol,
-		Name:            "Pause Test Token",
-		Decimals:        6,
-		MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
-		IsPrivate:       false,
-		ClawbackEnabled: false,
-	}
-
-	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey) // Sign with operator key
-	issueRequest := &IssueTokenRequest{
-		TokenIssuePayload: issuePayload,
-		Signature:         issueSignature,
-	}
-
-	t.Log("📝 Issuing token for pause/unpause test")
-	issueResult, err := suite.Client.IssueToken(ctx, issueRequest)
-	if err != nil {
-		t.Fatalf("Failed to issue token: %v", err)
-	}
-	suite.assertRequestHashMatches(t, issueRequest, issueResult.Hash)
-
-	suite.waitForTransaction(issueResult.Hash, 60*time.Second)
-	tokenAddr := common.HexToAddress(issueResult.Token)
-	t.Logf("✅ Token issued: %s", tokenAddr.Hex())
-
-	t.Run("1. Grant Pause Authority", func(t *testing.T) {
-		suite.refreshCheckpoint()
-
-		payload := TokenAuthorityPayload{
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.MasterAccount.Address),
-			Action:           AuthorityActionGrant,
-			AuthorityType:    AuthorityTypePause,
-			AuthorityAddress: suite.MasterAccount.Address,
-			Token:            tokenAddr,
-			Value:            big.NewInt(0),
-		}
-
-		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-		request := &TokenAuthorityRequest{
-			TokenAuthorityPayload: payload,
-			Signature:             signature,
-		}
-
-		t.Log("🔐 Granting pause authority")
-		result, err := suite.Client.GrantTokenAuthority(ctx, request)
-		if err != nil {
-			t.Fatalf("Failed to grant pause authority: %v", err)
-		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
-
-		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
-		if !receipt.Success {
-			t.Fatal("Grant pause authority failed")
-		}
-	})
-
-	t.Run("2. Pause Token", func(t *testing.T) {
+	t.Run("1. Pause Token", func(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := PauseTokenPayload{
 			ChainID: suite.ChainID,
 			Nonce:   suite.getNonce(suite.MasterAccount.Address),
-			Action:  Pause,
 			Token:   tokenAddr,
 		}
 
-		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-		request := &PauseTokenRequest{
-			PauseTokenPayload: payload,
-			Signature:         signature,
-		}
-
 		t.Log("⏸️  Pausing token")
-		result, err := suite.Client.PauseToken(ctx, request)
+		result, err := suite.Client.Tokens().Pause(ctx, payload, suite.MasterAccount.Signer)
 		if err != nil {
 			t.Fatalf("Failed to pause token: %v", err)
 		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
 			t.Fatal("Pause token transaction failed")
 		}
 
-		// Verify token is paused
-		metadata, err := suite.Client.GetTokenMetadata(ctx, tokenAddr.Hex())
+		metadata, err := suite.Client.Tokens().Metadata(ctx, tokenAddr)
 		if err != nil {
 			t.Fatalf("Failed to get token metadata: %v", err)
 		}
-
 		if !metadata.IsPaused {
 			t.Error("Token should be paused but is not")
 		}
@@ -757,40 +662,30 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 		t.Log("✅ Token paused successfully")
 	})
 
-	t.Run("3. Unpause Token", func(t *testing.T) {
+	t.Run("2. Unpause Token", func(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := PauseTokenPayload{
 			ChainID: suite.ChainID,
 			Nonce:   suite.getNonce(suite.MasterAccount.Address),
-			Action:  UnPause,
 			Token:   tokenAddr,
 		}
 
-		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-		request := &PauseTokenRequest{
-			PauseTokenPayload: payload,
-			Signature:         signature,
-		}
-
 		t.Log("▶️  Unpausing token")
-		result, err := suite.Client.PauseToken(ctx, request)
+		result, err := suite.Client.Tokens().Unpause(ctx, payload, suite.MasterAccount.Signer)
 		if err != nil {
 			t.Fatalf("Failed to unpause token: %v", err)
 		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
 			t.Fatal("Unpause token transaction failed")
 		}
 
-		// Verify token is not paused
-		metadata, err := suite.Client.GetTokenMetadata(ctx, tokenAddr.Hex())
+		metadata, err := suite.Client.Tokens().Metadata(ctx, tokenAddr)
 		if err != nil {
 			t.Fatalf("Failed to get token metadata: %v", err)
 		}
-
 		if metadata.IsPaused {
 			t.Error("Token should not be paused but is")
 		}
@@ -802,77 +697,17 @@ func TestBusinessFlow_TokenPauseUnpause(t *testing.T) {
 }
 
 // ============================================================================
-// Test: Whitelist Management
+// Test: Whitelist Management (private token)
 // ============================================================================
 
 func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 	suite := setupBusinessFlowTest(t)
 	ctx := context.Background()
 
-	// Issue a private token for whitelist testing
-	suite.refreshCheckpoint()
-	symbol := fmt.Sprintf("PRIV%d", time.Now().Unix()%100000)
+	tokenAddr := suite.issueTokenForTest(t, ctx, "PRIV", "Private Test Token", true, false)
+	suite.grantAuthority(t, ctx, AuthorityTypeManageList, suite.MasterAccount.Address, tokenAddr, big.NewInt(0))
 
-	issuePayload := TokenIssuePayload{
-		ChainID:         suite.ChainID,
-		Nonce:           suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
-		Symbol:          symbol,
-		Name:            "Private Test Token",
-		Decimals:        6,
-		MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
-		IsPrivate:       true,                        // Private token uses whitelist
-		ClawbackEnabled: false,
-	}
-
-	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey) // Sign with operator key
-	issueRequest := &IssueTokenRequest{
-		TokenIssuePayload: issuePayload,
-		Signature:         issueSignature,
-	}
-
-	t.Log("📝 Issuing private token for whitelist test")
-	issueResult, err := suite.Client.IssueToken(ctx, issueRequest)
-	if err != nil {
-		t.Fatalf("Failed to issue token: %v", err)
-	}
-
-	suite.waitForTransaction(issueResult.Hash, 60*time.Second)
-	tokenAddr := common.HexToAddress(issueResult.Token)
-	t.Logf("✅ Private token issued: %s", tokenAddr.Hex())
-
-	t.Run("1. Grant ManageList Authority", func(t *testing.T) {
-		suite.refreshCheckpoint()
-
-		payload := TokenAuthorityPayload{
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.MasterAccount.Address),
-			Action:           AuthorityActionGrant,
-			AuthorityType:    AuthorityTypeManageList,
-			AuthorityAddress: suite.MasterAccount.Address,
-			Token:            tokenAddr,
-			Value:            big.NewInt(0),
-		}
-
-		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-		request := &TokenAuthorityRequest{
-			TokenAuthorityPayload: payload,
-			Signature:             signature,
-		}
-
-		t.Log("🔐 Granting manage list authority")
-		result, err := suite.Client.GrantTokenAuthority(ctx, request)
-		if err != nil {
-			t.Fatalf("Failed to grant manage list authority: %v", err)
-		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
-
-		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
-		if !receipt.Success {
-			t.Fatal("Grant manage list authority failed")
-		}
-	})
-
-	t.Run("2. Add Address to Whitelist", func(t *testing.T) {
+	t.Run("1. Add Address to Whitelist", func(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := TokenManageListPayload{
@@ -883,30 +718,21 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 			Token:   tokenAddr,
 		}
 
-		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-		request := &SetTokenManageListRequest{
-			TokenManageListPayload: payload,
-			Signature:              signature,
-		}
-
-		t.Logf("🚫 Adding %s to whitelist", suite.Account1.Address.Hex())
-		result, err := suite.Client.SetTokenWhitelist(ctx, request)
+		t.Logf("➕ Adding %s to whitelist", suite.Account1.Address.Hex())
+		result, err := suite.Client.Tokens().ManageWhitelist(ctx, payload, suite.MasterAccount.Signer)
 		if err != nil {
 			t.Fatalf("Failed to add to whitelist: %v", err)
 		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
 			t.Fatal("Add to whitelist transaction failed")
 		}
 
-		// Verify address is in whitelist
-		metadata, err := suite.Client.GetTokenMetadata(ctx, tokenAddr.Hex())
+		metadata, err := suite.Client.Tokens().Metadata(ctx, tokenAddr)
 		if err != nil {
 			t.Fatalf("Failed to get token metadata: %v", err)
 		}
-
 		found := false
 		for _, addr := range metadata.WhiteList {
 			if common.HexToAddress(addr) == suite.Account1.Address {
@@ -921,7 +747,7 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 		t.Log("✅ Address added to whitelist")
 	})
 
-	t.Run("3. Remove Address from Whitelist", func(t *testing.T) {
+	t.Run("2. Remove Address from Whitelist", func(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		payload := TokenManageListPayload{
@@ -932,32 +758,23 @@ func TestBusinessFlow_WhitelistManagement(t *testing.T) {
 			Token:   tokenAddr,
 		}
 
-		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-		request := &SetTokenManageListRequest{
-			TokenManageListPayload: payload,
-			Signature:              signature,
-		}
-
-		t.Logf("✅ Removing %s from whitelist", suite.Account1.Address.Hex())
-		result, err := suite.Client.SetTokenWhitelist(ctx, request)
+		t.Logf("➖ Removing %s from whitelist", suite.Account1.Address.Hex())
+		result, err := suite.Client.Tokens().ManageWhitelist(ctx, payload, suite.MasterAccount.Signer)
 		if err != nil {
 			t.Fatalf("Failed to remove from whitelist: %v", err)
 		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
 			t.Fatal("Remove from whitelist transaction failed")
 		}
 
-		// Verify address is not in whitelist
-		metadata, err := suite.Client.GetTokenMetadata(ctx, tokenAddr.Hex())
+		metadata, err := suite.Client.Tokens().Metadata(ctx, tokenAddr)
 		if err != nil {
 			t.Fatalf("Failed to get token metadata: %v", err)
 		}
-
 		for _, addr := range metadata.WhiteList {
-			if addr == suite.Account1.Address.Hex() {
+			if common.HexToAddress(addr) == suite.Account1.Address {
 				t.Error("Address still in whitelist after removal")
 			}
 		}
@@ -976,69 +793,10 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 	suite := setupBusinessFlowTest(t)
 	ctx := context.Background()
 
-	// Issue a token
-	suite.refreshCheckpoint()
-	symbol := fmt.Sprintf("META%d", time.Now().Unix()%100000)
+	tokenAddr := suite.issueTokenForTest(t, ctx, "META", "Metadata Test Token", false, false)
+	suite.grantAuthority(t, ctx, AuthorityTypeUpdateMetadata, suite.MasterAccount.Address, tokenAddr, big.NewInt(0))
 
-	issuePayload := TokenIssuePayload{
-		ChainID:         suite.ChainID,
-		Nonce:           suite.getNonce(suite.OperatorAccount.Address), // Use operator nonce
-		Symbol:          symbol,
-		Name:            "Metadata Test Token",
-		Decimals:        6,
-		MasterAuthority: suite.MasterAccount.Address, // Master authority for token management
-		IsPrivate:       false,
-		ClawbackEnabled: false,
-	}
-
-	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey) // Sign with operator key
-	issueRequest := &IssueTokenRequest{
-		TokenIssuePayload: issuePayload,
-		Signature:         issueSignature,
-	}
-
-	t.Log("📝 Issuing token for metadata update test")
-	issueResult, err := suite.Client.IssueToken(ctx, issueRequest)
-	if err != nil {
-		t.Fatalf("Failed to issue token: %v", err)
-	}
-
-	suite.waitForTransaction(issueResult.Hash, 60*time.Second)
-	tokenAddr := common.HexToAddress(issueResult.Token)
-
-	t.Run("1. Grant UpdateMetadata Authority", func(t *testing.T) {
-		suite.refreshCheckpoint()
-
-		payload := TokenAuthorityPayload{
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.MasterAccount.Address),
-			Action:           AuthorityActionGrant,
-			AuthorityType:    AuthorityTypeUpdateMetadata,
-			AuthorityAddress: suite.MasterAccount.Address,
-			Token:            tokenAddr,
-			Value:            big.NewInt(0),
-		}
-
-		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-		request := &TokenAuthorityRequest{
-			TokenAuthorityPayload: payload,
-			Signature:             signature,
-		}
-
-		t.Log("🔐 Granting update metadata authority")
-		result, err := suite.Client.GrantTokenAuthority(ctx, request)
-		if err != nil {
-			t.Fatalf("Failed to grant update metadata authority: %v", err)
-		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
-
-		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
-		if !receipt.Success {
-			t.Fatal("Grant update metadata authority failed")
-		}
-	})
-
-	t.Run("2. Update Token Metadata", func(t *testing.T) {
+	t.Run("1. Update Token Metadata", func(t *testing.T) {
 		suite.refreshCheckpoint()
 
 		newName := fmt.Sprintf("Updated Token %d", rand.Intn(10000))
@@ -1056,30 +814,21 @@ func TestBusinessFlow_UpdateMetadata(t *testing.T) {
 			},
 		}
 
-		signature := suite.signMessage(payload, suite.MasterAccount.PrivateKey)
-		request := &UpdateMetadataRequest{
-			UpdateMetadataPayload: payload,
-			Signature:             signature,
-		}
-
 		t.Logf("📝 Updating metadata: %s", newName)
-		result, err := suite.Client.UpdateTokenMetadata(ctx, request)
+		result, err := suite.Client.Tokens().UpdateMetadata(ctx, payload, suite.MasterAccount.Signer)
 		if err != nil {
 			t.Fatalf("Failed to update metadata: %v", err)
 		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		if !receipt.Success {
 			t.Fatal("Update metadata transaction failed")
 		}
 
-		// Verify metadata was updated
-		metadata, err := suite.Client.GetTokenMetadata(ctx, tokenAddr.Hex())
+		metadata, err := suite.Client.Tokens().Metadata(ctx, tokenAddr)
 		if err != nil {
 			t.Fatalf("Failed to get token metadata: %v", err)
 		}
-
 		if metadata.Meta.Name != newName {
 			t.Errorf("Expected name %s, got %s", newName, metadata.Meta.Name)
 		}
@@ -1104,63 +853,9 @@ func TestBusinessFlow_BridgeMintAndBurnBridge(t *testing.T) {
 	suite := setupBusinessFlowTest(t)
 	ctx := context.Background()
 
-	// Issue a token for bridge tests.
-	suite.refreshCheckpoint()
-	symbol := fmt.Sprintf("BRG%d", time.Now().Unix()%100000)
-
-	issuePayload := TokenIssuePayload{
-		ChainID:         suite.ChainID,
-		Nonce:           suite.getNonce(suite.OperatorAccount.Address),
-		Symbol:          symbol,
-		Name:            "Bridge Test Token",
-		Decimals:        6,
-		MasterAuthority: suite.MasterAccount.Address,
-		IsPrivate:       false,
-		ClawbackEnabled: false,
-	}
-
-	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
-	issueReq := &IssueTokenRequest{
-		TokenIssuePayload: issuePayload,
-		Signature:         issueSignature,
-	}
-
-	t.Logf("📝 Issuing token for bridge tests: %s", symbol)
-	issueResult, err := suite.Client.IssueToken(ctx, issueReq)
-	if !assert.NoError(t, err, "issue token for bridge tests") {
-		return
-	}
-	suite.assertRequestHashMatches(t, issueReq, issueResult.Hash)
-	issueReceipt := suite.waitForTransaction(issueResult.Hash, 60*time.Second)
-	assert.True(t, issueReceipt.Success, "token issue should succeed")
-	suite.assertReceiptBasics(t, issueReceipt, issueResult.Hash, suite.OperatorAccount.Address)
-	tokenAddr := common.HexToAddress(issueResult.Token)
-
-	// Grant bridge authority to a bridge account.
-	suite.refreshCheckpoint()
+	tokenAddr := suite.issueTokenForTest(t, ctx, "BRG", "Bridge Test Token", false, false)
 	bridgeAccount := suite.generateOrGetAccount("")
-	grantPayload := TokenAuthorityPayload{
-		ChainID:          suite.ChainID,
-		Nonce:            suite.getNonce(suite.MasterAccount.Address),
-		Action:           AuthorityActionGrant,
-		AuthorityType:    AuthorityTypeBridge,
-		AuthorityAddress: bridgeAccount.Address,
-		Token:            tokenAddr,
-		Value:            big.NewInt(0),
-	}
-	grantSignature := suite.signMessage(grantPayload, suite.MasterAccount.PrivateKey)
-	grantReq := &TokenAuthorityRequest{
-		TokenAuthorityPayload: grantPayload,
-		Signature:             grantSignature,
-	}
-	t.Logf("🔐 Granting bridge authority to %s", bridgeAccount.Address.Hex())
-	grantResult, err := suite.Client.GrantTokenAuthority(ctx, grantReq)
-	if !assert.NoError(t, err, "grant bridge authority") {
-		return
-	}
-	suite.assertRequestHashMatches(t, grantReq, grantResult.Hash)
-	grantReceipt := suite.waitForTransaction(grantResult.Hash, 60*time.Second)
-	assert.True(t, grantReceipt.Success, "grant bridge authority should succeed")
+	suite.grantAuthority(t, ctx, AuthorityTypeBridge, bridgeAccount.Address, tokenAddr, big.NewInt(0))
 
 	t.Run("1. Bridge And Mint Tokens", func(t *testing.T) {
 		suite.refreshCheckpoint()
@@ -1177,18 +872,11 @@ func TestBusinessFlow_BridgeMintAndBurnBridge(t *testing.T) {
 			BridgeMetadata: "bridge-and-mint",
 		}
 
-		signature := suite.signMessage(payload, bridgeAccount.PrivateKey)
-		request := &BridgeAndMintTokenRequest{
-			TokenBridgeAndMintPayload: payload,
-			Signature:                 signature,
-		}
-
 		t.Logf("🌉 Bridging and minting %s tokens to %s", mintAmount.String(), suite.Account1.Address.Hex())
-		result, err := suite.Client.BridgeAndMintToken(ctx, request)
+		result, err := suite.Client.Tokens().BridgeAndMint(ctx, payload, bridgeAccount.Signer)
 		if !assert.NoError(t, err, "bridge and mint token") {
 			return
 		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		assert.True(t, receipt.Success, "bridge and mint transaction should succeed")
@@ -1236,19 +924,12 @@ func TestBusinessFlow_BridgeMintAndBurnBridge(t *testing.T) {
 			BridgeParam:        HexBytes{0xde, 0xad, 0xbe, 0xef},
 		}
 
-		signature := suite.signMessage(payload, suite.Account1.PrivateKey)
-		request := &BurnAndBridgeTokenRequest{
-			TokenBurnAndBridgePayload: payload,
-			Signature:                 signature,
-		}
-
 		balanceBefore := suite.getTokenBalance(suite.Account1.Address, tokenAddr)
 		t.Logf("🔥 Burning and bridging %s tokens from %s", burnAmount.String(), suite.Account1.Address.Hex())
-		result, err := suite.Client.BurnAndBridgeToken(ctx, request)
+		result, err := suite.Client.Tokens().BurnAndBridge(ctx, payload, suite.Account1.Signer)
 		if !assert.NoError(t, err, "burn and bridge token") {
 			return
 		}
-		suite.assertRequestHashMatches(t, request, result.Hash)
 
 		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 		assert.True(t, receipt.Success, "burn and bridge transaction should succeed")
@@ -1287,6 +968,10 @@ func TestBusinessFlow_BridgeMintAndBurnBridge(t *testing.T) {
 	t.Log("\n🎉 Bridge and burn bridge tests passed!")
 }
 
+// ============================================================================
+// Test: Checkpoint Endpoints (reads)
+// ============================================================================
+
 func TestBusinessFlow_CheckpointEndpoints(t *testing.T) {
 	suite := setupBusinessFlowTest(t)
 	ctx := context.Background()
@@ -1322,22 +1007,16 @@ func TestBusinessFlow_CheckpointEndpoints(t *testing.T) {
 		assert.NotNil(t, fullByHash.Transactions.Full, "expected full transactions by hash")
 	}
 
-	// Test GetCheckpointReceiptsByNumber and compare with full transactions
 	receipts, err := suite.Client.GetCheckpointReceiptsByNumber(ctx, numberResp.Number)
 	if !assert.NoError(t, err) {
 		return
 	}
 	assert.NotNil(t, receipts, "expected receipts to be returned")
 
-	// Compare receipts with full transactions from checkpoint
 	if fullByNumber.Transactions.Full != nil {
 		assert.Equal(t, len(fullByNumber.Transactions.Full), len(receipts), "receipts count should match transactions count")
-
-		// Compare each transaction with its corresponding receipt by index
 		for i, tx := range fullByNumber.Transactions.Full {
 			receipt := &receipts[i]
-
-			// Verify receipt fields match transaction fields at the same index
 			assert.Equal(t, tx.Hash, receipt.TransactionHash, "transaction hash mismatch at index %d", i)
 			assert.Equal(t, tx.From, receipt.From, "from address mismatch at index %d for tx %s", i, tx.Hash)
 			assert.Equal(t, tx.CheckpointNumber, receipt.CheckpointNumber, "checkpoint number mismatch at index %d for tx %s", i, tx.Hash)
@@ -1345,94 +1024,53 @@ func TestBusinessFlow_CheckpointEndpoints(t *testing.T) {
 			assert.Equal(t, tx.TransactionIndex, receipt.TransactionIndex, "transaction index mismatch at index %d for tx %s", i, tx.Hash)
 			assert.NotEmpty(t, receipt.FeeUsed, "fee used should be populated at index %d for tx %s", i, tx.Hash)
 		}
-
 		t.Logf("✅ GetCheckpointReceiptsByNumber verified: %d receipts match %d transactions in order", len(receipts), len(fullByNumber.Transactions.Full))
 	}
 }
+
+// mintTo issues no token; it grants mint authority to a fresh minter and mints
+// `amount` of `token` to `recipient`, returning the minter account. Shared by
+// the account/fee/batch tests that need pre-funded balances.
+func (s *BusinessFlowTestSuite) mintTo(t *testing.T, ctx context.Context, token, recipient common.Address, amount *big.Int) *TestAccount {
+	t.Helper()
+	minter := s.generateOrGetAccount("")
+	s.grantAuthority(t, ctx, AuthorityTypeMintBurnTokens, minter.Address, token, new(big.Int).Mul(amount, big.NewInt(10)))
+
+	s.refreshCheckpoint()
+	payload := TokenMintPayload{
+		ChainID:   s.ChainID,
+		Nonce:     s.getNonce(minter.Address),
+		Recipient: recipient,
+		Value:     amount,
+		Token:     token,
+	}
+	result, err := s.Client.Tokens().Mint(ctx, payload, minter.Signer)
+	if err != nil {
+		t.Fatalf("Failed to mint token: %v", err)
+	}
+	receipt := s.waitForTransaction(result.Hash, 60*time.Second)
+	if !receipt.Success {
+		t.Fatal("Mint token transaction failed")
+	}
+	t.Logf("💰 Minted %s of %s to %s", amount.String(), token.Hex(), recipient.Hex())
+	return minter
+}
+
+// ============================================================================
+// Test: Account Endpoints
+// ============================================================================
 
 func TestBusinessFlow_AccountEndpoints(t *testing.T) {
 	suite := setupBusinessFlowTest(t)
 	ctx := context.Background()
 	assert := assert.New(t)
 
-	// Issue a new token to exercise account endpoints.
-	suite.refreshCheckpoint()
-	symbol := fmt.Sprintf("ACCT%d", time.Now().Unix()%100000)
-	issuePayload := TokenIssuePayload{
-		ChainID:         suite.ChainID,
-		Nonce:           suite.getNonce(suite.OperatorAccount.Address),
-		Symbol:          symbol,
-		Name:            "Account Test Token",
-		Decimals:        6,
-		MasterAuthority: suite.MasterAccount.Address,
-		IsPrivate:       false,
-		ClawbackEnabled: false,
-	}
-	issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
-	issueReq := &IssueTokenRequest{
-		TokenIssuePayload: issuePayload,
-		Signature:         issueSignature,
-	}
-	issueResult, err := suite.Client.IssueToken(ctx, issueReq)
-	if !assert.NoError(err, "issue token for account tests") {
-		return
-	}
-	suite.assertRequestHashMatches(t, issueReq, issueResult.Hash)
-	issueReceipt := suite.waitForTransaction(issueResult.Hash, 60*time.Second)
-	assert.True(issueReceipt.Success, "token issue transaction should succeed")
-	suite.assertReceiptBasics(t, issueReceipt, issueResult.Hash, suite.OperatorAccount.Address)
-	tokenAddr := common.HexToAddress(issueResult.Token)
-
-	// Grant mint authority.
-	suite.refreshCheckpoint()
-	minterAccount := suite.generateOrGetAccount("")
-	grantPayload := TokenAuthorityPayload{
-		ChainID:          suite.ChainID,
-		Nonce:            suite.getNonce(suite.MasterAccount.Address),
-		Action:           AuthorityActionGrant,
-		AuthorityType:    AuthorityTypeMintBurnTokens,
-		AuthorityAddress: minterAccount.Address,
-		Token:            tokenAddr,
-		Value:            big.NewInt(500000),
-	}
-	grantSignature := suite.signMessage(grantPayload, suite.MasterAccount.PrivateKey)
-	grantReq := &TokenAuthorityRequest{
-		TokenAuthorityPayload: grantPayload,
-		Signature:             grantSignature,
-	}
-	grantResult, err := suite.Client.GrantTokenAuthority(ctx, grantReq)
-	if !assert.NoError(err, "grant authority for account tests") {
-		return
-	}
-	suite.assertRequestHashMatches(t, grantReq, grantResult.Hash)
-	grantReceipt := suite.waitForTransaction(grantResult.Hash, 60*time.Second)
-	assert.True(grantReceipt.Success, "grant authority transaction should succeed")
-
-	// Mint tokens to Account1 to backfill token account data.
-	suite.refreshCheckpoint()
+	tokenAddr := suite.issueTokenForTest(t, ctx, "ACCT", "Account Test Token", false, false)
 	mintAmount := big.NewInt(500000)
-	mintPayload := TokenMintPayload{
-		ChainID:   suite.ChainID,
-		Nonce:     suite.getNonce(minterAccount.Address),
-		Recipient: suite.Account1.Address,
-		Value:     mintAmount,
-		Token:     tokenAddr,
-	}
-	mintSignature := suite.signMessage(mintPayload, minterAccount.PrivateKey)
-	mintReq := &MintTokenRequest{
-		TokenMintPayload: mintPayload,
-		Signature:        mintSignature,
-	}
-	mintResult, err := suite.Client.MintToken(ctx, mintReq)
-	if !assert.NoError(err, "mint token for account tests") {
-		return
-	}
-	suite.assertRequestHashMatches(t, mintReq, mintResult.Hash)
-	mintReceipt := suite.waitForTransaction(mintResult.Hash, 60*time.Second)
-	assert.True(mintReceipt.Success, "mint transaction should succeed")
+	minter := suite.mintTo(t, ctx, tokenAddr, suite.Account1.Address, mintAmount)
 
 	// Validate account nonce increments.
-	newNonceResp, err := suite.Client.GetAccountNonce(ctx, minterAccount.Address)
+	newNonceResp, err := suite.Client.GetAccountNonce(ctx, minter.Address)
 	if assert.NoError(err) {
 		assert.GreaterOrEqual(newNonceResp.Nonce, uint64(1), "expected minter nonce to increase")
 	}
@@ -1453,202 +1091,305 @@ func TestBusinessFlow_EstimateFee(t *testing.T) {
 	ctx := context.Background()
 	assert := assert.New(t)
 
+	assertValidFee := func(fee string, context string) {
+		assert.NotEmpty(fee, "fee should not be empty for %s", context)
+		feeBigInt := new(big.Int)
+		_, ok := feeBigInt.SetString(fee, 10)
+		assert.True(ok, "fee should be a valid number for %s", context)
+		assert.GreaterOrEqual(feeBigInt.Cmp(big.NewInt(0)), 0, "fee should be positive or zero for %s", context)
+	}
+
 	t.Run("1. Estimate Zero Address Token Fee", func(t *testing.T) {
-		// Zero Address
 		zeroAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
-		transferValue := "1000000" // 1 token with 6 decimals
-
-		t.Logf("💵 Estimating fee for native token transfer")
-		t.Logf("   - From: %s", suite.Account1.Address.Hex())
-		t.Logf("   - To: %s", suite.Account2.Address.Hex())
-		t.Logf("   - Token: %s (native)", zeroAddress.Hex())
-		t.Logf("   - Value: %s", transferValue)
-
-		feeResp, err := suite.Client.GetEstimateFee(ctx,
-			suite.Account1.Address,
-			suite.Account2.Address,
-			zeroAddress,
-			transferValue)
-
+		feeResp, err := suite.Client.GetEstimateFee(ctx, suite.Account1.Address, suite.Account2.Address, zeroAddress, "1000000")
 		if !assert.NoError(err, "should estimate native token fee") {
 			return
 		}
-
-		// Verify fee response
-		assert.NotEmpty(feeResp.Fee, "fee should not be empty")
-
-		// Verify fee is a valid number
-		feeBigInt := new(big.Int)
-		_, ok := feeBigInt.SetString(feeResp.Fee, 10)
-		assert.True(ok, "fee should be a valid number")
-
-		// Fee should be positive
-		assert.GreaterOrEqual(feeBigInt.Cmp(big.NewInt(0)), 0, "fee should be positive or zero")
-
+		assertValidFee(feeResp.Fee, "native token")
 		t.Logf("✅ Native token fee estimated: %s", feeResp.Fee)
 	})
 
 	t.Run("2. Estimate Custom Token Fee", func(t *testing.T) {
-		// Issue a custom token first
-		suite.refreshCheckpoint()
-		symbol := fmt.Sprintf("FEE%d", time.Now().Unix()%100000)
+		tokenAddr := suite.issueTokenForTest(t, ctx, "FEE", "Fee Test Token", false, false)
+		suite.mintTo(t, ctx, tokenAddr, suite.Account1.Address, big.NewInt(100000000))
 
-		issuePayload := TokenIssuePayload{
-			ChainID:         suite.ChainID,
-			Nonce:           suite.getNonce(suite.OperatorAccount.Address),
-			Symbol:          symbol,
-			Name:            "Fee Test Token",
-			Decimals:        6,
-			MasterAuthority: suite.MasterAccount.Address,
-			IsPrivate:       false,
-			ClawbackEnabled: false,
-		}
-
-		issueSignature := suite.signMessage(issuePayload, suite.OperatorAccount.PrivateKey)
-		issueReq := &IssueTokenRequest{
-			TokenIssuePayload: issuePayload,
-			Signature:         issueSignature,
-		}
-
-		t.Logf("📝 Issuing token for fee estimation test: %s", symbol)
-		issueResult, err := suite.Client.IssueToken(ctx, issueReq)
-		if !assert.NoError(err, "should issue token") {
-			return
-		}
-		suite.assertRequestHashMatches(t, issueReq, issueResult.Hash)
-
-		issueReceipt := suite.waitForTransaction(issueResult.Hash, 60*time.Second)
-		assert.True(issueReceipt.Success, "token issue should succeed")
-		tokenAddr := common.HexToAddress(issueResult.Token)
-		t.Logf("✅ Token issued: %s", tokenAddr.Hex())
-
-		// Grant mint authority to a minter account
-		suite.refreshCheckpoint()
-		minterAccount := suite.generateOrGetAccount("")
-
-		grantPayload := TokenAuthorityPayload{
-			ChainID:          suite.ChainID,
-			Nonce:            suite.getNonce(suite.MasterAccount.Address),
-			Action:           AuthorityActionGrant,
-			AuthorityType:    AuthorityTypeMintBurnTokens,
-			AuthorityAddress: minterAccount.Address,
-			Token:            tokenAddr,
-			Value:            big.NewInt(1000000000000),
-		}
-
-		grantSignature := suite.signMessage(grantPayload, suite.MasterAccount.PrivateKey)
-		grantReq := &TokenAuthorityRequest{
-			TokenAuthorityPayload: grantPayload,
-			Signature:             grantSignature,
-		}
-
-		t.Logf("🔐 Granting mint authority to minter")
-		grantResult, err := suite.Client.GrantTokenAuthority(ctx, grantReq)
-		if !assert.NoError(err, "should grant mint authority") {
-			return
-		}
-		suite.assertRequestHashMatches(t, grantReq, grantResult.Hash)
-
-		grantReceipt := suite.waitForTransaction(grantResult.Hash, 60*time.Second)
-		assert.True(grantReceipt.Success, "grant authority should succeed")
-
-		// Mint tokens to Account1
-		suite.refreshCheckpoint()
-		mintAmount := big.NewInt(100000000) // 100 tokens
-
-		mintPayload := TokenMintPayload{
-			ChainID:   suite.ChainID,
-			Nonce:     suite.getNonce(minterAccount.Address),
-			Recipient: suite.Account1.Address,
-			Value:     mintAmount,
-			Token:     tokenAddr,
-		}
-
-		mintSignature := suite.signMessage(mintPayload, minterAccount.PrivateKey)
-		mintReq := &MintTokenRequest{
-			TokenMintPayload: mintPayload,
-			Signature:        mintSignature,
-		}
-
-		t.Logf("💰 Minting tokens to Account1 for fee estimation")
-		mintResult, err := suite.Client.MintToken(ctx, mintReq)
-		if !assert.NoError(err, "should mint tokens") {
-			return
-		}
-		suite.assertRequestHashMatches(t, mintReq, mintResult.Hash)
-
-		mintReceipt := suite.waitForTransaction(mintResult.Hash, 60*time.Second)
-		assert.True(mintReceipt.Success, "mint should succeed")
-
-		// Now estimate fee for custom token transfer
-		transferValue := "50000000" // 50 tokens
-
-		t.Logf("💵 Estimating fee for custom token transfer")
-		t.Logf("   - From: %s", suite.Account1.Address.Hex())
-		t.Logf("   - To: %s", suite.Account2.Address.Hex())
-		t.Logf("   - Token: %s", tokenAddr.Hex())
-		t.Logf("   - Value: %s", transferValue)
-
-		feeResp, err := suite.Client.GetEstimateFee(ctx,
-			suite.Account1.Address,
-			suite.Account2.Address,
-			tokenAddr,
-			transferValue)
-
+		feeResp, err := suite.Client.GetEstimateFee(ctx, suite.Account1.Address, suite.Account2.Address, tokenAddr, "50000000")
 		if !assert.NoError(err, "should estimate custom token fee") {
 			return
 		}
-
-		// Verify fee response
-		assert.NotEmpty(feeResp.Fee, "fee should not be empty")
-
-		// Verify fee is a valid number
-		feeBigInt := new(big.Int)
-		_, ok := feeBigInt.SetString(feeResp.Fee, 10)
-		assert.True(ok, "fee should be a valid number")
-
-		// Fee should be positive
-		assert.GreaterOrEqual(feeBigInt.Cmp(big.NewInt(0)), 0, "fee should be positive or zero")
-
+		assertValidFee(feeResp.Fee, "custom token")
 		t.Logf("✅ Custom token fee estimated: %s", feeResp.Fee)
 	})
 
 	t.Run("3. Estimate Fees for Different Amounts", func(t *testing.T) {
-		// Test that fee estimation works for various amounts
 		nativeToken := common.HexToAddress("0x0000000000000000000000000000000000000000")
-		amounts := []string{
-			"1",          // Minimal amount
-			"1000",       // Small amount
-			"1000000",    // Medium amount
-			"1000000000", // Large amount
-		}
-
-		for _, amount := range amounts {
-			t.Logf("💵 Estimating fee for amount: %s", amount)
-
-			feeResp, err := suite.Client.GetEstimateFee(ctx,
-				suite.Account1.Address,
-				suite.Account2.Address,
-				nativeToken,
-				amount)
-
+		for _, amount := range []string{"1", "1000", "1000000", "1000000000"} {
+			feeResp, err := suite.Client.GetEstimateFee(ctx, suite.Account1.Address, suite.Account2.Address, nativeToken, amount)
 			if !assert.NoError(err, "should estimate fee for amount %s", amount) {
 				continue
 			}
-
-			assert.NotEmpty(feeResp.Fee, "fee should not be empty for amount %s", amount)
-
-			// Parse and validate fee
-			feeBigInt := new(big.Int)
-			_, ok := feeBigInt.SetString(feeResp.Fee, 10)
-			assert.True(ok, "fee should be valid number for amount %s", amount)
-			assert.GreaterOrEqual(feeBigInt.Cmp(big.NewInt(0)), 0, "fee should be positive or zero for amount %s", amount)
-
+			assertValidFee(feeResp.Fee, "amount "+amount)
 			t.Logf("   - Amount: %s → Fee: %s", amount, feeResp.Fee)
 		}
-
-		t.Logf("✅ All amount variations estimated successfully")
 	})
 
 	t.Log("\n🎉 Fee estimation test passed!")
+}
+
+// ============================================================================
+// Test: Batch Payment
+// ============================================================================
+
+func TestBusinessFlow_BatchPayment(t *testing.T) {
+	suite := setupBusinessFlowTest(t)
+	ctx := context.Background()
+
+	tokenAddr := suite.issueTokenForTest(t, ctx, "BATCH", "Batch Payment Token", false, false)
+	suite.mintTo(t, ctx, tokenAddr, suite.Account1.Address, big.NewInt(100000000)) // 100 tokens to sender
+
+	recipient3 := suite.generateOrGetAccount("")
+	amount2 := big.NewInt(10000000) // 10 tokens
+	amount3 := big.NewInt(20000000) // 20 tokens
+
+	suite.refreshCheckpoint()
+	payload := BatchPaymentPayload{
+		ChainID: suite.ChainID,
+		Nonce:   suite.getNonce(suite.Account1.Address),
+		Token:   tokenAddr,
+		Operations: []PaymentOperation{
+			{Recipient: suite.Account2.Address, Amount: amount2},
+			{Recipient: recipient3.Address, Amount: amount3},
+		},
+		MaxFee:    big.NewInt(100000000),
+		CreatedAt: uint64(time.Now().Unix()),
+	}
+
+	t.Logf("📦 Batch paying %d recipients from %s", len(payload.Operations), suite.Account1.Address.Hex())
+	result, err := suite.Client.Transactions().BatchPayment(ctx, payload, suite.Account1.Signer)
+	if err != nil {
+		t.Fatalf("Failed to submit batch payment: %v", err)
+	}
+
+	receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
+	if !receipt.Success {
+		t.Fatal("Batch payment transaction failed")
+	}
+	suite.assertReceiptBasics(t, receipt, result.Hash, suite.Account1.Address)
+
+	tx := suite.fetchTransaction(t, result.Hash)
+	assert.Equal(t, TransactionTypeBatchPayment, tx.TransactionType, "unexpected transaction type")
+	if data, ok := tx.AsBatchPaymentData(); ok {
+		assert.Len(t, data.Operations, 2, "expected 2 batch operations")
+	}
+
+	assert.Equal(t, amount2.String(), suite.getTokenBalance(suite.Account2.Address, tokenAddr), "recipient2 balance mismatch")
+	assert.Equal(t, amount3.String(), suite.getTokenBalance(recipient3.Address, tokenAddr), "recipient3 balance mismatch")
+
+	t.Log("\n🎉 Batch payment test passed!")
+}
+
+// ============================================================================
+// Test: Clawback (requires a clawback-enabled token)
+// ============================================================================
+
+func TestBusinessFlow_Clawback(t *testing.T) {
+	suite := setupBusinessFlowTest(t)
+	ctx := context.Background()
+
+	tokenAddr := suite.issueTokenForTest(t, ctx, "CLAW", "Clawback Test Token", false, true)
+	suite.grantAuthority(t, ctx, AuthorityTypeClawback, suite.MasterAccount.Address, tokenAddr, big.NewInt(0))
+	suite.grantAuthority(t, ctx, AuthorityTypeManageList, suite.MasterAccount.Address, tokenAddr, big.NewInt(0))
+	suite.mintTo(t, ctx, tokenAddr, suite.Account1.Address, big.NewInt(100000000))
+
+	// Clawback only reclaims from a FROZEN source. For a public token, an account
+	// is frozen by being on the blacklist (l1client TokenState::is_frozen_via_list).
+	suite.refreshCheckpoint()
+	freezePayload := TokenManageListPayload{
+		ChainID: suite.ChainID,
+		Nonce:   suite.getNonce(suite.MasterAccount.Address),
+		Action:  ManageListActionAdd,
+		Address: suite.Account1.Address,
+		Token:   tokenAddr,
+	}
+	freezeResult, err := suite.Client.Tokens().ManageBlacklist(ctx, freezePayload, suite.MasterAccount.Signer)
+	if err != nil {
+		t.Fatalf("Failed to freeze (blacklist) source account: %v", err)
+	}
+	if r := suite.waitForTransaction(freezeResult.Hash, 60*time.Second); !r.Success {
+		t.Fatal("Freeze (blacklist) transaction failed")
+	}
+	t.Logf("🧊 Froze source account %s via blacklist", suite.Account1.Address.Hex())
+
+	clawAmount := big.NewInt(30000000)
+	balBefore := suite.getTokenBalance(suite.Account1.Address, tokenAddr)
+
+	suite.refreshCheckpoint()
+	payload := TokenClawbackPayload{
+		ChainID:   suite.ChainID,
+		Nonce:     suite.getNonce(suite.MasterAccount.Address),
+		Token:     tokenAddr,
+		From:      suite.Account1.Address,
+		Recipient: suite.Account2.Address,
+		Value:     clawAmount,
+	}
+
+	t.Logf("♻️  Clawing back %s from %s to %s", clawAmount.String(), suite.Account1.Address.Hex(), suite.Account2.Address.Hex())
+	result, err := suite.Client.Tokens().Clawback(ctx, payload, suite.MasterAccount.Signer)
+	if err != nil {
+		t.Fatalf("Failed to clawback: %v", err)
+	}
+
+	receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
+	if !receipt.Success {
+		t.Fatal("Clawback transaction failed")
+	}
+	suite.assertReceiptBasics(t, receipt, result.Hash, suite.MasterAccount.Address)
+
+	tx := suite.fetchTransaction(t, result.Hash)
+	assert.Equal(t, TransactionTypeTokenClawback, tx.TransactionType, "unexpected transaction type")
+	if data, ok := tx.AsTokenClawbackData(); ok {
+		assert.Equal(t, suite.Account1.Address, data.From, "clawback from mismatch")
+		assert.Equal(t, suite.Account2.Address, data.Recipient, "clawback recipient mismatch")
+		assert.Equal(t, tokenAddr, data.Token, "clawback token mismatch")
+	}
+
+	fromBefore := new(big.Int)
+	fromBefore.SetString(balBefore, 10)
+	assert.Equal(t, new(big.Int).Sub(fromBefore, clawAmount).String(), suite.getTokenBalance(suite.Account1.Address, tokenAddr), "clawback from balance mismatch")
+	assert.Equal(t, clawAmount.String(), suite.getTokenBalance(suite.Account2.Address, tokenAddr), "clawback recipient balance mismatch")
+
+	t.Log("\n🎉 Clawback test passed!")
+}
+
+// ============================================================================
+// Test: Blacklist Management (public token)
+// ============================================================================
+
+func TestBusinessFlow_BlacklistManagement(t *testing.T) {
+	suite := setupBusinessFlowTest(t)
+	ctx := context.Background()
+
+	tokenAddr := suite.issueTokenForTest(t, ctx, "BLACK", "Blacklist Test Token", false, false)
+	suite.grantAuthority(t, ctx, AuthorityTypeManageList, suite.MasterAccount.Address, tokenAddr, big.NewInt(0))
+
+	t.Run("1. Add Address to Blacklist", func(t *testing.T) {
+		suite.refreshCheckpoint()
+		payload := TokenManageListPayload{
+			ChainID: suite.ChainID,
+			Nonce:   suite.getNonce(suite.MasterAccount.Address),
+			Action:  ManageListActionAdd,
+			Address: suite.Account1.Address,
+			Token:   tokenAddr,
+		}
+		t.Logf("🚫 Adding %s to blacklist", suite.Account1.Address.Hex())
+		result, err := suite.Client.Tokens().ManageBlacklist(ctx, payload, suite.MasterAccount.Signer)
+		if err != nil {
+			t.Fatalf("Failed to add to blacklist: %v", err)
+		}
+		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
+		if !receipt.Success {
+			t.Fatal("Add to blacklist transaction failed")
+		}
+		metadata, err := suite.Client.Tokens().Metadata(ctx, tokenAddr)
+		if err != nil {
+			t.Fatalf("Failed to get token metadata: %v", err)
+		}
+		found := false
+		for _, addr := range metadata.BlackList {
+			if common.HexToAddress(addr) == suite.Account1.Address {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Address not found in blacklist")
+		}
+		t.Log("✅ Address added to blacklist")
+	})
+
+	t.Run("2. Remove Address from Blacklist", func(t *testing.T) {
+		suite.refreshCheckpoint()
+		payload := TokenManageListPayload{
+			ChainID: suite.ChainID,
+			Nonce:   suite.getNonce(suite.MasterAccount.Address),
+			Action:  ManageListActionRemove,
+			Address: suite.Account1.Address,
+			Token:   tokenAddr,
+		}
+		t.Logf("♻️  Removing %s from blacklist", suite.Account1.Address.Hex())
+		result, err := suite.Client.Tokens().ManageBlacklist(ctx, payload, suite.MasterAccount.Signer)
+		if err != nil {
+			t.Fatalf("Failed to remove from blacklist: %v", err)
+		}
+		receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
+		if !receipt.Success {
+			t.Fatal("Remove from blacklist transaction failed")
+		}
+		metadata, err := suite.Client.Tokens().Metadata(ctx, tokenAddr)
+		if err != nil {
+			t.Fatalf("Failed to get token metadata: %v", err)
+		}
+		for _, addr := range metadata.BlackList {
+			if common.HexToAddress(addr) == suite.Account1.Address {
+				t.Error("Address still in blacklist after removal")
+			}
+		}
+		t.Log("✅ Address removed from blacklist")
+	})
+
+	t.Log("\n🎉 Blacklist management test passed!")
+}
+
+// ============================================================================
+// Test: Create Multisig Account
+// ============================================================================
+
+func TestBusinessFlow_CreateMultisig(t *testing.T) {
+	suite := setupBusinessFlowTest(t)
+	ctx := context.Background()
+
+	suite.refreshCheckpoint()
+	signers := []MultiSigSigner{
+		{PublicKey: HexBytes(suite.Account1.Signer.CompressedPublicKey()), Weight: 1},
+		{PublicKey: HexBytes(suite.Account2.Signer.CompressedPublicKey()), Weight: 1},
+	}
+	threshold := uint16(2)
+
+	// The SDK derives the account address deterministically; it must match the
+	// address the node assigns.
+	wantAddr, err := DeriveMultisigAddress(signers, threshold)
+	if err != nil {
+		t.Fatalf("Failed to derive multisig address: %v", err)
+	}
+
+	payload := CreateMultiSigPayload{
+		ChainID:   suite.ChainID,
+		Nonce:     suite.getNonce(suite.OperatorAccount.Address),
+		Signers:   signers,
+		Threshold: threshold,
+	}
+
+	t.Logf("👥 Creating multisig account (threshold %d of %d signers)", threshold, len(signers))
+	result, err := suite.Client.Accounts().CreateMultisig(ctx, payload, suite.OperatorAccount.Signer)
+	if err != nil {
+		t.Fatalf("Failed to create multisig account: %v", err)
+	}
+	assert.Equal(t, wantAddr, result.Account, "multisig account address should match local derivation")
+
+	receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
+	if !receipt.Success {
+		t.Fatal("Create multisig transaction failed")
+	}
+	suite.assertReceiptBasics(t, receipt, result.Hash, suite.OperatorAccount.Address)
+
+	tx := suite.fetchTransaction(t, result.Hash)
+	assert.Equal(t, TransactionTypeCreateMultiSig, tx.TransactionType, "unexpected transaction type")
+	if data, ok := tx.AsCreateMultiSigData(); ok {
+		assert.Equal(t, threshold, data.Threshold, "multisig threshold mismatch")
+		assert.Len(t, data.Signers, len(signers), "multisig signer count mismatch")
+		assert.Equal(t, wantAddr, data.MultisigAddress, "multisig derived address mismatch")
+	}
+
+	t.Logf("✅ Multisig account created: %s", result.Account.Hex())
+	t.Log("\n🎉 Create multisig test passed!")
 }
