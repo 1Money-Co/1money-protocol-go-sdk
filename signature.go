@@ -9,6 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+type Signature struct {
+	R string `json:"r"`
+	S string `json:"s"`
+	V uint64 `json:"v"`
+}
+
 // Signer abstracts transaction signing so the SDK never handles a raw private
 // key directly in its high-level API. PrivateKeySigner is the built-in
 // implementation; a KMS/HSM/MPC-backed signer can implement the same interface
@@ -68,17 +74,4 @@ func (s *privateKeySigner) CompressedPublicKey() []byte {
 
 func (s *privateKeySigner) Address() common.Address {
 	return crypto.PubkeyToAddress(s.key.PublicKey)
-}
-
-// PrivateKeyToAddress returns the account address for a hex-encoded secp256k1
-// private key (with or without a 0x prefix), as a 0x-hex string.
-//
-// Deprecated: use NewPrivateKeySigner(hex).Address(), which returns a
-// common.Address directly. Kept for backward compatibility.
-func PrivateKeyToAddress(privateKeyHex string) (string, error) {
-	signer, err := NewPrivateKeySigner(privateKeyHex)
-	if err != nil {
-		return "", err
-	}
-	return signer.Address().Hex(), nil
 }

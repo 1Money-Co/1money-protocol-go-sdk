@@ -7,6 +7,13 @@ import (
 	"strings"
 )
 
+// This file holds cross-domain byte primitives and their JSON helpers. They are
+// not tied to any single domain (transactions, tokens, accounts), so they live
+// here rather than in a domain file.
+
+type B256 string
+type Bytes []byte
+
 // HexBytes marshals to/from 0x-prefixed hex strings in JSON while storing raw bytes.
 type HexBytes []byte
 
