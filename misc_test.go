@@ -1,9 +1,36 @@
 package onemoney
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
+
+func TestGetChainIdUsesChainsEndpoint(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(ChainIdResponse{ChainId: 1_212_101}); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClientWithCustomUrl(server.URL)
+	response, err := client.GetChainId(context.Background())
+	if err != nil {
+		t.Fatalf("GetChainId: %v", err)
+	}
+	if gotPath != "/v1/chains/chain_id" {
+		t.Errorf("request path = %q, want %q", gotPath, "/v1/chains/chain_id")
+	}
+	if response.ChainId != 1_212_101 {
+		t.Errorf("chain ID = %d, want %d", response.ChainId, 1_212_101)
+	}
+}
 
 func TestNativeWriteStatusResponseUnmarshal(t *testing.T) {
 	// Wire values are lowercase snake_case, exactly as the L1 node emits them

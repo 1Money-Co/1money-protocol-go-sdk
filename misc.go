@@ -10,12 +10,12 @@ import (
 )
 
 // This file holds small, peripheral network-metadata read APIs that do not
-// warrant their own domain files: chain identity (GET /v1/chain_id), the node's
-// native-write status (GET /api/status), and fee pricing plans
+// warrant their own domain files: chain identity (GET /v1/chains/chain_id), the
+// node's native-write status (GET /api/status), and fee pricing plans
 // (GET /v1/pricing/plans).
 
 // -----------------------------------------------------------------------------
-// Chain identity (GET /v1/chain_id)
+// Chain identity (GET /v1/chains/chain_id)
 // -----------------------------------------------------------------------------
 
 type ChainIdResponse struct {
@@ -24,7 +24,7 @@ type ChainIdResponse struct {
 
 func (client *Client) GetChainId(ctx context.Context) (*ChainIdResponse, error) {
 	result := new(ChainIdResponse)
-	return result, client.GetMethod(ctx, "/v1/chain_id", result)
+	return result, client.GetMethod(ctx, "/v1/chains/chain_id", result)
 }
 
 // -----------------------------------------------------------------------------
