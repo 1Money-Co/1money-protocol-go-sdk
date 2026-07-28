@@ -85,8 +85,9 @@ client := onemoney.NewClientWithOpts(onemoney.WithLegacyV1())
 ```
 
 The pre-v2 methods (`SendPayment`, `MintToken`, `SignMessage`, the `*Request`
-types, etc.) still work but are deprecated. See [CHANGELOG.md](./CHANGELOG.md)
-for the full migration guide.
+types, etc.) still work but are deprecated. See [MIGRATION.md](./MIGRATION.md)
+for the migration guide, including how the v2 signing hash is built and why, and
+[CHANGELOG.md](./CHANGELOG.md) for the full change list.
 
 ## Example
 

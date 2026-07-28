@@ -52,6 +52,12 @@ legacy v1 behavior, so upgrading requires no code changes.
 - **New payload/response types**: `BatchPaymentPayload` (+`PaymentOperation`),
   `TokenClawbackPayload`, `CreateMultiSigPayload` (+`MultiSigSigner`),
   `CreateMultisigResponse`.
+- **Transaction decoding for the new operations**: `Transaction` now decodes
+  `BatchPayment` / `TokenClawback` / `CreateMultiSig` transactions into
+  `BatchPaymentData`, `TokenClawbackData`, and `CreateMultiSigData` (+
+  `MultiSigSignerInfo`) via the `AsBatchPaymentData` / `AsTokenClawbackData` /
+  `AsCreateMultiSigData` accessors and the matching `TransactionType` constants.
+- **`Tokens().Metadata(common.Address)`** — the namespaced, typed token-metadata read.
 - **New endpoint coverage**: batch payment, token clawback, multisig account
   creation (`/v2/accounts/multisig`), and reads `GetPricingPlanByID`,
   `GetPricingPlans`, and `GetNativeWriteStatus` (GET /api/status — check a
@@ -89,6 +95,10 @@ legacy v1 behavior, so upgrading requires no code changes.
   canonical low-S (`s ≤ N/2`). A custom (KMS/HSM) signer that emits a high-S
   signature now fails fast with a clear error instead of a server-side rejection.
   The built-in private-key signer already produces low-S signatures.
+- The namespace methods fail fast on caller mistakes rather than proceeding
+  silently: a nil `Signer` returns an error (no panic), and an explicit
+  `WithMemo` on a path that carries no memo (legacy v1 mode, or a batch payment)
+  is rejected instead of being dropped.
 
 ### Upgrade
 
@@ -103,7 +113,8 @@ import onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
 ```
 
 Existing code keeps working as-is. To adopt the secure v2 path, move submissions
-to the namespace API:
+to the namespace API (see [MIGRATION.md](./MIGRATION.md) for the full guide,
+including how the v2 signing hash is built and why):
 
 ```go
 // Before (still works; deprecated):
