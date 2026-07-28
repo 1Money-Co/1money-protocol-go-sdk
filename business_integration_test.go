@@ -69,22 +69,22 @@ func setupBusinessFlowTest(t *testing.T) *BusinessFlowTestSuite {
 	}
 
 	// Create operator account (for issuing tokens)
-	operatorAddr, err := PrivateKeyToAddress(operatorPrivateKey)
+	operatorSigner, err := NewPrivateKeySigner(operatorPrivateKey)
 	assert.Nil(t, err, "Should get operator address")
 
 	// Create master account (for token management)
-	masterAddr, err := PrivateKeyToAddress(masterPrivateKey)
+	masterSigner, err := NewPrivateKeySigner(masterPrivateKey)
 	assert.Nil(t, err, "Should get master address")
 
 	suite := &BusinessFlowTestSuite{
 		Client: client,
 		OperatorAccount: &TestAccount{
 			PrivateKey: operatorPrivateKey,
-			Address:    common.HexToAddress(operatorAddr),
+			Address:    operatorSigner.Address(),
 		},
 		MasterAccount: &TestAccount{
 			PrivateKey: masterPrivateKey,
-			Address:    common.HexToAddress(masterAddr),
+			Address:    masterSigner.Address(),
 		},
 		t: t,
 	}
@@ -120,11 +120,11 @@ func setupBusinessFlowTest(t *testing.T) *BusinessFlowTestSuite {
 func (s *BusinessFlowTestSuite) generateOrGetAccount(envVar string) *TestAccount {
 	privateKeyHex := os.Getenv(envVar)
 	if privateKeyHex != "" {
-		addr, err := PrivateKeyToAddress(privateKeyHex)
+		signer, err := NewPrivateKeySigner(privateKeyHex)
 		assert.Nil(s.t, err, fmt.Sprintf("Should get address from: %s", envVar))
 		return &TestAccount{
 			PrivateKey: privateKeyHex,
-			Address:    common.HexToAddress(addr),
+			Address:    signer.Address(),
 		}
 	}
 

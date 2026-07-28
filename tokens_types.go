@@ -104,6 +104,16 @@ type TokenBurnPayload struct {
 	Token   common.Address `json:"token"`
 }
 
+// TokenClawbackPayload reclaims tokens from an account back to a recipient.
+type TokenClawbackPayload struct {
+	ChainID   uint64         `json:"chain_id"`
+	Nonce     uint64         `json:"nonce"`
+	Token     common.Address `json:"token"`
+	From      common.Address `json:"from"`
+	Recipient common.Address `json:"recipient"`
+	Value     *big.Int       `json:"value"`
+}
+
 type TokenBurnAndBridgePayload struct {
 	ChainID            uint64         `json:"chain_id"`
 	Nonce              uint64         `json:"nonce"`

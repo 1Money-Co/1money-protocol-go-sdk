@@ -36,10 +36,11 @@ const (
 )
 
 type Client struct {
-	baseHost   string
-	httpclient *http.Client
-	logger     Logger
-	hooks      []Hook // New field
+	baseHost       string
+	httpclient     *http.Client
+	logger         Logger
+	hooks          []Hook // New field
+	submissionMode SubmissionMode
 }
 
 func newClientInternal(baseHost string, options ...ClientOption) *Client {
@@ -125,14 +126,15 @@ func (client *Client) GetMethod(ctx context.Context, path string, result interfa
 		if client.logger != nil {
 			client.logger.Errorf("Failed to create request for GET %s: %v", fullURL, err)
 		}
-		// Call PostRequest hooks even if NewRequestWithContext fails (though resp is nil)
+		reqErr := fmt.Errorf("failed to create request: %w", err)
+		// Call PostRequest hooks even if NewRequestWithContext fails (resp is nil),
+		// passing the same error the caller receives.
 		if len(client.hooks) > 0 {
 			for _, hook := range client.hooks {
-				// Pass nil for responseBody as there's no response, and err for the error
-				hook.PostRequest(ctx, "GET", fullURL, 0, nil, err)
+				hook.PostRequest(ctx, "GET", fullURL, 0, nil, reqErr)
 			}
 		}
-		return fmt.Errorf("failed to create request: %w", err)
+		return reqErr
 	}
 
 	resp, err := client.httpclient.Do(req)
@@ -140,14 +142,15 @@ func (client *Client) GetMethod(ctx context.Context, path string, result interfa
 		if client.logger != nil {
 			client.logger.Errorf("API GET request to %s failed: %v", fullURL, err)
 		}
-		// Call PostRequest hooks if client.httpclient.Do fails
+		reqErr := fmt.Errorf("api get failed to request path: %s, err: %w", path, err)
+		// Call PostRequest hooks if client.httpclient.Do fails, passing the same
+		// error the caller receives.
 		if len(client.hooks) > 0 {
 			for _, hook := range client.hooks {
-				// Pass nil for responseBody as there's no response, and err for the error
-				hook.PostRequest(ctx, "GET", fullURL, 0, nil, err)
+				hook.PostRequest(ctx, "GET", fullURL, 0, nil, reqErr)
 			}
 		}
-		return fmt.Errorf("api get failed to request path: %s, err: %w", path, err)
+		return reqErr
 	}
 	return client.handleAPIResponse(ctx, "GET", fullURL, resp, result)
 }
@@ -168,14 +171,15 @@ func (client *Client) PostMethod(ctx context.Context, path string, body interfac
 		if client.logger != nil {
 			client.logger.Errorf("Failed to marshal request for POST %s: %v", fullURL, err)
 		}
-		// Call PostRequest hooks if json.Marshal fails
+		marshalErr := fmt.Errorf("failed to marshal request: %w", err)
+		// Call PostRequest hooks if json.Marshal fails, passing the same error
+		// the caller receives.
 		if len(client.hooks) > 0 {
 			for _, hook := range client.hooks {
-				// Pass data (which might be nil or partially formed) and err
-				hook.PostRequest(ctx, "POST", fullURL, 0, nil, err)
+				hook.PostRequest(ctx, "POST", fullURL, 0, nil, marshalErr)
 			}
 		}
-		return fmt.Errorf("failed to marshal request: %w", err)
+		return marshalErr
 	}
 
 	if len(client.hooks) > 0 {
@@ -189,13 +193,15 @@ func (client *Client) PostMethod(ctx context.Context, path string, body interfac
 		if client.logger != nil {
 			client.logger.Errorf("Failed to create request for POST %s: %v", fullURL, err)
 		}
-		// Call PostRequest hooks even if NewRequestWithContext fails
+		reqErr := fmt.Errorf("api post failed to request path: %s, err: %w", path, err)
+		// Call PostRequest hooks even if NewRequestWithContext fails, passing the
+		// same error the caller receives.
 		if len(client.hooks) > 0 {
 			for _, hook := range client.hooks {
-				hook.PostRequest(ctx, "POST", fullURL, 0, nil, err)
+				hook.PostRequest(ctx, "POST", fullURL, 0, nil, reqErr)
 			}
 		}
-		return fmt.Errorf("api post failed to request path: %s, err: %w", path, err)
+		return reqErr
 	}
 	req.Header.Set("Content-Type", "application/json")
 
@@ -204,13 +210,15 @@ func (client *Client) PostMethod(ctx context.Context, path string, body interfac
 		if client.logger != nil {
 			client.logger.Errorf("API POST request to %s failed: %v", fullURL, err)
 		}
-		// Call PostRequest hooks if client.httpclient.Do fails
+		reqErr := fmt.Errorf("failed to request path: %s, err: %w", path, err)
+		// Call PostRequest hooks if client.httpclient.Do fails, passing the same
+		// error the caller receives.
 		if len(client.hooks) > 0 {
 			for _, hook := range client.hooks {
-				hook.PostRequest(ctx, "POST", fullURL, 0, nil, err)
+				hook.PostRequest(ctx, "POST", fullURL, 0, nil, reqErr)
 			}
 		}
-		return fmt.Errorf("failed to request path: %s, err: %w", path, err)
+		return reqErr
 	}
 	return client.handleAPIResponse(ctx, "POST", fullURL, resp, result)
 }

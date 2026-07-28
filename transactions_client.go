@@ -51,8 +51,37 @@ func (client *Client) GetEstimateFee(ctx context.Context, from, to, token common
 	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpointTransactionsEstimateFeeV1, params.Encode()), result)
 }
 
-// SendPayment sends a payment transaction to the network.
+// SendPayment sends a pre-signed payment transaction to the network.
+//
+// Deprecated: use Transactions().Payment, which signs internally with a Signer
+// and defaults to domain-separated v2. SendPayment posts a legacy v1 request.
 func (client *Client) SendPayment(ctx context.Context, req *PaymentRequest) (*PaymentResponse, error) {
 	result := new(PaymentResponse)
 	return result, client.PostMethod(ctx, endpointTransactionsPaymentV1, req, result)
+}
+
+// -----------------------------------------------------------------------------
+// Domain-separated v2 transaction writes (namespace API)
+// -----------------------------------------------------------------------------
+
+// TransactionsAPI groups the domain-separated transaction submit methods.
+// Signing, RLP encoding, memo canonicalization, endpoint selection, and hash
+// verification are all handled internally; callers pass only a payload and a
+// Signer. v2 is used by default; WithLegacyV1 on the client selects /v1.
+type TransactionsAPI struct{ c *Client }
+
+// Transactions returns the transaction submit namespace.
+func (c *Client) Transactions() TransactionsAPI { return TransactionsAPI{c: c} }
+
+// Payment signs and submits a payment transaction.
+func (a TransactionsAPI) Payment(ctx context.Context, payload PaymentPayload, signer Signer, opts ...SubmitOption) (*PaymentResponse, error) {
+	out := new(PaymentResponse)
+	return out, a.c.submitPayload(ctx, payload, resolveSubmit(opts), signer, out)
+}
+
+// BatchPayment signs and submits a batch payment. Batch payments carry no memo:
+// passing WithMemo returns an error rather than silently dropping it.
+func (a TransactionsAPI) BatchPayment(ctx context.Context, payload BatchPaymentPayload, signer Signer, opts ...SubmitOption) (*PaymentResponse, error) {
+	out := new(PaymentResponse)
+	return out, a.c.submitPayload(ctx, payload, resolveSubmit(opts), signer, out)
 }

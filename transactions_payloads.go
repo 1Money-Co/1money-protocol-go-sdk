@@ -18,6 +18,35 @@ type TokenTransferData struct {
 	Value     string         `json:"value"`
 }
 
+// BatchPaymentOperationData is one recipient/amount pair inside a decoded
+// "BatchPayment" transaction; Amount is a U256 decimal string.
+type BatchPaymentOperationData struct {
+	Recipient common.Address `json:"recipient"`
+	Amount    string         `json:"amount"`
+}
+
+// BatchPaymentData is the decoded payload of a "BatchPayment" transaction — a
+// single-token payment to many recipients. Token, OperationsHash, and BatchID
+// mirror the node's optional fields (nil when absent), so a null never fails the
+// whole transaction decode.
+type BatchPaymentData struct {
+	Token          *common.Address             `json:"token"`
+	MaxFee         string                      `json:"max_fee"`
+	Operations     []BatchPaymentOperationData `json:"operations"`
+	OperationsHash *string                     `json:"operations_hash"`
+	BatchID        *string                     `json:"batch_id"`
+	CreatedAt      uint64                      `json:"created_at"`
+}
+
+// TokenClawbackData is the decoded payload of a "TokenClawback" transaction —
+// tokens reclaimed from an account back to a recipient.
+type TokenClawbackData struct {
+	From      common.Address `json:"from"`
+	Recipient common.Address `json:"recipient"`
+	Value     string         `json:"value"`
+	Token     common.Address `json:"token"`
+}
+
 type TokenGrantAuthorityData struct {
 	AuthorityAddress common.Address `json:"authority_address"`
 	AuthorityType    AuthorityType  `json:"authority_type"`
@@ -101,6 +130,23 @@ type TokenUpdateMetadataData struct {
 	Token    common.Address      `json:"token"`
 }
 
+// MultiSigSignerInfo is one signer in a decoded "CreateMultiSig" transaction.
+// PublicKey is the node's 0x-hex compressed-key string (the read-side shape,
+// distinct from the write-side MultiSigSigner whose PublicKey is raw bytes).
+type MultiSigSignerInfo struct {
+	PublicKey string `json:"public_key"`
+	Weight    uint8  `json:"weight"`
+}
+
+// CreateMultiSigData is the decoded payload of a "CreateMultiSig" transaction.
+// MultisigAddress is the derived account address the node computes from the
+// signer set and threshold.
+type CreateMultiSigData struct {
+	Signers         []MultiSigSignerInfo `json:"signers"`
+	Threshold       uint16               `json:"threshold"`
+	MultisigAddress common.Address       `json:"multisig_address"`
+}
+
 type RawTransactionData struct {
 	Input string         `json:"input"`
 	Token common.Address `json:"token"`
@@ -109,6 +155,8 @@ type RawTransactionData struct {
 var defaultTransactionPayloadConstructors = map[TransactionType]func() TransactionPayload{
 	TransactionTypeTokenCreate:           func() TransactionPayload { return &TokenCreateData{} },
 	TransactionTypeTokenTransfer:         func() TransactionPayload { return &TokenTransferData{} },
+	TransactionTypeBatchPayment:          func() TransactionPayload { return &BatchPaymentData{} },
+	TransactionTypeTokenClawback:         func() TransactionPayload { return &TokenClawbackData{} },
 	TransactionTypeTokenGrantAuthority:   func() TransactionPayload { return &TokenGrantAuthorityData{} },
 	TransactionTypeTokenRevokeAuthority:  func() TransactionPayload { return &TokenRevokeAuthorityData{} },
 	TransactionTypeTokenBlacklistAccount: func() TransactionPayload { return &TokenBlacklistAccountData{} },
@@ -121,6 +169,7 @@ var defaultTransactionPayloadConstructors = map[TransactionType]func() Transacti
 	TransactionTypeTokenPause:            func() TransactionPayload { return &TokenPauseData{} },
 	TransactionTypeTokenUnpause:          func() TransactionPayload { return &TokenUnpauseData{} },
 	TransactionTypeTokenUpdateMetadata:   func() TransactionPayload { return &TokenUpdateMetadataData{} },
+	TransactionTypeCreateMultiSig:        func() TransactionPayload { return &CreateMultiSigData{} },
 	TransactionTypeEmpty:                 func() TransactionPayload { return &EmptyData{} },
 	TransactionTypeRaw:                   func() TransactionPayload { return &RawTransactionData{} },
 }
@@ -135,6 +184,8 @@ func init() {
 func (*TokenCreateData) isTransactionPayload()           {}
 func (*EmptyData) isTransactionPayload()                 {}
 func (*TokenTransferData) isTransactionPayload()         {}
+func (*BatchPaymentData) isTransactionPayload()          {}
+func (*TokenClawbackData) isTransactionPayload()         {}
 func (*TokenGrantAuthorityData) isTransactionPayload()   {}
 func (*TokenRevokeAuthorityData) isTransactionPayload()  {}
 func (*TokenBlacklistAccountData) isTransactionPayload() {}
@@ -147,4 +198,5 @@ func (*TokenCloseAccountData) isTransactionPayload()     {}
 func (*TokenPauseData) isTransactionPayload()            {}
 func (*TokenUnpauseData) isTransactionPayload()          {}
 func (*TokenUpdateMetadataData) isTransactionPayload()   {}
+func (*CreateMultiSigData) isTransactionPayload()        {}
 func (*RawTransactionData) isTransactionPayload()        {}

@@ -48,3 +48,38 @@ func (client *Client) GetAccountBbNonce(ctx context.Context, address common.Addr
 	params.Set("address", address.Hex())
 	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpointAccountsBbNonce, params.Encode()), result)
 }
+
+// -----------------------------------------------------------------------------
+// Domain-separated v2 account writes (namespace API)
+// -----------------------------------------------------------------------------
+
+// AccountsAPI groups account-management submit methods.
+type AccountsAPI struct{ c *Client }
+
+// Accounts returns the account submit namespace.
+func (c *Client) Accounts() AccountsAPI { return AccountsAPI{c: c} }
+
+// CreateMultisig creates a multisig account with the given signer set and
+// threshold. The creation transaction is single-signed by `signer`. This is a
+// v2-only endpoint; it has no legacy /v1 form and returns an error under
+// WithLegacyV1. The response's Account is the created multisig address (derived
+// locally; the endpoint returns only the transaction hash).
+func (a AccountsAPI) CreateMultisig(ctx context.Context, payload CreateMultiSigPayload, signer Signer, opts ...SubmitOption) (*CreateMultisigResponse, error) {
+	if a.c.mode() == SubmissionModeLegacyV1 {
+		return nil, fmt.Errorf("multisig account creation requires domain-separated v2 and has no legacy v1 endpoint")
+	}
+	// The account address is a deterministic function of the signer set and
+	// threshold. Derive it up front so an invalid configuration fails before we
+	// submit anything, and so the response can report the created account (the
+	// L1 endpoint itself returns only the transaction hash).
+	account, err := DeriveMultisigAddress(payload.Signers, payload.Threshold)
+	if err != nil {
+		return nil, err
+	}
+	out := new(CreateMultisigResponse)
+	if err := a.c.submitPayload(ctx, payload, resolveSubmit(opts), signer, out); err != nil {
+		return nil, err
+	}
+	out.Account = account
+	return out, nil
+}

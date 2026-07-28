@@ -17,6 +17,8 @@ type TransactionType string
 const (
 	TransactionTypeTokenCreate           TransactionType = "TokenCreate"
 	TransactionTypeTokenTransfer         TransactionType = "TokenTransfer"
+	TransactionTypeBatchPayment          TransactionType = "BatchPayment"
+	TransactionTypeTokenClawback         TransactionType = "TokenClawback"
 	TransactionTypeTokenGrantAuthority   TransactionType = "TokenGrantAuthority"
 	TransactionTypeTokenRevokeAuthority  TransactionType = "TokenRevokeAuthority"
 	TransactionTypeTokenBlacklistAccount TransactionType = "TokenBlacklistAccount"
@@ -29,6 +31,7 @@ const (
 	TransactionTypeTokenPause            TransactionType = "TokenPause"
 	TransactionTypeTokenUnpause          TransactionType = "TokenUnpause"
 	TransactionTypeTokenUpdateMetadata   TransactionType = "TokenUpdateMetadata"
+	TransactionTypeCreateMultiSig        TransactionType = "CreateMultiSig"
 	TransactionTypeEmpty                 TransactionType = "Empty"
 	TransactionTypeRaw                   TransactionType = "Raw"
 )
@@ -151,6 +154,18 @@ func (t *Transaction) AsTokenTransferData() (*TokenTransferData, bool) {
 	return asPayload[*TokenTransferData](t, TransactionTypeTokenTransfer)
 }
 
+func (t *Transaction) AsBatchPaymentData() (*BatchPaymentData, bool) {
+	return asPayload[*BatchPaymentData](t, TransactionTypeBatchPayment)
+}
+
+func (t *Transaction) AsTokenClawbackData() (*TokenClawbackData, bool) {
+	return asPayload[*TokenClawbackData](t, TransactionTypeTokenClawback)
+}
+
+func (t *Transaction) AsCreateMultiSigData() (*CreateMultiSigData, bool) {
+	return asPayload[*CreateMultiSigData](t, TransactionTypeCreateMultiSig)
+}
+
 func (t *Transaction) AsTokenGrantAuthorityData() (*TokenGrantAuthorityData, bool) {
 	return asPayload[*TokenGrantAuthorityData](t, TransactionTypeTokenGrantAuthority)
 }
@@ -243,12 +258,37 @@ type PaymentPayload struct {
 	Token     common.Address `json:"token"`
 }
 
+// PaymentOperation is one recipient/amount pair inside a batch payment.
+type PaymentOperation struct {
+	Recipient common.Address `json:"recipient"`
+	Amount    *big.Int       `json:"amount"`
+}
+
+// BatchPaymentPayload pays many recipients of one token in a single
+// transaction. operations_hash and batch_id are optional trailing fields.
+type BatchPaymentPayload struct {
+	ChainID        uint64             `json:"chain_id"`
+	Nonce          uint64             `json:"nonce"`
+	Token          common.Address     `json:"token"`
+	Operations     []PaymentOperation `json:"operations"`
+	MaxFee         *big.Int           `json:"max_fee"`
+	CreatedAt      uint64             `json:"created_at"`
+	OperationsHash *common.Hash       `json:"operations_hash,omitempty"`
+	BatchID        *string            `json:"batch_id,omitempty"`
+}
+
+// Deprecated: legacy v1 request type. Use Transactions().Payment with a Signer,
+// which signs internally and defaults to domain-separated v2.
 type PaymentRequest struct {
 	PaymentPayload
 	Signature Signature `json:"signature"`
 }
 
-// Hash returns the transaction hash for the request (payload + signature).
+// Hash returns the legacy v1 transaction hash (payload + signature).
+//
+// Deprecated: legacy v1 signing hash. The v2 namespace methods (Tokens() /
+// Transactions()) hash internally; PrepareTransaction exposes SigningHash for
+// offline signing.
 func (r PaymentRequest) Hash() (common.Hash, error) {
 	return Hash(r.PaymentPayload, r.Signature)
 }
@@ -256,3 +296,6 @@ func (r PaymentRequest) Hash() (common.Hash, error) {
 type PaymentResponse struct {
 	Hash string `json:"hash"`
 }
+
+// TxHash reports the submitted transaction hash for hash-verification.
+func (r *PaymentResponse) TxHash() string { return r.Hash }

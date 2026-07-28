@@ -63,6 +63,84 @@ func payloadCases() []payloadTestCase {
 			},
 		},
 		{
+			name:   "BatchPayment",
+			txType: TransactionTypeBatchPayment,
+			data: `{
+                "token": "0x1111111111111111111111111111111111111111",
+                "max_fee": "5000",
+                "operations": [
+                    {"recipient": "0x2222222222222222222222222222222222222222", "amount": "1000"}
+                ],
+                "operations_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+                "batch_id": "payroll-1",
+                "created_at": 1747785600
+            }`,
+			assert: func(t *testing.T, tx *Transaction) {
+				payload, ok := tx.AsBatchPaymentData()
+				if !assert.True(t, ok) {
+					return
+				}
+				if assert.NotNil(t, payload.Token) {
+					assert.Equal(t, addr("0x1111111111111111111111111111111111111111"), *payload.Token)
+				}
+				assert.Equal(t, "5000", payload.MaxFee)
+				assert.Equal(t, uint64(1747785600), payload.CreatedAt)
+				if assert.Len(t, payload.Operations, 1) {
+					assert.Equal(t, addr("0x2222222222222222222222222222222222222222"), payload.Operations[0].Recipient)
+					assert.Equal(t, "1000", payload.Operations[0].Amount)
+				}
+				if assert.NotNil(t, payload.OperationsHash) {
+					assert.Equal(t, "0x3333333333333333333333333333333333333333333333333333333333333333", *payload.OperationsHash)
+				}
+				if assert.NotNil(t, payload.BatchID) {
+					assert.Equal(t, "payroll-1", *payload.BatchID)
+				}
+			},
+		},
+		{
+			name:   "TokenClawback",
+			txType: TransactionTypeTokenClawback,
+			data: `{
+                "from": "0x1111111111111111111111111111111111111111",
+                "recipient": "0x2222222222222222222222222222222222222222",
+                "value": "777",
+                "token": "0x3333333333333333333333333333333333333333"
+            }`,
+			assert: func(t *testing.T, tx *Transaction) {
+				payload, ok := tx.AsTokenClawbackData()
+				if !assert.True(t, ok) {
+					return
+				}
+				assert.Equal(t, addr("0x1111111111111111111111111111111111111111"), payload.From)
+				assert.Equal(t, addr("0x2222222222222222222222222222222222222222"), payload.Recipient)
+				assert.Equal(t, "777", payload.Value)
+				assert.Equal(t, addr("0x3333333333333333333333333333333333333333"), payload.Token)
+			},
+		},
+		{
+			name:   "CreateMultiSig",
+			txType: TransactionTypeCreateMultiSig,
+			data: `{
+                "signers": [
+                    {"public_key": "0x02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5", "weight": 1}
+                ],
+                "threshold": 2,
+                "multisig_address": "0x4444444444444444444444444444444444444444"
+            }`,
+			assert: func(t *testing.T, tx *Transaction) {
+				payload, ok := tx.AsCreateMultiSigData()
+				if !assert.True(t, ok) {
+					return
+				}
+				assert.Equal(t, uint16(2), payload.Threshold)
+				assert.Equal(t, addr("0x4444444444444444444444444444444444444444"), payload.MultisigAddress)
+				if assert.Len(t, payload.Signers, 1) {
+					assert.Equal(t, "0x02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5", payload.Signers[0].PublicKey)
+					assert.Equal(t, uint8(1), payload.Signers[0].Weight)
+				}
+			},
+		},
+		{
 			name:   "TokenGrantAuthority",
 			txType: TransactionTypeTokenGrantAuthority,
 			data: `{
@@ -322,6 +400,25 @@ func TestTransaction_Unmarshal_AllPayloads(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestBatchPayment_Unmarshal_NullOptionals proves that null optional fields
+// (token, operations_hash, batch_id) decode to nil rather than failing the whole
+// Transaction unmarshal — the reason those fields are pointers.
+func TestBatchPayment_Unmarshal_NullOptionals(t *testing.T) {
+	raw := `{"transaction_type":"BatchPayment","data":{"token":null,"max_fee":"0","operations":[],"operations_hash":null,"batch_id":null,"created_at":0}}`
+	var tx Transaction
+	if !assert.NoError(t, json.Unmarshal([]byte(raw), &tx)) {
+		return
+	}
+	payload, ok := tx.AsBatchPaymentData()
+	if !assert.True(t, ok) {
+		return
+	}
+	assert.Nil(t, payload.Token)
+	assert.Nil(t, payload.OperationsHash)
+	assert.Nil(t, payload.BatchID)
+	assert.Empty(t, payload.Operations)
 }
 
 func TestTransaction_Unmarshal_UnknownType(t *testing.T) {

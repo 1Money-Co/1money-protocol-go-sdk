@@ -11,6 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+// Hash computes the legacy v1 transaction hash for a signed payload.
+//
+// Deprecated: this is the pre-#1038 (non-domain-separated) hash and does not
+// match domain-separated v2 transactions. For v2, use the hash returned by the
+// submit response, or build it via PrepareTransaction(payload) →
+// Authorize(sig) → AuthorizedTransaction.TransactionHash().
 func Hash(payload interface{}, signature Signature) (common.Hash, error) {
 	pEncode, err := EncodePayload(payload)
 	if err != nil {

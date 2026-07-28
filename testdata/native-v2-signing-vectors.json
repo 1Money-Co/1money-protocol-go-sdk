@@ -1,0 +1,896 @@
+{
+  "base_vectors": [
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "Payment_single",
+      "operation_type": 1,
+      "payload_rlp": "0xf860f83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf8c99c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201c180b862f860f83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xba315765f290d96913ab216c29462b0fc02768bb568831d6fcc2a600fe45dc62",
+      "transaction_hash": "0xb6a28315164c84e89e57090639d20e2b0b94d0be7e13551e9630ae230eacf6d7",
+      "unsigned_transaction_rlp": "0xf8849c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201c180b862f860f83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "Payment_multi",
+      "operation_type": 1,
+      "payload_rlp": "0xf860f83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf901699c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b862f860f83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x7e335e33939ae93369e6fcf331408b024cfcc8880678ae3e7d0bd5dc40afc527",
+      "transaction_hash": "0xcaa7e7d1d00a5fd42cf1d2a003793bfc794511f6ad224b3fd39c6ff93caa84cc",
+      "unsigned_transaction_rlp": "0xf8999c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b862f860f83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenIssue_single",
+      "operation_type": 2,
+      "payload_rlp": "0xf2ed83127ec50284544553548a5465737420546f6b656e089403030303030303030303030303030303030303038001c3808080",
+      "signed_transaction_rlp": "0xf8999c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763202c180b3f2ed83127ec50284544553548a5465737420546f6b656e089403030303030303030303030303030303030303038001c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x23a205613e45fe52f8865a78f3aac93434cb713aab31559e73e338f0306def5b",
+      "transaction_hash": "0x341b5be6c53eb5f3c536925813d01d3e76f3c209282c83ee2e1b6f1db6a47982",
+      "unsigned_transaction_rlp": "0xf8549c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763202c180b3f2ed83127ec50284544553548a5465737420546f6b656e089403030303030303030303030303030303030303038001c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenIssue_multi",
+      "operation_type": 2,
+      "payload_rlp": "0xf2ed83127ec50284544553548a5465737420546f6b656e089403030303030303030303030303030303030303038001c3808080",
+      "signed_transaction_rlp": "0xf901399c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763202d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b3f2ed83127ec50284544553548a5465737420546f6b656e089403030303030303030303030303030303030303038001c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x0acc313f04539a17d644d52e94117ee3db1402adf4d5efa8366f7e64d80ef736",
+      "transaction_hash": "0xfa1c69b52ff12c538eff1a2cc6b218972f6a6e7dbfe593bef8372f482b5763f4",
+      "unsigned_transaction_rlp": "0xf8699c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763202d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b3f2ed83127ec50284544553548a5465737420546f6b656e089403030303030303030303030303030303030303038001c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenMint_single",
+      "operation_type": 3,
+      "payload_rlp": "0xf83af583127ec50394040404040404040404040404040404040404040485746a528800940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf8a39c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763203c180b83cf83af583127ec50394040404040404040404040404040404040404040485746a528800940101010101010101010101010101010101010101c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xb3807048dcd84f8b9ff58d88aa674f53964cec21b5af6fbdcd7af68cb9c6c4be",
+      "transaction_hash": "0x4fc10d4d56acff32aa12cafb9e8481b1f70e5f3b83f25b60259c85a9042b8737",
+      "unsigned_transaction_rlp": "0xf85e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763203c180b83cf83af583127ec50394040404040404040404040404040404040404040485746a528800940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenMint_multi",
+      "operation_type": 3,
+      "payload_rlp": "0xf83af583127ec50394040404040404040404040404040404040404040485746a528800940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf901439c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763203d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b83cf83af583127ec50394040404040404040404040404040404040404040485746a528800940101010101010101010101010101010101010101c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x308f345ab0ba5be666cb61527d468a9e2cc539eb61b93eeb22fe6677087ff3ae",
+      "transaction_hash": "0xb6edd14c7a1ec4322ee357f20d50354f97f6d2298af376a729b9f53e91f92346",
+      "unsigned_transaction_rlp": "0xf8739c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763203d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b83cf83af583127ec50394040404040404040404040404040404040404040485746a528800940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenAuthority_single",
+      "operation_type": 4,
+      "payload_rlp": "0xf84ff84983127ec504854772616e748e4d696e744275726e546f6b656e739405050505050505050505050505050505050505059401010101010101010101010101010101010101018405f5e100c3808080",
+      "signed_transaction_rlp": "0xf8b89c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763204c180b851f84ff84983127ec504854772616e748e4d696e744275726e546f6b656e739405050505050505050505050505050505050505059401010101010101010101010101010101010101018405f5e100c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x6cacf7cda1d681ca7debbea11aed7ea8efdef6d3cc47bc913339da21ec63dcf4",
+      "transaction_hash": "0x2748de96bc46892164764827d25044d59c403825b076c923689f9c134fe90d27",
+      "unsigned_transaction_rlp": "0xf8739c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763204c180b851f84ff84983127ec504854772616e748e4d696e744275726e546f6b656e739405050505050505050505050505050505050505059401010101010101010101010101010101010101018405f5e100c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenAuthority_multi",
+      "operation_type": 4,
+      "payload_rlp": "0xf84ff84983127ec504854772616e748e4d696e744275726e546f6b656e739405050505050505050505050505050505050505059401010101010101010101010101010101010101018405f5e100c3808080",
+      "signed_transaction_rlp": "0xf901589c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763204d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b851f84ff84983127ec504854772616e748e4d696e744275726e546f6b656e739405050505050505050505050505050505050505059401010101010101010101010101010101010101018405f5e100c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x0455eed90e6ae4a014d7b92ec627c073badd1d80e9c433fd6ec88754d39dd928",
+      "transaction_hash": "0xf8859c84b15c1bfacb16eb162ce38de937c43c800368f479d888487b56c81046",
+      "unsigned_transaction_rlp": "0xf8889c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763204d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b851f84ff84983127ec504854772616e748e4d696e744275726e546f6b656e739405050505050505050505050505050505050505059401010101010101010101010101010101010101018405f5e100c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenBlacklist_single",
+      "operation_type": 5,
+      "payload_rlp": "0xf838f383127ec50583416464940606060606060606060606060606060606060606940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf8a19c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763205c180b83af838f383127ec50583416464940606060606060606060606060606060606060606940101010101010101010101010101010101010101c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x634457294539e750bb9034f9aa0bc430acb47e63a54883ab6aed906a6f0443ba",
+      "transaction_hash": "0xe497e07488382d876fd2bc7cf719378bddd523a6612a600ba60690342b3d7c76",
+      "unsigned_transaction_rlp": "0xf85c9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763205c180b83af838f383127ec50583416464940606060606060606060606060606060606060606940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenBlacklist_multi",
+      "operation_type": 5,
+      "payload_rlp": "0xf838f383127ec50583416464940606060606060606060606060606060606060606940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf901419c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763205d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b83af838f383127ec50583416464940606060606060606060606060606060606060606940101010101010101010101010101010101010101c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0xf1ec590015e3419b35c301b4842a286707024a93505c335fb76b2d5a2917443d",
+      "transaction_hash": "0xcefbbf7cd1435e40101992d0eaa284bbe61e63d63c6260e4982c415fa384ab71",
+      "unsigned_transaction_rlp": "0xf8719c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763205d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b83af838f383127ec50583416464940606060606060606060606060606060606060606940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenWhitelist_single",
+      "operation_type": 6,
+      "payload_rlp": "0xf838f383127ec50683416464940707070707070707070707070707070707070707940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf8a19c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763206c180b83af838f383127ec50683416464940707070707070707070707070707070707070707940101010101010101010101010101010101010101c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xe86837492595e4d84614c4f4714d9914f216d4a66ea35465d0106c3bfc4c6e81",
+      "transaction_hash": "0x87e99ecc9b6d56b79f206cd854ff67dc5ccd666c63213f23a985092245308710",
+      "unsigned_transaction_rlp": "0xf85c9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763206c180b83af838f383127ec50683416464940707070707070707070707070707070707070707940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenWhitelist_multi",
+      "operation_type": 6,
+      "payload_rlp": "0xf838f383127ec50683416464940707070707070707070707070707070707070707940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf901419c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763206d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b83af838f383127ec50683416464940707070707070707070707070707070707070707940101010101010101010101010101010101010101c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x50f7cf4124e3874d376e9607c4811c777fe649259a6dad070d127ee0c335f9e6",
+      "transaction_hash": "0xf1f37271ba09ed4eba7a906f7043a1ae35755ca473d4b34fc32211ee5fbf198e",
+      "unsigned_transaction_rlp": "0xf8719c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763206d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b83af838f383127ec50683416464940707070707070707070707070707070707070707940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenPause_single",
+      "operation_type": 7,
+      "payload_rlp": "0xe5e083127ec507855061757365940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf88c9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763207c180a6e5e083127ec507855061757365940101010101010101010101010101010101010101c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x191c0194f49c6d2df2c42466d5572313ea0086809d9057e42def8f7612f9697b",
+      "transaction_hash": "0xa7b81f35fc41934ecc110ba580fd4a4408b93297e05da9be1782d2a40a9cdf4a",
+      "unsigned_transaction_rlp": "0xf8479c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763207c180a6e5e083127ec507855061757365940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenPause_multi",
+      "operation_type": 7,
+      "payload_rlp": "0xe5e083127ec507855061757365940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf9012c9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763207d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a6e5e083127ec507855061757365940101010101010101010101010101010101010101c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0xd9a43b8649554205e101142373d67e9c0f6b45db306345a3cb23d744c84d1478",
+      "transaction_hash": "0x6daa74ff34030dd3a4cbff1e4c4708c6de10810da5182c33173489460257f112",
+      "unsigned_transaction_rlp": "0xf85c9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763207d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a6e5e083127ec507855061757365940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenBurn_single",
+      "operation_type": 8,
+      "payload_rlp": "0xe4df83127ec508840ee6b280940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf88b9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763208c180a5e4df83127ec508840ee6b280940101010101010101010101010101010101010101c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x6a35cfaf10de3ca3b22e21ff20be53e3fe8af678c606bb81647830aaf967d20b",
+      "transaction_hash": "0xb9692a7446a8a2be5642c2e5eedee6787b4770b51e604220b8927dc7645daf28",
+      "unsigned_transaction_rlp": "0xf8469c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763208c180a5e4df83127ec508840ee6b280940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenBurn_multi",
+      "operation_type": 8,
+      "payload_rlp": "0xe4df83127ec508840ee6b280940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf9012b9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763208d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a5e4df83127ec508840ee6b280940101010101010101010101010101010101010101c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x0b21ce99a8c145d736eba0ad08f5c21d6da241a337de822b227bcc4f62fcb9ea",
+      "transaction_hash": "0x0626d8fee585a7b8486eb4df8271b73a2210dc421fc2aded330bca77bf89cf89",
+      "unsigned_transaction_rlp": "0xf85b9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763208d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a5e4df83127ec508840ee6b280940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenClawback_single",
+      "operation_type": 9,
+      "payload_rlp": "0xf84ff84983127ec509940101010101010101010101010101010101010101940808080808080808080808080808080808080808940909090909090909090909090909090909090909840280de80c3808080",
+      "signed_transaction_rlp": "0xf8b89c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763209c180b851f84ff84983127ec509940101010101010101010101010101010101010101940808080808080808080808080808080808080808940909090909090909090909090909090909090909840280de80c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x8372a1c50ad1f86ccb4dcea5980eae305e2bacba1734ceeb23e1b1a2c108bb1c",
+      "transaction_hash": "0x8e6888a9364a8d23c4547be60ab548883a2e3f48093de37bd1cf53636416ada5",
+      "unsigned_transaction_rlp": "0xf8739c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763209c180b851f84ff84983127ec509940101010101010101010101010101010101010101940808080808080808080808080808080808080808940909090909090909090909090909090909090909840280de80c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenClawback_multi",
+      "operation_type": 9,
+      "payload_rlp": "0xf84ff84983127ec509940101010101010101010101010101010101010101940808080808080808080808080808080808080808940909090909090909090909090909090909090909840280de80c3808080",
+      "signed_transaction_rlp": "0xf901589c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763209d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b851f84ff84983127ec509940101010101010101010101010101010101010101940808080808080808080808080808080808080808940909090909090909090909090909090909090909840280de80c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0xc9d0d012c561db9e0f83314f11c31a59488d8a1b09356a14369504d8f2d3d9dc",
+      "transaction_hash": "0xb63dc17ba6673711ed8707f7761471a8a93a47e0720c0c612c8d446e6d489037",
+      "unsigned_transaction_rlp": "0xf8889c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763209d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b851f84ff84983127ec509940101010101010101010101010101010101010101940808080808080808080808080808080808080808940909090909090909090909090909090909090909840280de80c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenMetadata_single",
+      "operation_type": 10,
+      "payload_rlp": "0xf86ef86883127ec50a8a5465737420546f6b656e9e68747470733a2f2f6578616d706c652e636f6d2f746f6b656e2e6a736f6e940101010101010101010101010101010101010101e3cc8776657273696f6e83312e30d586617574686f728d4f6e654d6f6e6579205465616dc3808080",
+      "signed_transaction_rlp": "0xf8d79c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320ac180b870f86ef86883127ec50a8a5465737420546f6b656e9e68747470733a2f2f6578616d706c652e636f6d2f746f6b656e2e6a736f6e940101010101010101010101010101010101010101e3cc8776657273696f6e83312e30d586617574686f728d4f6e654d6f6e6579205465616dc3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x4ebb2dc0eb9c338bed30040afa34d3cd6d3e21f0f8d520a037f50a1fa7a3fa3c",
+      "transaction_hash": "0x0db34757509e30b65b0fff7c0c50e9bd79adf3762310c9f548a5dc4a229f1410",
+      "unsigned_transaction_rlp": "0xf8929c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320ac180b870f86ef86883127ec50a8a5465737420546f6b656e9e68747470733a2f2f6578616d706c652e636f6d2f746f6b656e2e6a736f6e940101010101010101010101010101010101010101e3cc8776657273696f6e83312e30d586617574686f728d4f6e654d6f6e6579205465616dc3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenMetadata_multi",
+      "operation_type": 10,
+      "payload_rlp": "0xf86ef86883127ec50a8a5465737420546f6b656e9e68747470733a2f2f6578616d706c652e636f6d2f746f6b656e2e6a736f6e940101010101010101010101010101010101010101e3cc8776657273696f6e83312e30d586617574686f728d4f6e654d6f6e6579205465616dc3808080",
+      "signed_transaction_rlp": "0xf901779c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320ad60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b870f86ef86883127ec50a8a5465737420546f6b656e9e68747470733a2f2f6578616d706c652e636f6d2f746f6b656e2e6a736f6e940101010101010101010101010101010101010101e3cc8776657273696f6e83312e30d586617574686f728d4f6e654d6f6e6579205465616dc3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0xe42845c9e35f4f21ae2b54310c6143978da53b584ec6980337f6c1de8638e56f",
+      "transaction_hash": "0x87ea3df1f581053d7ee651b92e727b9ebcaf5299f5ae15651fdee936bbb641d7",
+      "unsigned_transaction_rlp": "0xf8a79c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320ad60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b870f86ef86883127ec50a8a5465737420546f6b656e9e68747470733a2f2f6578616d706c652e636f6d2f746f6b656e2e6a736f6e940101010101010101010101010101010101010101e3cc8776657273696f6e83312e30d586617574686f728d4f6e654d6f6e6579205465616dc3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenBridgeAndMint_single",
+      "operation_type": 11,
+      "payload_rlp": "0xf880f87a83127ec50b940a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a843b9aca0094010101010101010101010101010101010101010101b84230783132333435363738393061626364656631323334353637383930616263646566313233343536373839306162636465663132333435363738393061626364656680c3808080",
+      "signed_transaction_rlp": "0xf8e99c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320bc180b882f880f87a83127ec50b940a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a843b9aca0094010101010101010101010101010101010101010101b84230783132333435363738393061626364656631323334353637383930616263646566313233343536373839306162636465663132333435363738393061626364656680c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x4b99fd78dcbbed893d040289efe29df086ee174a53c2288b648187f770e2ce12",
+      "transaction_hash": "0x98ba37df930d9ada5c2d8c1b2319ccb34504bd81d74e9b4ec46d27f47f0c1138",
+      "unsigned_transaction_rlp": "0xf8a49c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320bc180b882f880f87a83127ec50b940a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a843b9aca0094010101010101010101010101010101010101010101b84230783132333435363738393061626364656631323334353637383930616263646566313233343536373839306162636465663132333435363738393061626364656680c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenBridgeAndMint_multi",
+      "operation_type": 11,
+      "payload_rlp": "0xf880f87a83127ec50b940a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a843b9aca0094010101010101010101010101010101010101010101b84230783132333435363738393061626364656631323334353637383930616263646566313233343536373839306162636465663132333435363738393061626364656680c3808080",
+      "signed_transaction_rlp": "0xf901899c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320bd60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b882f880f87a83127ec50b940a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a843b9aca0094010101010101010101010101010101010101010101b84230783132333435363738393061626364656631323334353637383930616263646566313233343536373839306162636465663132333435363738393061626364656680c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x1d1de93075d31fd31dd31f11f16c328b910b709c2011815bceb0061b2744b19f",
+      "transaction_hash": "0x70384a50abf9c021a574c147fc8b8bccb320e2ebcffb3e60ecce83d25aa1b29c",
+      "unsigned_transaction_rlp": "0xf8b99c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320bd60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b882f880f87a83127ec50b940a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a843b9aca0094010101010101010101010101010101010101010101b84230783132333435363738393061626364656631323334353637383930616263646566313233343536373839306162636465663132333435363738393061626364656680c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "TokenBurnAndBridge_single",
+      "operation_type": 12,
+      "payload_rlp": "0xf86cf86683127ec50c940b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b841dcd650094010101010101010101010101010101010101010101aa307831323334353637383930616263646566313233343536373839306162636465663132333435363738830f42408080c3808080",
+      "signed_transaction_rlp": "0xf8d59c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320cc180b86ef86cf86683127ec50c940b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b841dcd650094010101010101010101010101010101010101010101aa307831323334353637383930616263646566313233343536373839306162636465663132333435363738830f42408080c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x88d7037e09997cebf69a6b13660ca57285ef3cc95632684485a78f79aa9e3cf5",
+      "transaction_hash": "0x4419a47aa04043d87c40073278e274acc0c477694312afc5c064c3ff735dd9a6",
+      "unsigned_transaction_rlp": "0xf8909c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320cc180b86ef86cf86683127ec50c940b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b841dcd650094010101010101010101010101010101010101010101aa307831323334353637383930616263646566313233343536373839306162636465663132333435363738830f42408080c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "TokenBurnAndBridge_multi",
+      "operation_type": 12,
+      "payload_rlp": "0xf86cf86683127ec50c940b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b841dcd650094010101010101010101010101010101010101010101aa307831323334353637383930616263646566313233343536373839306162636465663132333435363738830f42408080c3808080",
+      "signed_transaction_rlp": "0xf901759c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320cd60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b86ef86cf86683127ec50c940b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b841dcd650094010101010101010101010101010101010101010101aa307831323334353637383930616263646566313233343536373839306162636465663132333435363738830f42408080c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x78433ac67dcd59f98b5993d7fb0d7329349971f7f9cb33b3158041633d6668ae",
+      "transaction_hash": "0xbae8fc58f9fc706bb8d559a3dab5ed3694c8d267c2c36ed875261510007fa174",
+      "unsigned_transaction_rlp": "0xf8a59c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320cd60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b86ef86cf86683127ec50c940b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b841dcd650094010101010101010101010101010101010101010101aa307831323334353637383930616263646566313233343536373839306162636465663132333435363738830f42408080c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "CreateMultiSig_single",
+      "operation_type": 13,
+      "payload_rlp": "0xf856f85083127ec50df848e3e102111111111111111111111111111111111111111111111111111111111111111101e3e10322222222222222222222222222222222222222222222222222222222222222220102c3808080",
+      "signed_transaction_rlp": "0xf8bf9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320dc180b858f856f85083127ec50df848e3e102111111111111111111111111111111111111111111111111111111111111111101e3e10322222222222222222222222222222222222222222222222222222222222222220102c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x0dfbab6b0e9fac4a366b629b1bf4f319043ba3c847ea0262e6a2bc5acfb2fd7b",
+      "transaction_hash": "0x7fad87e57b43155bae581d57d3e4497b938abc48fe2e68eaea22df7a30e89ebd",
+      "unsigned_transaction_rlp": "0xf87a9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320dc180b858f856f85083127ec50df848e3e102111111111111111111111111111111111111111111111111111111111111111101e3e10322222222222222222222222222222222222222222222222222222222222222220102c3808080"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "CreateMultiSig_multi",
+      "operation_type": 13,
+      "payload_rlp": "0xf856f85083127ec50df848e3e102111111111111111111111111111111111111111111111111111111111111111101e3e10322222222222222222222222222222222222222222222222222222222222222220102c3808080",
+      "signed_transaction_rlp": "0xf9015f9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320dd60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b858f856f85083127ec50df848e3e102111111111111111111111111111111111111111111111111111111111111111101e3e10322222222222222222222222222222222222222222222222222222222222222220102c3808080f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0xeb99935c4d038fce8cfcf6f0fa30942d39ab7730548b5099687300cdfe701402",
+      "transaction_hash": "0xbcbeb5389a16ba3669a833229079af334e9e942673e692d0b50007e3086a1a15",
+      "unsigned_transaction_rlp": "0xf88f9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320dd60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b858f856f85083127ec50df848e3e102111111111111111111111111111111111111111111111111111111111111111101e3e10322222222222222222222222222222222222222222222222222222222222222220102c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "BatchPayment_single",
+      "operation_type": 14,
+      "payload_rlp": "0xf85583127ec50e940101010101010101010101010101010101010101f2d8940c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c8203e8d8940d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d8207d082138884682d1780",
+      "signed_transaction_rlp": "0xf8be9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320ec180b857f85583127ec50e940101010101010101010101010101010101010101f2d8940c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c8203e8d8940d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d8207d082138884682d1780f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x75c7d608b5c0a5966a3638194c17041a332477fe1aa2d015b5c8ed3bf51a5b7f",
+      "transaction_hash": "0x5c1267d2246b470b03db2d45324e4ad5dce7de5dcc818f9c2b9babdb54bfe841",
+      "unsigned_transaction_rlp": "0xf8799c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320ec180b857f85583127ec50e940101010101010101010101010101010101010101f2d8940c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c8203e8d8940d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d8207d082138884682d1780"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "BatchPayment_multi",
+      "operation_type": 14,
+      "payload_rlp": "0xf85583127ec50e940101010101010101010101010101010101010101f2d8940c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c8203e8d8940d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d8207d082138884682d1780",
+      "signed_transaction_rlp": "0xf9015e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320ed60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b857f85583127ec50e940101010101010101010101010101010101010101f2d8940c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c8203e8d8940d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d8207d082138884682d1780f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x1df0cfd512cb7cb50b6c3dc52cc3e9b3a7bc657bec6ceebf75a4a637e18fa468",
+      "transaction_hash": "0x78d3150c4d3d26e16bac8c84cb388b77bfb3668fc04c678f6ffc89ac812c0c70",
+      "unsigned_transaction_rlp": "0xf88e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320ed60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b857f85583127ec50e940101010101010101010101010101010101010101f2d8940c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c8203e8d8940d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d8207d082138884682d1780"
+    }
+  ],
+  "protocol": {
+    "authorization_kinds": {
+      "multisig_secp256k1": 1,
+      "single_secp256k1": 0
+    },
+    "domain_tag": "1money.native.transaction.v2",
+    "domain_tag_hex": "0x316d6f6e65792e6e61746976652e7472616e73616374696f6e2e7632",
+    "operation_types": {
+      "BatchPayment": 14,
+      "CreateMultiSig": 13,
+      "Payment": 1,
+      "TokenAuthority": 4,
+      "TokenBlacklist": 5,
+      "TokenBridgeAndMint": 11,
+      "TokenBurn": 8,
+      "TokenBurnAndBridge": 12,
+      "TokenClawback": 9,
+      "TokenIssue": 2,
+      "TokenMetadata": 10,
+      "TokenMint": 3,
+      "TokenPause": 7,
+      "TokenWhitelist": 6
+    }
+  },
+  "supplemental_vectors": [
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "payment_memo_empty",
+      "operation_type": 1,
+      "payload_rlp": "0xf83ef83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101c3808080",
+      "signed_transaction_rlp": "0xf8a79c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201c180b840f83ef83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xcd6415c41cfd7fa8bcbac8f0cedc480c5c24b02d1b1e28f1554553551b3c15d9",
+      "transaction_hash": "0xb48bcde982f72a33177d6a9be72e0eedbcdc1ad3591da0c5e5b7a269e404bfb3",
+      "unsigned_transaction_rlp": "0xf8629c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201c180b840f83ef83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "payment_memo_populated",
+      "operation_type": 1,
+      "payload_rlp": "0xf860f83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf8c99c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201c180b862f860f83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xba315765f290d96913ab216c29462b0fc02768bb568831d6fcc2a600fe45dc62",
+      "transaction_hash": "0xb6a28315164c84e89e57090639d20e2b0b94d0be7e13551e9630ae230eacf6d7",
+      "unsigned_transaction_rlp": "0xf8849c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201c180b862f860f83883127ec501940202020202020202020202020202020202020202880de0b6b3a7640000940101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "collision_1038_payment",
+      "operation_type": 1,
+      "payload_rlp": "0xf83bf683127ec58203e794c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1842e50144094c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c3808080",
+      "signed_transaction_rlp": "0xf8a49c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201c180b83df83bf683127ec58203e794c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1842e50144094c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xc57cbb761359870e961ab9f9da1c5ae5c1e3d0d5ea87cd1d6981537b2c302b47",
+      "transaction_hash": "0x4a514c12880bffeef807a016351852f8f1924e34c075006090372b5dc4653f21",
+      "unsigned_transaction_rlp": "0xf85f9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763201c180b83df83bf683127ec58203e794c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1842e50144094c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "collision_1038_tokenmint",
+      "operation_type": 3,
+      "payload_rlp": "0xf83bf683127ec58203e794c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1842e50144094c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c3808080",
+      "signed_transaction_rlp": "0xf8a49c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763203c180b83df83bf683127ec58203e794c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1842e50144094c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xf3fac6b015fdc8dc040e867c6cf5d922cdf04b2d81ceaa23598f787883d3edcf",
+      "transaction_hash": "0x9f97f3c1fe6df1bf0a474bd319cf7e9bf21974b6b26965f216b4f2639a0d0aec",
+      "unsigned_transaction_rlp": "0xf85f9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763203c180b83df83bf683127ec58203e794c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1842e50144094c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "collision_1038_blacklist_add",
+      "operation_type": 5,
+      "payload_rlp": "0xf83af583127ec58203e68341646494c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c394c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c3808080",
+      "signed_transaction_rlp": "0xf8a39c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763205c180b83cf83af583127ec58203e68341646494c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c394c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xa6c2e41b87e944e9dc6fa4a39ff64fa11270e6f454f6dfd2b4d20722d8c262f6",
+      "transaction_hash": "0xf885f4d36f46257c64ee33dad979b2161dd0389ca7a4823bd3a3a395cc0cfd80",
+      "unsigned_transaction_rlp": "0xf85e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763205c180b83cf83af583127ec58203e68341646494c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c394c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "collision_1038_whitelist_add",
+      "operation_type": 6,
+      "payload_rlp": "0xf83af583127ec58203e68341646494c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c394c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c3808080",
+      "signed_transaction_rlp": "0xf8a39c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763206c180b83cf83af583127ec58203e68341646494c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c394c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x2d7db0e949d6b214386df212b7d2ac8506c2a7b165250cf23ce63b0285699edf",
+      "transaction_hash": "0xc0012848afd1ae563fe27bad382b048b1f89c6c687a70fe4d425823edee45b38",
+      "unsigned_transaction_rlp": "0xf85e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763206c180b83cf83af583127ec58203e68341646494c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c394c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "collision_1118_pause",
+      "operation_type": 7,
+      "payload_rlp": "0xe7e283127ec58203e585506175736594c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c3808080",
+      "signed_transaction_rlp": "0xf88e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763207c180a8e7e283127ec58203e585506175736594c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xea0eb69ebd0f4e2ac4cb07109572262cf6265e64721b03c4b731e91b5aadfa0e",
+      "transaction_hash": "0x8d1fac96daea04782a30294c58da8d11e488d49da15d8f12c1fa93392b5d4528",
+      "unsigned_transaction_rlp": "0xf8499c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763207c180a8e7e283127ec58203e585506175736594c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "collision_1118_burn",
+      "operation_type": 8,
+      "payload_rlp": "0xe7e283127ec58203e585506175736594c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c3808080",
+      "signed_transaction_rlp": "0xf88e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763208c180a8e7e283127ec58203e585506175736594c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xd4e34ab74d9e206dbd802bff06c21789d2a364b822ff6b42e30737ddf0cfb562",
+      "transaction_hash": "0xac6aa7db41abc41de8b0050014c299a0d667ff6a4a6e8a7db00e756ed8dbabeb",
+      "unsigned_transaction_rlp": "0xf8499c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763208c180a8e7e283127ec58203e585506175736594c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c3808080"
+    }
+  ]
+}
