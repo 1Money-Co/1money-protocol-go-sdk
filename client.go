@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -17,6 +19,20 @@ type Logger interface {
 	Warnf(format string, v ...interface{})
 	Errorf(format string, v ...interface{})
 }
+
+// newDefaultLogger returns a Logger backed by the standard library log package,
+// writing to stderr with a "[1money-sdk]" prefix. It is installed by WithDebug
+// when the caller does not supply their own Logger.
+func newDefaultLogger() Logger {
+	return &stdLogger{l: log.New(os.Stderr, "[1money-sdk] ", log.LstdFlags|log.Lmsgprefix)}
+}
+
+type stdLogger struct{ l *log.Logger }
+
+func (s *stdLogger) Printf(format string, v ...interface{}) { s.l.Printf(format, v...) }
+func (s *stdLogger) Infof(format string, v ...interface{})  { s.l.Printf("INFO "+format, v...) }
+func (s *stdLogger) Warnf(format string, v ...interface{})  { s.l.Printf("WARN "+format, v...) }
+func (s *stdLogger) Errorf(format string, v ...interface{}) { s.l.Printf("ERROR "+format, v...) }
 
 // Hook defines an interface for intercepting client operations.
 type Hook interface {
@@ -41,6 +57,7 @@ type Client struct {
 	logger         Logger
 	hooks          []Hook // New field
 	submissionMode SubmissionMode
+	debug          bool
 }
 
 func newClientInternal(baseHost string, options ...ClientOption) *Client {
@@ -53,6 +70,12 @@ func newClientInternal(baseHost string, options ...ClientOption) *Client {
 	}
 	for _, opt := range options {
 		opt(client)
+	}
+	// Verbose debug logging needs somewhere to write; install a default stderr
+	// logger when the caller enabled debug without supplying their own Logger,
+	// so WithDebug() works on its own.
+	if client.debug && client.logger == nil {
+		client.logger = newDefaultLogger()
 	}
 	return client
 }
@@ -106,6 +129,18 @@ func WithHooks(hooks ...Hook) ClientOption {
 	}
 }
 
+// WithDebug enables verbose request/response logging: for each call the client
+// logs the method and URL (already at info level), the request body (for POST),
+// and the response status and body. Output goes through the client's Logger; if
+// none is set, WithDebug installs a default logger that writes to stderr.
+//
+// Request bodies contain the signature and business fields (amounts, addresses,
+// memo) but never a private key — the Signer holds the key and only the
+// resulting signature is sent — so enabling debug does not log secrets.
+func WithDebug() ClientOption {
+	return func(c *Client) { c.debug = true }
+}
+
 // SubmissionMode selects the native transaction signing scheme and REST write
 // surface used by the Client.Transactions()/Tokens()/Accounts() submit methods.
 //
@@ -139,6 +174,13 @@ func WithLegacyV1() ClientOption {
 // mode returns the client's configured submission mode.
 func (c *Client) mode() SubmissionMode { return c.submissionMode }
 
+// debugf logs a verbose request/response line when WithDebug is enabled.
+func (c *Client) debugf(format string, args ...interface{}) {
+	if c.debug && c.logger != nil {
+		c.logger.Printf("[DEBUG] "+format, args...)
+	}
+}
+
 // GetMethod executes a GET request to the specified path and decodes the JSON response into the result.
 // The result parameter must be a pointer to a Go value suitable for JSON unmarshalling.
 // It uses `any` because the actual type of the response varies depending on the API endpoint.
@@ -147,6 +189,7 @@ func (client *Client) GetMethod(ctx context.Context, path string, result interfa
 	if client.logger != nil {
 		client.logger.Infof("GET %s", fullURL)
 	}
+	client.debugf("--> GET %s", fullURL)
 
 	if len(client.hooks) > 0 {
 		for _, hook := range client.hooks {
@@ -214,6 +257,7 @@ func (client *Client) PostMethod(ctx context.Context, path string, body interfac
 		}
 		return marshalErr
 	}
+	client.debugf("--> POST %s body=%s", fullURL, data)
 
 	if len(client.hooks) > 0 {
 		for _, hook := range client.hooks {
@@ -303,6 +347,7 @@ func (client *Client) handleAPIResponse(ctx context.Context, method string, url 
 		}
 		return processingErr
 	}
+	client.debugf("<-- %s %s status=%d body=%s", method, url, resp.StatusCode, bodyBytes)
 
 	// If status code is OK, decode the response into the result
 	if resp.StatusCode == http.StatusOK {

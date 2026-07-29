@@ -70,6 +70,14 @@ func (m *mockLogger) getErrorfCalls() []string {
 	return calls
 }
 
+func (m *mockLogger) getPrintfCalls() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	calls := make([]string, len(m.printfCalls))
+	copy(calls, m.printfCalls)
+	return calls
+}
+
 func (m *mockLogger) reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -77,6 +85,37 @@ func (m *mockLogger) reset() {
 	m.infofCalls = nil
 	m.warnfCalls = nil
 	m.errorfCalls = nil
+}
+
+// TestWithDebugLogsRequestAndResponse verifies WithDebug logs the URL, the POST
+// request body, and the response status and body through the client's Logger.
+func TestWithDebugLogsRequestAndResponse(t *testing.T) {
+	logger := newMockLogger(t)
+	hc := fakeHTTPClient(nil, func(_ string, _ map[string]json.RawMessage) interface{} {
+		return map[string]string{"hash": "0xabc"}
+	})
+	c := NewClientWithCustomUrl("http://sdk.test", WithHTTPClient(hc), WithLogger(logger), WithDebug())
+
+	var out map[string]string
+	if err := c.PostMethod(context.Background(), "/v2/tokens/mint", map[string]string{"foo": "bar"}, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	joined := strings.Join(logger.getPrintfCalls(), "\n")
+	for _, want := range []string{"/v2/tokens/mint", `"foo":"bar"`, "status=200", `"hash":"0xabc"`} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("debug log missing %q; got:\n%s", want, joined)
+		}
+	}
+}
+
+// TestWithDebugInstallsDefaultLogger verifies WithDebug installs a default
+// logger so verbose output has somewhere to go when none is configured.
+func TestWithDebugInstallsDefaultLogger(t *testing.T) {
+	c := NewClientWithOpts(WithDebug())
+	if c.logger == nil {
+		t.Fatal("WithDebug did not install a default logger when none was set")
+	}
 }
 
 // preRequestCall stores arguments for a PreRequest call.

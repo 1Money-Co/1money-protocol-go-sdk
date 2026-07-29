@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,20 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 )
+
+// debugEnabled reports whether verbose SDK request/response logging should be
+// enabled for the business-flow tests, toggled by the TEST_DEBUG env var
+// (1/true/yes/on, case-insensitive). When on, the client is built with
+// WithDebug so every call's method, URL, request body, and response status and
+// body are printed.
+func debugEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("TEST_DEBUG"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
 
 // TestAccount represents a test account with its private key and a Signer built
 // from it. The v2 namespace API signs through the Signer; the raw PrivateKey is
@@ -57,6 +72,15 @@ func setupBusinessFlowTest(t *testing.T) *BusinessFlowTestSuite {
 		env = "testnet"
 	}
 
+	// Assemble client options. TEST_DEBUG turns on verbose request/response
+	// logging (method, URL, request body, response status + body) for every SDK
+	// call via the SDK's WithDebug option.
+	opts := []ClientOption{WithTimeout(30 * time.Second)}
+	if debugEnabled() {
+		opts = append(opts, WithDebug())
+		t.Log("TEST_DEBUG enabled: printing request/response for every SDK call")
+	}
+
 	var client *Client
 	switch env {
 	case "local":
@@ -64,9 +88,9 @@ func setupBusinessFlowTest(t *testing.T) *BusinessFlowTestSuite {
 		if url == "" {
 			url = localEndpoint
 		}
-		client = NewClientWithCustomUrl(url, WithTimeout(30*time.Second))
+		client = NewClientWithCustomUrl(url, opts...)
 	case "testnet":
-		client = NewTestClientWithOpts(WithTimeout(30 * time.Second))
+		client = NewTestClientWithOpts(opts...)
 	default:
 		t.Fatalf("Unsupported TEST_ENV for business flow tests: %s", env)
 	}
