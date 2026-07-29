@@ -58,7 +58,9 @@ func payloadCases() []payloadTestCase {
 					return
 				}
 				assert.Equal(t, addr("0x1111111111111111111111111111111111111111"), payload.Recipient)
-				assert.Equal(t, addr("0x2222222222222222222222222222222222222222"), payload.Token)
+				if assert.NotNil(t, payload.Token) {
+					assert.Equal(t, addr("0x2222222222222222222222222222222222222222"), *payload.Token)
+				}
 				assert.Equal(t, "12345", payload.Value)
 			},
 		},
@@ -157,7 +159,9 @@ func payloadCases() []payloadTestCase {
 				assert.Equal(t, addr("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), payload.AuthorityAddress)
 				assert.Equal(t, AuthorityTypeMintBurnTokens, payload.AuthorityType)
 				assert.Equal(t, addr("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), payload.Token)
-				assert.Equal(t, "1000", payload.Value)
+				if assert.NotNil(t, payload.Value) {
+					assert.Equal(t, "1000", *payload.Value)
+				}
 			},
 		},
 		{
@@ -448,6 +452,68 @@ func TestTransaction_Unmarshal_UnknownType(t *testing.T) {
 	}
 }
 
+func TestTransaction_SignatureDecode(t *testing.T) {
+	t.Run("Single", func(t *testing.T) {
+		jsonData := `{
+			"hash": "0xabc",
+			"from": "0x1111111111111111111111111111111111111111",
+			"chain_id": 1212101,
+			"nonce": 1,
+			"transaction_type": "TokenMint",
+			"data": {"recipient": "0x2222222222222222222222222222222222222222", "token": "0x3333333333333333333333333333333333333333", "value": "10"},
+			"signature_type": "Single",
+			"signature": {"r": "0x1", "s": "0x2", "v": 0},
+			"signature_scheme": "domain_separated",
+			"memo": {"type": "purpose/SALA", "format": "text/plain", "data": "hi"}
+		}`
+		var tx Transaction
+		if !assert.NoError(t, json.Unmarshal([]byte(jsonData), &tx)) {
+			return
+		}
+		assert.Equal(t, "Single", tx.SignatureType)
+		assert.Nil(t, tx.MultiSignature)
+		if assert.NotNil(t, tx.Signature) {
+			assert.Equal(t, "0x1", tx.Signature.R)
+			assert.Equal(t, uint64(0), tx.Signature.V)
+		}
+		assert.Equal(t, SignatureSchemeDomainSeparated, tx.SignatureScheme)
+		if assert.NotNil(t, tx.Memo) {
+			assert.Equal(t, "hi", tx.Memo.Data)
+		}
+	})
+
+	t.Run("Multi", func(t *testing.T) {
+		jsonData := `{
+			"hash": "0xabc",
+			"from": "0x1111111111111111111111111111111111111111",
+			"chain_id": 1212101,
+			"nonce": 1,
+			"transaction_type": "TokenMint",
+			"data": {"recipient": "0x2222222222222222222222222222222222222222", "token": "0x3333333333333333333333333333333333333333", "value": "10"},
+			"signature_type": "Multi",
+			"signature": {
+				"account": "0x4444444444444444444444444444444444444444",
+				"signatures": [
+					{"signer_pubkey": "0x02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5", "signature": {"r": "0x1", "s": "0x2", "v": 1}}
+				]
+			}
+		}`
+		var tx Transaction
+		if !assert.NoError(t, json.Unmarshal([]byte(jsonData), &tx)) {
+			return
+		}
+		assert.Equal(t, "Multi", tx.SignatureType)
+		assert.Nil(t, tx.Signature)
+		if assert.NotNil(t, tx.MultiSignature) {
+			assert.Equal(t, addr("0x4444444444444444444444444444444444444444"), tx.MultiSignature.Account)
+			if assert.Len(t, tx.MultiSignature.Signatures, 1) {
+				assert.Equal(t, "0x02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5", tx.MultiSignature.Signatures[0].SignerPubkey)
+				assert.Equal(t, uint64(1), tx.MultiSignature.Signatures[0].Signature.V)
+			}
+		}
+	})
+}
+
 func TestTransaction_TypeSafeHelpers_WrongType(t *testing.T) {
 	tx := Transaction{
 		TransactionType: TransactionTypeTokenMint,
@@ -486,17 +552,87 @@ func TestTransactionReceiptResponse_UnmarshalJSON(t *testing.T) {
 		return
 	}
 
-	assert.Equal(t, "0xabc", receipt.CheckpointHash)
-	assert.Equal(t, uint64(42), receipt.CheckpointNumber)
+	if assert.NotNil(t, receipt.CheckpointHash) {
+		assert.Equal(t, "0xabc", *receipt.CheckpointHash)
+	}
+	if assert.NotNil(t, receipt.CheckpointNumber) {
+		assert.Equal(t, uint64(42), *receipt.CheckpointNumber)
+	}
 	assert.Equal(t, "0xdeadbeef", receipt.TransactionHash)
-	assert.Equal(t, 7, receipt.TransactionIndex)
+	if assert.NotNil(t, receipt.TransactionIndex) {
+		assert.Equal(t, uint64(7), *receipt.TransactionIndex)
+	}
 	assert.Equal(t, common.HexToAddress("0x1234567890123456789012345678901234567890"), receipt.From)
 	assert.True(t, receipt.Success)
 	assert.Equal(t, "100", receipt.FeeUsed)
-	assert.Nil(t, receipt.To)
 	assert.Nil(t, receipt.Recipient)
 	if assert.NotNil(t, receipt.TokenAddress) {
 		assert.Equal(t, common.HexToAddress("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), *receipt.TokenAddress)
+	}
+}
+
+// TestTransactionReceiptResponse_BatchAndEvents covers the batch-payment receipt
+// detail added to match the node: batch_info, success_info and execution_events.
+func TestTransactionReceiptResponse_BatchAndEvents(t *testing.T) {
+	jsonData := `{
+		"success": true,
+		"transaction_hash": "0xdeadbeef",
+		"transaction_index": 3,
+		"checkpoint_hash": "0xabc",
+		"checkpoint_number": 42,
+		"from": "0x1234567890123456789012345678901234567890",
+		"fee_used": "100",
+		"recipient": null,
+		"token_address": null,
+		"success_info": {
+			"sender": "0x1111111111111111111111111111111111111111",
+			"receiver": "0x2222222222222222222222222222222222222222",
+			"is_private": false,
+			"message": "ok",
+			"bridge_info": null
+		},
+		"batch_info": {
+			"batch_id": "payroll-1",
+			"operations_hash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+			"operations_count": 2,
+			"total_amount": "3000",
+			"failure": null
+		},
+		"execution_events": [
+			{"event_type": "BatchStarted", "batch_id": "payroll-1", "operations_count": 2, "total_amount": "3000"},
+			{"event_type": "PaymentExecuted", "operation_index": 0, "recipient": "0x2222222222222222222222222222222222222222", "amount": "1000"}
+		]
+	}`
+
+	receipt := new(TransactionReceiptResponse)
+	if err := json.Unmarshal([]byte(jsonData), receipt); !assert.NoError(t, err) {
+		return
+	}
+
+	if assert.NotNil(t, receipt.SuccessInfo) {
+		assert.Equal(t, common.HexToAddress("0x1111111111111111111111111111111111111111"), receipt.SuccessInfo.Sender)
+		assert.Equal(t, "ok", receipt.SuccessInfo.Message)
+		assert.Nil(t, receipt.SuccessInfo.BridgeInfo)
+	}
+	if assert.NotNil(t, receipt.BatchInfo) {
+		if assert.NotNil(t, receipt.BatchInfo.BatchID) {
+			assert.Equal(t, "payroll-1", *receipt.BatchInfo.BatchID)
+		}
+		assert.Equal(t, uint64(2), receipt.BatchInfo.OperationsCount)
+		assert.Equal(t, "3000", receipt.BatchInfo.TotalAmount)
+		if assert.NotNil(t, receipt.BatchInfo.OperationsHash) {
+			assert.Equal(t, common.HexToHash("0x3333333333333333333333333333333333333333333333333333333333333333"), *receipt.BatchInfo.OperationsHash)
+		}
+	}
+	if assert.Len(t, receipt.ExecutionEvents, 2) {
+		assert.Equal(t, "BatchStarted", receipt.ExecutionEvents[0].EventType)
+		assert.Equal(t, "PaymentExecuted", receipt.ExecutionEvents[1].EventType)
+		if assert.NotNil(t, receipt.ExecutionEvents[1].OperationIndex) {
+			assert.Equal(t, uint64(0), *receipt.ExecutionEvents[1].OperationIndex)
+		}
+		if assert.NotNil(t, receipt.ExecutionEvents[1].Amount) {
+			assert.Equal(t, "1000", *receipt.ExecutionEvents[1].Amount)
+		}
 	}
 }
 
@@ -511,13 +647,13 @@ func TestFinalizedTransactionResponse_UnmarshalJSON(t *testing.T) {
 		"fee_used": "100",
 		"recipient": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		"epoch": 99,
-		"counter_signatures": [
-			{
-				"r": "0x1",
-				"s": "0x2",
-				"v": 0
-			}
-		]
+		"counter_signature": {
+			"signer_bitmask": "0x0f",
+			"signature": "0xaggregate",
+			"validator_public_keys": ["0x01", "0x02"]
+		},
+		"fee": "100",
+		"fee_bound": true
 	}`
 
 	finalized := new(FinalizedTransactionResponse)
@@ -525,21 +661,29 @@ func TestFinalizedTransactionResponse_UnmarshalJSON(t *testing.T) {
 		return
 	}
 
-	assert.Equal(t, "0xabc", finalized.CheckpointHash)
-	assert.Equal(t, uint64(42), finalized.CheckpointNumber)
+	if assert.NotNil(t, finalized.CheckpointHash) {
+		assert.Equal(t, "0xabc", *finalized.CheckpointHash)
+	}
+	if assert.NotNil(t, finalized.CheckpointNumber) {
+		assert.Equal(t, uint64(42), *finalized.CheckpointNumber)
+	}
 	assert.Equal(t, "0xdeadbeef", finalized.TransactionHash)
-	assert.Equal(t, 7, finalized.TransactionIndex)
+	if assert.NotNil(t, finalized.TransactionIndex) {
+		assert.Equal(t, uint64(7), *finalized.TransactionIndex)
+	}
 	assert.Equal(t, common.HexToAddress("0x1234567890123456789012345678901234567890"), finalized.From)
 	assert.True(t, finalized.Success)
 	assert.Equal(t, "100", finalized.FeeUsed)
 	assert.Nil(t, finalized.TokenAddress)
-	assert.Nil(t, finalized.To)
 	if assert.NotNil(t, finalized.Recipient) {
 		assert.Equal(t, common.HexToAddress("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), *finalized.Recipient)
 	}
 	assert.Equal(t, uint64(99), finalized.Epoch)
-	assert.Len(t, finalized.CounterSignatures, 1)
-	assert.Equal(t, "0x1", finalized.CounterSignatures[0].R)
-	assert.Equal(t, "0x2", finalized.CounterSignatures[0].S)
-	assert.Equal(t, uint64(0), finalized.CounterSignatures[0].V)
+	assert.Equal(t, "0x0f", finalized.CounterSignature.SignerBitmask)
+	assert.Equal(t, "0xaggregate", finalized.CounterSignature.Signature)
+	assert.Equal(t, []string{"0x01", "0x02"}, finalized.CounterSignature.ValidatorPublicKeys)
+	if assert.NotNil(t, finalized.Fee) {
+		assert.Equal(t, "100", *finalized.Fee)
+	}
+	assert.True(t, finalized.FeeBound)
 }

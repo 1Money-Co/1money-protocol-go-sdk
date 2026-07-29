@@ -110,10 +110,15 @@ func TestPublicAPICompatibility(t *testing.T) {
 	}
 	got = got[index:]
 
-	// This is the pre-refactor HEAD surface from its first exported API section
-	// onward. The package overview is excluded because doc.go intentionally adds it.
-	const preRefactorPublicAPIHash = "fdd2508b23cffe139c4388cf91ba4da15fb71c191f35b5e06cefc8a7194cd4ab"
-	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != preRefactorPublicAPIHash {
-		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the pre-refactor baseline", gotHash, preRefactorPublicAPIHash)
+	// Baseline of the exported API surface (from its first exported API section
+	// onward; the package overview is excluded because doc.go intentionally adds
+	// it). Update this hash deliberately whenever the public API changes on
+	// purpose — e.g. the query-response types were aligned with the l1client REST
+	// wire format (nullable checkpoint fields, batch/success receipt detail,
+	// polymorphic signatures, BLS counter-signature, clawback metadata, typed
+	// pricing). It guards against unintentional drift, not intentional changes.
+	const publicAPIHash = "9e29e73b36a77a14c896fb7086c2f8aec93ef976b9dc6c0bdc746ff373e9a0d1"
+	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
+		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}
 }

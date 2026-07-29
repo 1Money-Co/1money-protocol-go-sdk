@@ -266,6 +266,8 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
                 "white_list": ["0x5"],
                 "metadata_update_authorities": ["0x6"],
                 "bridge_mint_authorities": ["0x7"],
+                "clawback_enabled": true,
+                "clawback_authorities": ["0x8"],
                 "supply": "9999",
                 "decimals": 4,
                 "is_paused": false,
@@ -281,6 +283,8 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
 				resp := v.(*TokenInfoResponse)
 				assert.Equal(t, "INFO", resp.Symbol)
 				assert.Equal(t, "9999", resp.Supply)
+				assert.True(t, resp.ClawbackEnabled)
+				assert.Equal(t, []string{"0x8"}, resp.ClawbackAuthorities)
 				if assert.Len(t, resp.Meta.AdditionalMetadata, 1) {
 					assert.Equal(t, "env", resp.Meta.AdditionalMetadata[0].Key)
 				}

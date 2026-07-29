@@ -162,6 +162,8 @@ type TokenInfoResponse struct {
 	WhiteList                 []string          `json:"white_list"`
 	MetadataUpdateAuthorities []string          `json:"metadata_update_authorities"`
 	BridgeMintAuthorities     []string          `json:"bridge_mint_authorities"`
+	ClawbackEnabled           bool              `json:"clawback_enabled"`
+	ClawbackAuthorities       []string          `json:"clawback_authorities"`
 	Supply                    string            `json:"supply"`
 	Decimals                  uint8             `json:"decimals"`
 	IsPaused                  bool              `json:"is_paused"`

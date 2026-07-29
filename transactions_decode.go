@@ -1,6 +1,7 @@
 package onemoney
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -69,12 +70,16 @@ type UnknownTransactionPayload map[string]interface{}
 func (UnknownTransactionPayload) isTransactionPayload() {}
 
 // UnmarshalJSON implements custom JSON unmarshaling for Transaction.
-// It automatically parses the Data field into the correct type based on TransactionType.
+// It parses the Data field into the correct type based on TransactionType, and
+// the polymorphic authorization (top-level signature_type + signature) into
+// either Signature (Single) or MultiSignature (Multi).
 func (t *Transaction) UnmarshalJSON(data []byte) error {
-	// First, unmarshal into a temporary struct to get TransactionType.
+	// First, unmarshal into a temporary struct to get TransactionType, the raw
+	// data payload, and the raw signature content.
 	type Alias Transaction
 	aux := &struct {
-		RawData json.RawMessage `json:"data"`
+		RawData      json.RawMessage `json:"data"`
+		RawSignature json.RawMessage `json:"signature"`
 		*Alias
 	}{
 		Alias: (*Alias)(t),
@@ -92,17 +97,36 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 			}
 		}
 		t.Data = payload
-		return nil
+	} else {
+		// For unknown types, keep the payload as raw JSON.
+		var rawData UnknownTransactionPayload
+		if len(aux.RawData) > 0 {
+			if err := json.Unmarshal(aux.RawData, &rawData); err != nil {
+				return fmt.Errorf("failed to unmarshal unknown transaction data: %w", err)
+			}
+		}
+		t.Data = rawData
 	}
 
-	// For unknown types, keep as raw JSON.
-	var rawData UnknownTransactionPayload
-	if len(aux.RawData) > 0 {
-		if err := json.Unmarshal(aux.RawData, &rawData); err != nil {
-			return fmt.Errorf("failed to unmarshal unknown transaction data: %w", err)
+	// Parse the authorization based on signature_type. "Multi" carries an
+	// account + per-signer entries; anything else (including "Single") carries a
+	// single r/s/v signature.
+	if len(aux.RawSignature) > 0 && !bytes.Equal(aux.RawSignature, []byte("null")) {
+		switch t.SignatureType {
+		case "Multi":
+			multi := new(MultiSigSignature)
+			if err := json.Unmarshal(aux.RawSignature, multi); err != nil {
+				return fmt.Errorf("failed to unmarshal multisig signature: %w", err)
+			}
+			t.MultiSignature = multi
+		default:
+			sig := new(Signature)
+			if err := json.Unmarshal(aux.RawSignature, sig); err != nil {
+				return fmt.Errorf("failed to unmarshal signature: %w", err)
+			}
+			t.Signature = sig
 		}
 	}
-	t.Data = rawData
 
 	return nil
 }

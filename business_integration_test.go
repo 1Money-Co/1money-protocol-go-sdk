@@ -170,6 +170,14 @@ func (s *BusinessFlowTestSuite) getTokenBalance(address common.Address, token co
 }
 
 // waitForTransaction waits for a transaction to be confirmed and retrieves transaction details
+// u64OrZero dereferences an optional uint64 for logging, yielding 0 when nil.
+func u64OrZero(p *uint64) uint64 {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
 func (s *BusinessFlowTestSuite) waitForTransaction(txHash string, maxWait time.Duration) *TransactionReceiptResponse {
 	s.t.Logf("⏳ Waiting for transaction %s to be confirmed...", txHash)
 	ctx := context.Background()
@@ -180,9 +188,9 @@ func (s *BusinessFlowTestSuite) waitForTransaction(txHash string, maxWait time.D
 		if err == nil {
 			elapsed := time.Since(start)
 			if receipt.Success {
-				s.t.Logf("✅ Transaction confirmed in %.2fs (checkpoint %d)", elapsed.Seconds(), receipt.CheckpointNumber)
+				s.t.Logf("✅ Transaction confirmed in %.2fs (checkpoint %d)", elapsed.Seconds(), u64OrZero(receipt.CheckpointNumber))
 			} else {
-				s.t.Logf("❌ Transaction failed in %.2fs (checkpoint %d)", elapsed.Seconds(), receipt.CheckpointNumber)
+				s.t.Logf("❌ Transaction failed in %.2fs (checkpoint %d)", elapsed.Seconds(), u64OrZero(receipt.CheckpointNumber))
 			}
 
 			// Get transaction details for additional verification and logging
@@ -196,7 +204,7 @@ func (s *BusinessFlowTestSuite) waitForTransaction(txHash string, maxWait time.D
 				s.t.Logf("   - Type: %s", tx.TransactionType)
 				s.t.Logf("   - Nonce: %d", tx.Nonce)
 				s.t.Logf("   - Chain ID: %d", tx.ChainID)
-				s.t.Logf("   - Checkpoint: %d", tx.CheckpointNumber)
+				s.t.Logf("   - Checkpoint: %d", u64OrZero(tx.CheckpointNumber))
 			}
 
 			return receipt
@@ -430,7 +438,9 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			tx := suite.fetchTransaction(t, result.Hash)
 			if payload, ok := tx.AsTokenTransferData(); ok {
 				assert.Equalf(t, suite.Account2.Address, payload.Recipient, "transfer recipient mismatch")
-				assert.Equalf(t, tokenAddr, payload.Token, "transfer token mismatch")
+				if assert.NotNilf(t, payload.Token, "expected token in transfer payload") {
+					assert.Equalf(t, tokenAddr, *payload.Token, "transfer token mismatch")
+				}
 				assert.Equalf(t, transferAmount.String(), payload.Value, "transfer value mismatch")
 			}
 
@@ -477,7 +487,9 @@ func TestBusinessFlow_CompleteTokenLifecycle(t *testing.T) {
 			txTransfer := suite.fetchTransaction(t, tResult.Hash)
 			if payload, ok := txTransfer.AsTokenTransferData(); ok {
 				assert.Equalf(t, minterAccount.Address, payload.Recipient, "transfer-to-minter recipient mismatch")
-				assert.Equalf(t, tokenAddr, payload.Token, "transfer-to-minter token mismatch")
+				if assert.NotNilf(t, payload.Token, "expected token in transfer-to-minter payload") {
+					assert.Equalf(t, tokenAddr, *payload.Token, "transfer-to-minter token mismatch")
+				}
 			}
 			// Verify balances
 			minterBalance := suite.getTokenBalance(minterAccount.Address, tokenAddr)

@@ -5,6 +5,7 @@ import "github.com/ethereum/go-ethereum/common"
 type TokenCreateData struct {
 	Decimals        uint8          `json:"decimals"`
 	IsPrivate       bool           `json:"is_private"`
+	ClawbackEnabled bool           `json:"clawback_enabled"`
 	MasterAuthority common.Address `json:"master_authority"`
 	Name            string         `json:"name"`
 	Symbol          string         `json:"symbol"`
@@ -14,8 +15,9 @@ type EmptyData struct{}
 
 type TokenTransferData struct {
 	Recipient common.Address `json:"recipient"`
-	Token     common.Address `json:"token"`
-	Value     string         `json:"value"`
+	// Token is nil for a native-value transfer (the node returns null).
+	Token *common.Address `json:"token"`
+	Value string          `json:"value"`
 }
 
 // BatchPaymentOperationData is one recipient/amount pair inside a decoded
@@ -51,14 +53,16 @@ type TokenGrantAuthorityData struct {
 	AuthorityAddress common.Address `json:"authority_address"`
 	AuthorityType    AuthorityType  `json:"authority_type"`
 	Token            common.Address `json:"token"`
-	Value            string         `json:"value"`
+	// Value is nil for authority types that do not carry an allowance (the node returns null).
+	Value *string `json:"value"`
 }
 
 type TokenRevokeAuthorityData struct {
 	AuthorityAddress common.Address `json:"authority_address"`
 	AuthorityType    AuthorityType  `json:"authority_type"`
 	Token            common.Address `json:"token"`
-	Value            string         `json:"value"`
+	// Value is nil for authority types that do not carry an allowance (the node returns null).
+	Value *string `json:"value"`
 }
 
 type TokenBlacklistAccountData struct {

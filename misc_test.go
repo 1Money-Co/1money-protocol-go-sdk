@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetChainIdUsesChainsEndpoint(t *testing.T) {
@@ -63,16 +66,35 @@ func TestNativeWriteStatusResponseUnmarshal(t *testing.T) {
 }
 
 func TestPricingPlanUnmarshal(t *testing.T) {
-	raw := `{"address":"0x5458747a0efb9ebeb8696fcac1479278c0872fbe","version":"v1","criteria":[{"x":1}],"tiers":[]}`
+	raw := `{
+		"address":"0x5458747a0efb9ebeb8696fcac1479278c0872fbe",
+		"version":"v1",
+		"token":null,
+		"criteria":[{"type":"sender_token","address":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222"}],
+		"tiers":[{"min_amount":"0","max_amount":null,"fee":{"type":"defaultratio","points":30}}],
+		"active_from":null,
+		"active_to":null
+	}`
 	var p PricingPlan
 	if err := json.Unmarshal([]byte(raw), &p); err != nil {
 		t.Fatal(err)
 	}
-	if p.Version != "v1" {
+	if p.Version != PricingPlanVersionV1 {
 		t.Errorf("version = %s", p.Version)
 	}
-	if string(p.Criteria) != `[{"x":1}]` {
-		t.Errorf("criteria = %s", p.Criteria)
+	if assert.Len(t, p.Criteria, 1) {
+		assert.Equal(t, "sender_token", p.Criteria[0].Type)
+		if assert.NotNil(t, p.Criteria[0].Token) {
+			assert.Equal(t, common.HexToAddress("0x2222222222222222222222222222222222222222"), *p.Criteria[0].Token)
+		}
+	}
+	if assert.Len(t, p.Tiers, 1) {
+		assert.Equal(t, "0", p.Tiers[0].MinAmount)
+		assert.Nil(t, p.Tiers[0].MaxAmount)
+		assert.Equal(t, "defaultratio", p.Tiers[0].Fee.Type)
+		if assert.NotNil(t, p.Tiers[0].Fee.Points) {
+			assert.Equal(t, uint16(30), *p.Tiers[0].Fee.Points)
+		}
 	}
 }
 

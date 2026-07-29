@@ -64,11 +64,41 @@ Notes:
   legacy path carry no memo, so passing `WithMemo` there returns an error rather
   than dropping it silently.
 
+## Offline / KMS / HSM signing
+
+The namespace methods above do everything in one call. When signing happens out
+of band (offline, KMS, HSM) you drive the same pipeline yourself and get the two
+hashes directly from the SDK — you never assemble the RLP or hash anything by
+hand:
+
+```go
+prep, _ := onemoney.PrepareTransaction(payload)   // offline, no network
+digest  := prep.SigningHash()                     // the 32-byte signing_hash (see below)
+sig     := signExternally(digest)                 // -> onemoney.Signature{R, S, V}
+
+authorized, _ := prep.Authorize(sig)              // holds the transaction_hash
+txHash        := authorized.TransactionHash()      // the 32-byte transaction_hash (see below)
+resp, _       := client.Submit(ctx, authorized)   // submit + hash-verify
+```
+
+- `PrepareTransaction(payload, ...SubmitOption)` builds the unsigned transaction
+  offline; `prep.SigningHash()` is the exact digest your signer must sign.
+- `prep.Authorize(sig)` attaches the signature and yields an
+  `AuthorizedTransaction` whose `TransactionHash()` is the final public hash.
+- `client.Submit(ctx, authorized)` sends it and verifies the server-returned
+  hash against the locally computed one, failing closed on mismatch.
+
+`WithManageListKind` disambiguates a blacklist vs whitelist
+`TokenManageListPayload` when preparing it. The one-step namespace methods run
+on this exact pipeline internally, so both paths produce identical bytes and
+hashes.
+
 ## How the v2 signing hash is built
 
-You do **not** build any of this yourself — the SDK does. This section explains
-what it computes so the scheme is auditable and so custom signers know exactly
-what they are signing.
+You do **not** build any of this yourself — the SDK does, and the offline
+pipeline above hands your signer `prep.SigningHash()`. This section explains
+what that digest actually contains, so the scheme is auditable and custom
+signers know exactly what they are signing.
 
 The digest a signer signs is:
 
@@ -115,22 +145,6 @@ For a single signature the proof is `[r, s, v]`. The SDK verifies the
 server-returned hash against this locally computed hash and fails closed on any
 mismatch (it never retries a v2 submission under v1 — that could double-spend a
 nonce).
-
-## Offline / KMS / HSM signing
-
-If signing happens out of band, drive the same pipeline yourself:
-
-```go
-prep, _ := onemoney.PrepareTransaction(payload)   // offline, no network
-digest  := prep.SigningHash()                     // the 32-byte signing_hash above
-sig     := signExternally(digest)                 // -> onemoney.Signature{R, S, V}
-
-authorized, _ := prep.Authorize(sig)              // holds transaction_hash
-resp, _       := client.Submit(ctx, authorized)   // submit + hash-verify
-```
-
-The one-step namespace methods run on this exact pipeline internally, so both
-paths produce identical bytes and hashes.
 
 ### Signer contract
 

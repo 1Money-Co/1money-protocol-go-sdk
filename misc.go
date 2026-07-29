@@ -2,7 +2,6 @@ package onemoney
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -95,16 +94,50 @@ func (c *Client) GetNativeWriteStatus(ctx context.Context) (*NativeWriteStatusRe
 // Pricing plans (GET /v1/pricing/plans)
 // -----------------------------------------------------------------------------
 
-// PricingPlan is a fee pricing plan. The nested criteria and tiers are captured
-// as raw JSON to keep the SDK surface small; decode them further if needed.
+// PricingPlanVersion is the pricing-plan schema version. The wire values are
+// lowercase.
+type PricingPlanVersion string
+
+const (
+	PricingPlanVersionV0 PricingPlanVersion = "v0"
+	PricingPlanVersionV1 PricingPlanVersion = "v1"
+)
+
+// PricingPlan is a fee pricing plan. Token, ActiveFrom and ActiveTo are nil when
+// the node returns null for them.
 type PricingPlan struct {
-	Address    common.Address  `json:"address"`
-	Version    string          `json:"version"`
-	Token      *common.Address `json:"token,omitempty"`
-	Criteria   json.RawMessage `json:"criteria,omitempty"`
-	Tiers      json.RawMessage `json:"tiers,omitempty"`
-	ActiveFrom *uint64         `json:"active_from,omitempty"`
-	ActiveTo   *uint64         `json:"active_to,omitempty"`
+	Address    common.Address     `json:"address"`
+	Version    PricingPlanVersion `json:"version"`
+	Token      *common.Address    `json:"token"`
+	Criteria   []PricingCriteria  `json:"criteria"`
+	Tiers      []PricingFeeTier   `json:"tiers"`
+	ActiveFrom *uint64            `json:"active_from"`
+	ActiveTo   *uint64            `json:"active_to"`
+}
+
+// PricingCriteria is one scope predicate of a pricing plan. It is internally
+// tagged by Type (token, sender, recipient, sender_token, recipient_token,
+// sender_general, recipient_general); Token is set only for the *_token types.
+type PricingCriteria struct {
+	Type    string          `json:"type"`
+	Address common.Address  `json:"address"`
+	Token   *common.Address `json:"token,omitempty"`
+}
+
+// PricingFeeTier is one fee tier of a pricing plan. MaxAmount is nil for an
+// open-ended top tier.
+type PricingFeeTier struct {
+	MinAmount string            `json:"min_amount"`
+	MaxAmount *string           `json:"max_amount"`
+	Fee       PricingFeeFormula `json:"fee"`
+}
+
+// PricingFeeFormula is a tier's fee formula, internally tagged by Type: "fixed"
+// (Amount set), "percentage" or "defaultratio" (Points set).
+type PricingFeeFormula struct {
+	Type   string  `json:"type"`
+	Amount *uint64 `json:"amount,omitempty"`
+	Points *uint16 `json:"points,omitempty"`
 }
 
 // PricingPlanLookup is the per-scope pricing plan result returned by
