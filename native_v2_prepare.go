@@ -1,6 +1,9 @@
 package onemoney
 
-import "fmt"
+import (
+	"fmt"
+	"math/big"
+)
 
 // ManageListKind selects blacklist vs whitelist for a TokenManageListPayload,
 // which share one Go type but map to different native operations (and therefore
@@ -20,6 +23,51 @@ func WithManageListKind(k ManageListKind) SubmitOption {
 	return func(c *submitConfig) { c.listKind = &k }
 }
 
+func validateU256(name string, value *big.Int) error {
+	if value == nil {
+		return nil
+	}
+	if value.Sign() < 0 {
+		return fmt.Errorf("%s must be non-negative", name)
+	}
+	if value.BitLen() > 256 {
+		return fmt.Errorf("%s exceeds U256", name)
+	}
+	return nil
+}
+
+func validatePayloadU256(payload any) error {
+	switch p := payload.(type) {
+	case PaymentPayload:
+		return validateU256("payment.value", p.Value)
+	case BatchPaymentPayload:
+		if err := validateU256("batch.max_fee", p.MaxFee); err != nil {
+			return err
+		}
+		for index, operation := range p.Operations {
+			if err := validateU256(fmt.Sprintf("batch.operations[%d].amount", index), operation.Amount); err != nil {
+				return err
+			}
+		}
+	case TokenMintPayload:
+		return validateU256("mint.value", p.Value)
+	case TokenBurnPayload:
+		return validateU256("burn.value", p.Value)
+	case TokenBridgeAndMintPayload:
+		return validateU256("bridge_and_mint.value", p.Value)
+	case TokenBurnAndBridgePayload:
+		if err := validateU256("burn_and_bridge.value", p.Value); err != nil {
+			return err
+		}
+		return validateU256("burn_and_bridge.escrow_fee", p.EscrowFee)
+	case TokenAuthorityPayload:
+		return validateU256("authority.value", p.Value)
+	case TokenClawbackPayload:
+		return validateU256("clawback.value", p.Value)
+	}
+	return nil
+}
+
 // resolvePayloadOp maps a supported payload value to its native operation. It is
 // the single source of truth for the payload -> operation mapping, used by both
 // PrepareTransaction (offline hashing) and the submit path.
@@ -36,6 +84,9 @@ func WithManageListKind(k ManageListKind) SubmitOption {
 //   - err:         non-nil for an unsupported payload type, or an ambiguous
 //     TokenManageListPayload with no WithManageListKind.
 func resolvePayloadOp(payload any, cfg submitConfig) (op nativeOperationType, payloadList []interface{}, bodyFields map[string]interface{}, memoCapable bool, err error) {
+	if err := validatePayloadU256(payload); err != nil {
+		return 0, nil, nil, false, err
+	}
 	switch p := payload.(type) {
 	case PaymentPayload:
 		return opPayment, p.rlpList(), p.wireFields(), true, nil
