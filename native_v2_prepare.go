@@ -168,6 +168,13 @@ func prepareFromPayload(payload any, cfg submitConfig) (*PreparedTransaction, er
 	if err != nil {
 		return nil, err
 	}
+	// A memo on an operation that cannot carry one (batch payment) is rejected
+	// rather than silently dropped, so audit data is never lost without notice.
+	// This lives in the shared path so both PrepareTransaction (offline) and the
+	// namespace submit path enforce it identically.
+	if cfg.memoSet && !op.memoCapable {
+		return nil, fmt.Errorf("memo is not supported for this operation (batch payments carry no memo)")
+	}
 	return newPrepared(op, cfg.memo)
 }
 
@@ -213,7 +220,11 @@ func (p *PreparedTransaction) Authorize(sig Signature) (*AuthorizedTransaction, 
 	if err := validateSignatureComponents(sig); err != nil {
 		return nil, err
 	}
-	txHash, err := txHashV2(p.op, p.descriptor, p.payloadRLP, singleProof(sig))
+	proof, err := singleProof(sig)
+	if err != nil {
+		return nil, err
+	}
+	txHash, err := txHashV2(p.op, p.descriptor, p.payloadRLP, proof)
 	if err != nil {
 		return nil, err
 	}

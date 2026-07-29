@@ -85,11 +85,18 @@ func validateMultisigConfig(signers []MultiSigSigner, threshold uint16) error {
 // threshold_be) truncated to the last 20 bytes; signers are sorted ascending by
 // compressed public key, so input order does not affect the result.
 func DeriveMultisigAddress(signers []MultiSigSigner, threshold uint16) (common.Address, error) {
-	var zero common.Address
 	if err := validateMultisigConfig(signers, threshold); err != nil {
-		return zero, err
+		return common.Address{}, err
 	}
+	return deriveMultisigAddressUnchecked(signers, threshold), nil
+}
 
+// deriveMultisigAddressUnchecked computes the multisig address without
+// re-validating the configuration. It is used by callers that have already
+// validated (the public DeriveMultisigAddress) or that validate downstream (the
+// submit pipeline validates via resolvePayloadOp before signing or any network
+// I/O), so the configuration is checked exactly once per code path.
+func deriveMultisigAddressUnchecked(signers []MultiSigSigner, threshold uint16) common.Address {
 	sorted := make([]MultiSigSigner, len(signers))
 	copy(sorted, signers)
 	sort.SliceStable(sorted, func(i, j int) bool {
@@ -105,5 +112,5 @@ func DeriveMultisigAddress(signers []MultiSigSigner, threshold uint16) (common.A
 	data = append(data, byte(threshold>>8), byte(threshold)) // u16 big-endian
 
 	hash := crypto.Keccak256(data)
-	return common.BytesToAddress(hash[12:32]), nil
+	return common.BytesToAddress(hash[12:32])
 }

@@ -452,6 +452,99 @@ func TestTransaction_Unmarshal_UnknownType(t *testing.T) {
 	}
 }
 
+// TestTransaction_UnmarshalClearsStaleAuthorization verifies that decoding into
+// a reused Transaction value never retains a stale authorization: the
+// discriminator SignatureType must select exactly one of Signature /
+// MultiSignature (or neither when there is no signature).
+func TestTransaction_UnmarshalClearsStaleAuthorization(t *testing.T) {
+	const base = `"hash":"0x1","from":"0x1111111111111111111111111111111111111111","chain_id":1,"nonce":1,"transaction_type":"TokenMint","data":{"recipient":"0x2222222222222222222222222222222222222222","token":"0x3333333333333333333333333333333333333333","value":"1"}`
+	single := `{` + base + `,"signature_type":"Single","signature":{"r":"0x1","s":"0x2","v":0}}`
+	multi := `{` + base + `,"signature_type":"Multi","signature":{"account":"0x4444444444444444444444444444444444444444","signatures":[{"signer_pubkey":"0x02","signature":{"r":"0x1","s":"0x2","v":1}}]}}`
+	noSig := `{` + base + `}`
+
+	var tx Transaction // reused across decodes on purpose
+
+	if !assert.NoError(t, json.Unmarshal([]byte(single), &tx)) {
+		return
+	}
+	assert.NotNil(t, tx.Signature)
+
+	// Single -> Multi: the single Signature must be cleared.
+	if !assert.NoError(t, json.Unmarshal([]byte(multi), &tx)) {
+		return
+	}
+	assert.Nil(t, tx.Signature, "stale single signature not cleared after decoding a multi signature")
+	assert.NotNil(t, tx.MultiSignature)
+
+	// Multi -> Single: the MultiSignature must be cleared.
+	if !assert.NoError(t, json.Unmarshal([]byte(single), &tx)) {
+		return
+	}
+	assert.Nil(t, tx.MultiSignature, "stale multi signature not cleared after decoding a single signature")
+	assert.NotNil(t, tx.Signature)
+
+	// Single -> no signature: both must be cleared.
+	if !assert.NoError(t, json.Unmarshal([]byte(noSig), &tx)) {
+		return
+	}
+	assert.Nil(t, tx.Signature, "stale signature not cleared when the new tx has no signature")
+	assert.Nil(t, tx.MultiSignature, "stale multi signature not cleared when the new tx has no signature")
+}
+
+func TestTransaction_MarshalRoundTrip(t *testing.T) {
+	// A decoded transaction must re-marshal with its payload (data) and
+	// authorization (signature_type + signature) intact, so downstream consumers
+	// that re-serialize it (e.g. a checkpoint's full transactions) can still
+	// verify it.
+	t.Run("single", func(t *testing.T) {
+		input := `{"hash":"0xabc","from":"0x1111111111111111111111111111111111111111","chain_id":1212101,"nonce":1,"transaction_type":"TokenTransfer","data":{"recipient":"0x2222222222222222222222222222222222222222","token":"0x3333333333333333333333333333333333333333","value":"12345"},"signature_type":"Single","signature":{"r":"0x1","s":"0x2","v":0}}`
+		var tx Transaction
+		if !assert.NoError(t, json.Unmarshal([]byte(input), &tx)) {
+			return
+		}
+		encoded, err := json.Marshal(tx)
+		if !assert.NoError(t, err) {
+			return
+		}
+		assert.Contains(t, string(encoded), `"signature"`)
+		assert.Contains(t, string(encoded), `"data"`)
+
+		var re Transaction
+		if !assert.NoError(t, json.Unmarshal(encoded, &re)) {
+			return
+		}
+		assert.Equal(t, "Single", re.SignatureType)
+		if assert.NotNil(t, re.Signature) {
+			assert.Equal(t, "0x1", re.Signature.R)
+		}
+		if payload, ok := re.AsTokenTransferData(); assert.True(t, ok) {
+			assert.Equal(t, "12345", payload.Value)
+		}
+	})
+
+	t.Run("multi", func(t *testing.T) {
+		input := `{"hash":"0xabc","from":"0x1111111111111111111111111111111111111111","chain_id":1212101,"nonce":1,"transaction_type":"TokenMint","data":{"recipient":"0x2222222222222222222222222222222222222222","token":"0x3333333333333333333333333333333333333333","value":"10"},"signature_type":"Multi","signature":{"account":"0x4444444444444444444444444444444444444444","signatures":[{"signer_pubkey":"0x02","signature":{"r":"0x1","s":"0x2","v":1}}]}}`
+		var tx Transaction
+		if !assert.NoError(t, json.Unmarshal([]byte(input), &tx)) {
+			return
+		}
+		encoded, err := json.Marshal(tx)
+		if !assert.NoError(t, err) {
+			return
+		}
+		var re Transaction
+		if !assert.NoError(t, json.Unmarshal(encoded, &re)) {
+			return
+		}
+		assert.Equal(t, "Multi", re.SignatureType)
+		assert.Nil(t, re.Signature)
+		if assert.NotNil(t, re.MultiSignature) {
+			assert.Equal(t, addr("0x4444444444444444444444444444444444444444"), re.MultiSignature.Account)
+			assert.Len(t, re.MultiSignature.Signatures, 1)
+		}
+	})
+}
+
 func TestTransaction_SignatureDecode(t *testing.T) {
 	t.Run("Single", func(t *testing.T) {
 		jsonData := `{

@@ -110,7 +110,12 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 
 	// Parse the authorization based on signature_type. "Multi" carries an
 	// account + per-signer entries; anything else (including "Single") carries a
-	// single r/s/v signature.
+	// single r/s/v signature. Clear both fields first so a reused Transaction
+	// value never retains a stale signature from a prior decode: the discriminator
+	// SignatureType must select exactly one, and a null/absent signature leaves
+	// neither populated.
+	t.Signature = nil
+	t.MultiSignature = nil
 	if len(aux.RawSignature) > 0 && !bytes.Equal(aux.RawSignature, []byte("null")) {
 		switch t.SignatureType {
 		case "Multi":
@@ -129,6 +134,35 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// MarshalJSON implements custom JSON marshaling for Transaction. The decoded
+// payload (Data) and authorization (Signature / MultiSignature) are held in
+// json:"-" fields, so this re-emits them under their wire keys — `data`, and
+// `signature` alongside `signature_type` — to keep a decoded Transaction
+// round-trippable. Without it, re-serializing a Transaction (e.g. a checkpoint's
+// full transactions) would emit signature_type with no signature and drop the
+// payload, leaving downstream consumers unable to verify it.
+func (t Transaction) MarshalJSON() ([]byte, error) {
+	// Alias drops Transaction's own MarshalJSON (avoiding recursion) and keeps
+	// every tagged field except the json:"-" ones (Data/Signature/MultiSignature),
+	// which the explicit fields below re-add under their wire keys.
+	type Alias Transaction
+	aux := struct {
+		Data      interface{} `json:"data,omitempty"`
+		Signature interface{} `json:"signature,omitempty"`
+		Alias
+	}{Alias: Alias(t)}
+	if t.Data != nil {
+		aux.Data = t.Data
+	}
+	switch {
+	case t.MultiSignature != nil:
+		aux.Signature = t.MultiSignature
+	case t.Signature != nil:
+		aux.Signature = t.Signature
+	}
+	return json.Marshal(aux)
 }
 
 // Type-safe helper methods to access transaction data.

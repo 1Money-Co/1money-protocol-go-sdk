@@ -116,8 +116,10 @@ func TestPublicAPICompatibility(t *testing.T) {
 	// purpose — e.g. the query-response types were aligned with the l1client REST
 	// wire format (nullable checkpoint fields, batch/success receipt detail,
 	// polymorphic signatures, BLS counter-signature, clawback metadata, typed
-	// pricing). It guards against unintentional drift, not intentional changes.
-	const publicAPIHash = "9e29e73b36a77a14c896fb7086c2f8aec93ef976b9dc6c0bdc746ff373e9a0d1"
+	// pricing), and Transaction gained a MarshalJSON method so a decoded
+	// transaction re-serializes with its data and authorization intact. It guards
+	// against unintentional drift, not intentional changes.
+	const publicAPIHash = "51892cd053a181739795abea4aedebed4b85d4edf3a3fa1fdc1e783a45131e75"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}

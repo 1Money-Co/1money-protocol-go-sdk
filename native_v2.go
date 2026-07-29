@@ -3,6 +3,7 @@ package onemoney
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -95,17 +96,42 @@ func txHashV2(op nativeOperationType, descriptor []interface{}, payloadRLP []byt
 	return crypto.Keccak256(signed), nil
 }
 
-// sigComponents converts a Signature's hex r/s and v into RLP-ready values.
-func sigComponents(sig Signature) (*big.Int, *big.Int, uint64) {
-	r := new(big.Int).SetBytes(common.FromHex(sig.R))
-	s := new(big.Int).SetBytes(common.FromHex(sig.S))
-	return r, s, sig.V
+// parseSignatureScalar parses an r or s signature component, enforcing the
+// Signature contract that scalars are 0x-prefixed hex. It rejects a missing 0x
+// prefix or invalid hex rather than silently reinterpreting the string (e.g. a
+// decimal value) as hex the way common.FromHex would, which could yield a wrong
+// scalar that still passes the range/low-S checks.
+func parseSignatureScalar(name, value string) (*big.Int, error) {
+	if !strings.HasPrefix(value, "0x") && !strings.HasPrefix(value, "0X") {
+		return nil, fmt.Errorf("invalid signature %s: must be a 0x-prefixed hex string", name)
+	}
+	n, ok := new(big.Int).SetString(value[2:], 16)
+	if !ok {
+		return nil, fmt.Errorf("invalid signature %s: not a valid hex string", name)
+	}
+	return n, nil
+}
+
+// sigComponents parses a Signature's 0x-hex r/s and v into RLP-ready values.
+func sigComponents(sig Signature) (*big.Int, *big.Int, uint64, error) {
+	r, err := parseSignatureScalar("r", sig.R)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	s, err := parseSignatureScalar("s", sig.S)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return r, s, sig.V, nil
 }
 
 // singleProof builds authorization_proof_rlp(single) = [r, s, v].
-func singleProof(sig Signature) []interface{} {
-	r, s, v := sigComponents(sig)
-	return []interface{}{r, s, v}
+func singleProof(sig Signature) ([]interface{}, error) {
+	r, s, v, err := sigComponents(sig)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{r, s, v}, nil
 }
 
 // multiSigProofEntry is one signer's contribution to a multisig proof.
@@ -116,13 +142,16 @@ type multiSigProofEntry struct {
 
 // multiProof builds authorization_proof_rlp(multi) = [[pubkey, r, s, v], ...].
 // Entries must already be in strictly-ascending compressed-pubkey order.
-func multiProof(entries []multiSigProofEntry) []interface{} {
+func multiProof(entries []multiSigProofEntry) ([]interface{}, error) {
 	out := make([]interface{}, 0, len(entries))
 	for _, e := range entries {
-		r, s, v := sigComponents(e.sig)
+		r, s, v, err := sigComponents(e.sig)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, []interface{}{e.pubkey, r, s, v})
 	}
-	return out
+	return out, nil
 }
 
 // secp256k1N is the secp256k1 group order and secp256k1HalfN = N/2 is the low-S
@@ -142,8 +171,14 @@ func validateSignatureComponents(sig Signature) error {
 	if sig.V > 1 {
 		return fmt.Errorf("invalid signature v: %d; must be 0 or 1 (y-parity, not the legacy Ethereum 27/28)", sig.V)
 	}
-	r := new(big.Int).SetBytes(common.FromHex(sig.R))
-	s := new(big.Int).SetBytes(common.FromHex(sig.S))
+	r, err := parseSignatureScalar("r", sig.R)
+	if err != nil {
+		return err
+	}
+	s, err := parseSignatureScalar("s", sig.S)
+	if err != nil {
+		return err
+	}
 	if r.Sign() <= 0 || r.Cmp(secp256k1N) >= 0 {
 		return fmt.Errorf("invalid signature r: out of range [1, N)")
 	}

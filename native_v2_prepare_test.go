@@ -905,6 +905,37 @@ func TestAuthorizeRejectsOutOfRangeScalars(t *testing.T) {
 	}
 }
 
+// TestAuthorizeRejectsNonHexScalars locks in the Signature contract that r/s
+// are 0x-prefixed hex: a decimal or otherwise non-0x-hex scalar must be
+// rejected, not silently reinterpreted as hex (which could pass the range/low-S
+// checks and submit a corrupted proof).
+func TestAuthorizeRejectsNonHexScalars(t *testing.T) {
+	prepared, err := PrepareTransaction(testPaymentPayload())
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid, err := testSigner(t).SignHash(prepared.SigningHash())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name string
+		sig  Signature
+	}{
+		{"r_missing_0x_prefix", Signature{R: "12345", S: valid.S, V: valid.V}},
+		{"s_missing_0x_prefix", Signature{R: valid.R, S: "12345", V: valid.V}},
+		{"r_invalid_hex", Signature{R: "0xZZ", S: valid.S, V: valid.V}},
+		{"s_empty_hex", Signature{R: valid.R, S: "0x", V: valid.V}},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := prepared.Authorize(test.sig); err == nil {
+				t.Fatal("Authorize accepted a non-0x-hex signature scalar")
+			}
+		})
+	}
+}
+
 func TestAuthorizedTransactionHashDependsOnSignatureAndReturnsCopy(t *testing.T) {
 	prepared, err := PrepareTransaction(testPaymentPayload())
 	if err != nil {

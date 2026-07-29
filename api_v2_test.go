@@ -289,7 +289,11 @@ func v2HashFromBody(body map[string]json.RawMessage, op nativeOperationType, pay
 	if err != nil {
 		return ""
 	}
-	hash, err := txHashV2(op, singleDescriptor(), payloadRLP, singleProof(authz.Signature))
+	proof, err := singleProof(authz.Signature)
+	if err != nil {
+		return ""
+	}
+	hash, err := txHashV2(op, singleDescriptor(), payloadRLP, proof)
 	if err != nil {
 		return ""
 	}

@@ -195,12 +195,11 @@ func (c *Client) submitPayload(ctx context.Context, payload any, cfg submitConfi
 		}
 		return c.submitLegacyV1(ctx, op, signer, out)
 	}
+	// prepareFromPayload rejects a memo on a memo-incapable operation (e.g. batch
+	// payment), so no separate check is needed here.
 	prepared, err := prepareFromPayload(payload, cfg)
 	if err != nil {
 		return err
-	}
-	if cfg.memoSet && !prepared.memoCapable {
-		return fmt.Errorf("memo is not supported for this operation (batch payments carry no memo)")
 	}
 	sig, err := signer.SignHash(prepared.SigningHash())
 	if err != nil {

@@ -204,6 +204,25 @@ func TestBatchPaymentPairwiseGoldenCoverage(t *testing.T) {
 	assertFixtureSetContains(t, "BatchPayment pairwise", observed, sortedFixtureSet(required)...)
 }
 
+// TestPrepareTransactionRejectsBatchMemo verifies the offline pipeline rejects a
+// memo on a batch payment (which carries none) instead of silently dropping it,
+// matching the one-step submit path — the guard lives in the shared
+// prepareFromPayload so both paths enforce it.
+func TestPrepareTransactionRejectsBatchMemo(t *testing.T) {
+	batch := BatchPaymentPayload{
+		ChainID: 1, Nonce: 1, Token: repeatAddr(0x01),
+		Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1000)}},
+		MaxFee:     big.NewInt(5000), CreatedAt: 1,
+	}
+	if _, err := PrepareTransaction(batch, WithMemo(Memo{Type: "purpose/SALA", Format: "text/plain", Data: "x"})); err == nil {
+		t.Fatal("PrepareTransaction accepted a memo on a batch payment; want error (memo would be silently dropped)")
+	}
+	// Without a memo the same batch must still prepare successfully.
+	if _, err := PrepareTransaction(batch); err != nil {
+		t.Fatalf("PrepareTransaction(batch) without memo: %v", err)
+	}
+}
+
 // TestPaymentValueEdgeCases covers U256 boundary inputs the golden vectors do
 // not: nil (treated as zero), and the maximum 256-bit value.
 func TestPaymentValueEdgeCases(t *testing.T) {

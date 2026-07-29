@@ -165,7 +165,11 @@ func (v conformanceVector) proof(t *testing.T) interface{} {
 		if err := json.Unmarshal(v.AuthorizationProof, &p); err != nil {
 			t.Fatalf("%s: proof: %v", v.Name, err)
 		}
-		return singleProof(Signature{R: p.Signature.R, S: p.Signature.S, V: p.Signature.V})
+		proof, err := singleProof(Signature{R: p.Signature.R, S: p.Signature.S, V: p.Signature.V})
+		if err != nil {
+			t.Fatalf("%s: single proof: %v", v.Name, err)
+		}
+		return proof
 	}
 	var p struct {
 		Signatures []struct {
@@ -183,7 +187,11 @@ func (v conformanceVector) proof(t *testing.T) interface{} {
 			sig:    Signature{R: e.Signature.R, S: e.Signature.S, V: e.Signature.V},
 		})
 	}
-	return multiProof(entries)
+	proof, err := multiProof(entries)
+	if err != nil {
+		t.Fatalf("%s: multi proof: %v", v.Name, err)
+	}
+	return proof
 }
 
 func TestNativeV2Conformance(t *testing.T) {
