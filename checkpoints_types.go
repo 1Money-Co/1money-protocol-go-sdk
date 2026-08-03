@@ -75,6 +75,6 @@ type Checkpoint struct {
 	ReceiptsRoot     string                 `json:"receipts_root"`     // Transactions receipts root hash
 	StateRoot        string                 `json:"state_root"`        // State root hash
 	Timestamp        uint64                 `json:"timestamp"`
-	Size             int                    `json:"size"`         // Integer the size of this checkpoint in bytes.
+	Size             *uint64                `json:"size"`         // Size of this checkpoint in bytes; nil when the node omits it.
 	Transactions     CheckpointTransactions `json:"transactions"` // Checkpoint transactions.
 }

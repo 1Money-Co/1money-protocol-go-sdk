@@ -1,9 +1,13 @@
 package onemoney
 
 import (
+	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"math/big"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -262,6 +266,8 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
                 "white_list": ["0x5"],
                 "metadata_update_authorities": ["0x6"],
                 "bridge_mint_authorities": ["0x7"],
+                "clawback_enabled": true,
+                "clawback_authorities": ["0x8"],
                 "supply": "9999",
                 "decimals": 4,
                 "is_paused": false,
@@ -277,6 +283,8 @@ func TestTokenModelJSONRoundTrip(t *testing.T) {
 				resp := v.(*TokenInfoResponse)
 				assert.Equal(t, "INFO", resp.Symbol)
 				assert.Equal(t, "9999", resp.Supply)
+				assert.True(t, resp.ClawbackEnabled)
+				assert.Equal(t, []string{"0x8"}, resp.ClawbackAuthorities)
 				if assert.Len(t, resp.Meta.AdditionalMetadata, 1) {
 					assert.Equal(t, "env", resp.Meta.AdditionalMetadata[0].Key)
 				}
@@ -350,6 +358,43 @@ func TestTokenBurnAndBridgePayloadSignatureHash(t *testing.T) {
 	hash, err := HashMessage(payload)
 	assert.Nil(t, err)
 	assert.Equal(t, "0xa48e2a8591f8bfa35ef26dd41d4ccb0a2f9550e3f6f06cd9e958cf91c89afefa", common.BytesToHash(hash).Hex())
+}
+
+// TestTokensMetadataNamespace verifies the new Tokens().Metadata read routes to
+// the token-metadata endpoint with the token query, and that the deprecated
+// Client.GetTokenMetadata still works and hits the exact same URL.
+func TestTokensMetadataNamespace(t *testing.T) {
+	token := repeatAddr(0x01)
+	var gotURL string
+	hc := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		gotURL = r.URL.String()
+		buf, _ := json.Marshal(map[string]string{"symbol": "USD1"})
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(buf)), Header: http.Header{}, Request: r}, nil
+	})}
+	c := NewClientWithCustomUrl("http://sdk.test", WithHTTPClient(hc))
+
+	info, err := c.Tokens().Metadata(context.Background(), token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Symbol != "USD1" {
+		t.Errorf("symbol = %s, want USD1", info.Symbol)
+	}
+	if !strings.Contains(gotURL, "/v1/tokens/token_metadata") {
+		t.Errorf("URL = %s, want the token_metadata endpoint", gotURL)
+	}
+	if !strings.Contains(gotURL, "token="+token.Hex()) {
+		t.Errorf("URL = %s, want token=%s", gotURL, token.Hex())
+	}
+	namespaceURL := gotURL
+
+	// The deprecated flat method must still work and hit the same URL.
+	if _, err := c.GetTokenMetadata(context.Background(), token.Hex()); err != nil {
+		t.Fatalf("deprecated GetTokenMetadata: %v", err)
+	}
+	if gotURL != namespaceURL {
+		t.Errorf("deprecated URL %s != namespace URL %s", gotURL, namespaceURL)
+	}
 }
 
 func assertJSONEqual(t *testing.T, expected string, actual []byte) {

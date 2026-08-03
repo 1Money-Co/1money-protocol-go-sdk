@@ -4,7 +4,9 @@ This document describes the business flow integration tests that simulate real-w
 
 ## Overview
 
-Business flow tests (`business_flow_test.go`) are comprehensive end-to-end tests that simulate complete business workflows involving multiple transactions and state changes. Unlike the simple integration tests that verify individual API calls, these tests verify entire user journeys and business processes.
+Business flow tests (`business_integration_test.go`, build tag `integration`) are comprehensive end-to-end tests that simulate complete business workflows involving multiple transactions and state changes. Unlike the simple integration tests that verify individual API calls, these tests verify entire user journeys and business processes.
+
+All submissions use the **domain-separated v2 API**: tests build a payload and a `Signer` and call the `Transactions()` / `Tokens()` / `Accounts()` namespaces (e.g. `client.Tokens().Mint(ctx, payload, signer)`). Signing, RLP encoding, endpoint selection, and server-hash verification happen inside the SDK — the tests never hand-sign or build legacy `*Request` wrappers.
 
 ## Test Scenarios
 
@@ -12,84 +14,82 @@ Business flow tests (`business_flow_test.go`) are comprehensive end-to-end tests
 
 **Test**: `TestBusinessFlow_CompleteTokenLifecycle`
 
-This test simulates the complete lifecycle of a token from creation to destruction:
+Simulates the complete lifecycle of a token from creation to destruction:
 
-1. **Issue New Token**: Create a new token with custom symbol, name, and decimals
-   - Signed by operator account
-   - Master account set as master authority
-2. **Grant Mint Authority**: Generate a new account and grant it minting/burning privileges
-   - Master authority grants permission to the new minter account
-   - Demonstrates role-based access control
-3. **Mint Tokens**: Create new token supply and assign to an account
-   - Performed by the authorized minter account (not master authority)
-   - Shows that delegated authorities can execute operations
-4. **Transfer Tokens**: Move tokens between accounts
-   - Standard user-to-user transfer
-5. **Burn Tokens**: Destroy tokens to reduce supply
-   - Performed by the authorized minter account
-   - Demonstrates burn authority usage
-6. **Revoke Mint Authority**: Remove minting privileges from the minter account
-   - Master authority revokes the previously granted permission
-   - Shows authority management capabilities
+1. **Issue New Token** — `Tokens().Issue`, signed by the operator; master account set as master authority
+2. **Grant Mint Authority** — `Tokens().GrantAuthority` grants `MintBurnTokens` to a fresh minter
+3. **Mint Tokens** — `Tokens().Mint` by the authorized minter (not the master)
+4. **Transfer Tokens** — `Transactions().Payment` between accounts
+5. **Burn Tokens** — `Tokens().Burn` by the minter
+6. **Revoke Mint Authority** — `Tokens().RevokeAuthority` removes the grant
 
-**Verifications**:
-
-- Token metadata is correctly set
-- Balances are accurately updated after each operation
-- Authority grants and revocations take effect
-- All transactions are successfully confirmed
-- Delegated accounts can perform authorized operations
-- Master authority can grant and revoke permissions
+**Verifications**: token metadata is set; balances update after each step; grants/revocations take effect; delegated accounts can act; all transactions confirm.
 
 ### 2. Token Pause and Unpause
 
 **Test**: `TestBusinessFlow_TokenPauseUnpause`
 
-This test verifies the token pause mechanism for emergency situations:
+1. Issue a token; grant `Pause` authority (`GrantAuthority`)
+2. **Pause** — `Tokens().Pause`; verify `IsPaused == true`
+3. **Unpause** — `Tokens().Unpause`; verify `IsPaused == false`
 
-1. **Issue Token**: Create a new token
-2. **Grant Pause Authority**: Authorize an address to pause the token
-3. **Pause Token**: Freeze all token transfers
-4. **Unpause Token**: Resume token operations
+### 3. Whitelist Management (private token)
 
-**Verifications**:
+**Test**: `TestBusinessFlow_WhitelistManagement`
 
-- Pause authority is correctly granted
-- Token state changes to paused
-- Token state changes back to active after unpause
+1. Issue a **private** token (whitelist gated); grant `ManageList` authority
+2. **Add** an address — `Tokens().ManageWhitelist` (Action `Add`); verify it appears in `WhiteList`
+3. **Remove** the address — `Tokens().ManageWhitelist` (Action `Remove`); verify it is gone
 
-### 3. Blacklist Management
+### 4. Blacklist Management (public token)
 
 **Test**: `TestBusinessFlow_BlacklistManagement`
 
-This test verifies blacklist functionality for compliance:
+1. Issue a **public** token; grant `ManageList` authority
+2. **Add** an address — `Tokens().ManageBlacklist` (Action `Add`); verify it appears in `BlackList`
+3. **Remove** the address — `Tokens().ManageBlacklist` (Action `Remove`); verify it is gone
 
-1. **Issue Private Token**: Create a private token (uses blacklist)
-2. **Grant ManageList Authority**: Authorize blacklist management
-3. **Add Address to Blacklist**: Prevent an address from receiving tokens
-4. **Remove Address from Blacklist**: Restore normal operations
-
-**Verifications**:
-
-- Addresses are correctly added to blacklist
-- Blacklist status is reflected in token metadata
-- Addresses are correctly removed from blacklist
-
-### 4. Token Metadata Updates
+### 5. Token Metadata Updates
 
 **Test**: `TestBusinessFlow_UpdateMetadata`
 
-This test verifies the ability to update token information:
+1. Issue a token; grant `UpdateMetadata` authority
+2. **Update** — `Tokens().UpdateMetadata` changes name, URI, and additional metadata; verify via `Tokens().Metadata`
 
-1. **Issue Token**: Create a new token
-2. **Grant UpdateMetadata Authority**: Authorize metadata updates
-3. **Update Token Metadata**: Change name, URI, and additional metadata
+### 6. Bridge Mint and Burn Bridge
 
-**Verifications**:
+**Test**: `TestBusinessFlow_BridgeMintAndBurnBridge`
 
-- Metadata update authority is granted
-- Token name and URI are correctly updated
-- Additional metadata fields are stored
+1. Issue a token; grant `Bridge` authority to a bridge account
+2. **Bridge and Mint** — `Tokens().BridgeAndMint` mints bridged-in supply; verify balance and decoded `source_chain_id` / `source_tx_hash`
+3. **Burn and Bridge** — `Tokens().BurnAndBridge` burns and bridges out; verify balance decreased by value + escrow fee and the decoded `bridge_param`
+
+### 7. Batch Payment
+
+**Test**: `TestBusinessFlow_BatchPayment`
+
+1. Issue a token and mint supply to the sender
+2. **Batch pay** — `Transactions().BatchPayment` pays multiple recipients in one transaction; verify each recipient's balance and the decoded operations
+
+### 8. Clawback
+
+**Test**: `TestBusinessFlow_Clawback`
+
+1. Issue a **clawback-enabled** token; grant `Clawback` authority; mint to an account
+2. **Clawback** — `Tokens().Clawback` reclaims tokens from one account to another; verify both balances
+
+### 9. Create Multisig Account
+
+**Test**: `TestBusinessFlow_CreateMultisig`
+
+1. Build a signer set from two accounts' compressed public keys with a threshold
+2. **Create** — `Accounts().CreateMultisig`; verify the returned account address equals the local `DeriveMultisigAddress` derivation and the decoded transaction data
+
+### 10. Read Endpoints
+
+- **`TestBusinessFlow_AccountEndpoints`** — nonce and token-account reads after issue/mint
+- **`TestBusinessFlow_CheckpointEndpoints`** — light/full checkpoints by number and hash, and receipt-vs-transaction cross-checks
+- **`TestBusinessFlow_EstimateFee`** — fee estimation for native and custom tokens across amounts
 
 ## Prerequisites
 
@@ -147,6 +147,12 @@ TEST_OPERATOR_PRIVATE_KEY=operator_key \
 TEST_MASTER_PRIVATE_KEY=master_key \
 go test -v -tags=integration -run "TestBusinessFlow_UpdateMetadata" -timeout 5m
 ```
+
+Other individual tests follow the same pattern with `-run`:
+`TestBusinessFlow_WhitelistManagement`, `TestBusinessFlow_BridgeMintAndBurnBridge`,
+`TestBusinessFlow_BatchPayment`, `TestBusinessFlow_Clawback`,
+`TestBusinessFlow_CreateMultisig`, `TestBusinessFlow_AccountEndpoints`,
+`TestBusinessFlow_CheckpointEndpoints`, `TestBusinessFlow_EstimateFee`.
 
 ### Run on Local Development Environment
 
@@ -284,14 +290,27 @@ The `BusinessFlowTestSuite` struct provides:
 
 #### Signing
 
-- `signMessage(payload, privateKey)`: Signs any payload with a private key
+- Each `TestAccount` carries a `Signer` (built via `NewPrivateKeySigner`). Submit
+  methods take the account's `Signer` and the SDK signs internally with
+  domain-separated v2 — there is no manual `signMessage` step.
+
+#### Flow Helpers
+
+- `issueTokenForTest(t, ctx, prefix, name, private, clawback)`: issues a token
+  signed by the operator and returns its address
+- `grantAuthority(t, ctx, authorityType, to, token, value)`: grants a token
+  authority from the master account and waits for confirmation
+- `mintTo(t, ctx, token, recipient, amount)`: grants mint authority to a fresh
+  minter and mints `amount` of `token` to `recipient`
 
 #### Account Generation
 
-- `generateOrGetAccount(envVar)`: Creates or retrieves test account
+- `newTestAccount(t, privateKeyHex)`: builds a `TestAccount` (address + `Signer`)
+  from a hex private key
+- `generateOrGetAccount(envVar)`: Creates or retrieves a test account
   - Uses environment variable if set
-  - Generates new keypair otherwise
-  - Logs account address for debugging
+  - Generates a new keypair otherwise
+  - Populates the account's `Signer` and logs the address for debugging
 
 ## Best Practices
 
@@ -459,31 +478,34 @@ func TestBusinessFlow_CustomScenario(t *testing.T) {
     suite := setupBusinessFlowTest(t)
     ctx := context.Background()
 
-    t.Run("Step 1: Setup", func(t *testing.T) {
+    // Issue a token and mint supply with the shared helpers.
+    tokenAddr := suite.issueTokenForTest(t, ctx, "CUST", "Custom Token", false, false)
+    suite.mintTo(t, ctx, tokenAddr, suite.Account1.Address, big.NewInt(100000000))
+
+    t.Run("Transfer", func(t *testing.T) {
         suite.refreshCheckpoint()
 
-        // Your setup logic here
+        payload := PaymentPayload{
+            ChainID:   suite.ChainID,
+            Nonce:     suite.getNonce(suite.Account1.Address),
+            Recipient: suite.Account2.Address,
+            Value:     big.NewInt(25000000),
+            Token:     tokenAddr,
+        }
 
-        t.Log("✅ Setup complete")
-    })
+        // The SDK signs with the account's Signer (domain-separated v2) and
+        // verifies the server-returned transaction hash internally.
+        result, err := suite.Client.Transactions().Payment(ctx, payload, suite.Account1.Signer)
+        if err != nil {
+            t.Fatalf("payment: %v", err)
+        }
 
-    t.Run("Step 2: Execute", func(t *testing.T) {
-        suite.refreshCheckpoint()
-
-        // Your execution logic here
-
-        receipt := suite.waitForTransaction(txHash, 60*time.Second)
+        receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
         if !receipt.Success {
             t.Fatal("Transaction failed")
         }
 
-        t.Log("✅ Execution complete")
-    })
-
-    t.Run("Step 3: Verify", func(t *testing.T) {
-        // Your verification logic here
-
-        t.Log("✅ Verification complete")
+        t.Log("✅ Transfer complete")
     })
 
     t.Log("\n🎉 Custom scenario test passed!")
@@ -512,8 +534,12 @@ Typical execution times (on testnet):
 
 - **Complete Token Lifecycle**: 30-60 seconds (6 transactions)
 - **Token Pause/Unpause**: 15-30 seconds (3 transactions)
-- **Blacklist Management**: 15-30 seconds (3 transactions)
+- **Whitelist / Blacklist Management**: 15-30 seconds (3 transactions each)
 - **Metadata Updates**: 10-20 seconds (2 transactions)
+- **Bridge Mint / Burn Bridge**: 20-40 seconds (4 transactions)
+- **Batch Payment**: 20-40 seconds (issue + grant + mint + batch)
+- **Clawback**: 20-40 seconds (issue + grant + mint + clawback)
+- **Create Multisig**: 10-20 seconds (1 transaction)
 
 Times may vary based on:
 

@@ -5,6 +5,7 @@ import "github.com/ethereum/go-ethereum/common"
 type TokenCreateData struct {
 	Decimals        uint8          `json:"decimals"`
 	IsPrivate       bool           `json:"is_private"`
+	ClawbackEnabled bool           `json:"clawback_enabled"`
 	MasterAuthority common.Address `json:"master_authority"`
 	Name            string         `json:"name"`
 	Symbol          string         `json:"symbol"`
@@ -14,22 +15,54 @@ type EmptyData struct{}
 
 type TokenTransferData struct {
 	Recipient common.Address `json:"recipient"`
-	Token     common.Address `json:"token"`
+	// Token is nil for a native-value transfer (the node returns null).
+	Token *common.Address `json:"token"`
+	Value string          `json:"value"`
+}
+
+// BatchPaymentOperationData is one recipient/amount pair inside a decoded
+// "BatchPayment" transaction; Amount is a U256 decimal string.
+type BatchPaymentOperationData struct {
+	Recipient common.Address `json:"recipient"`
+	Amount    string         `json:"amount"`
+}
+
+// BatchPaymentData is the decoded payload of a "BatchPayment" transaction — a
+// single-token payment to many recipients. Token, OperationsHash, and BatchID
+// mirror the node's optional fields (nil when absent), so a null never fails the
+// whole transaction decode.
+type BatchPaymentData struct {
+	Token          *common.Address             `json:"token"`
+	MaxFee         string                      `json:"max_fee"`
+	Operations     []BatchPaymentOperationData `json:"operations"`
+	OperationsHash *string                     `json:"operations_hash"`
+	BatchID        *string                     `json:"batch_id"`
+	CreatedAt      uint64                      `json:"created_at"`
+}
+
+// TokenClawbackData is the decoded payload of a "TokenClawback" transaction —
+// tokens reclaimed from an account back to a recipient.
+type TokenClawbackData struct {
+	From      common.Address `json:"from"`
+	Recipient common.Address `json:"recipient"`
 	Value     string         `json:"value"`
+	Token     common.Address `json:"token"`
 }
 
 type TokenGrantAuthorityData struct {
 	AuthorityAddress common.Address `json:"authority_address"`
 	AuthorityType    AuthorityType  `json:"authority_type"`
 	Token            common.Address `json:"token"`
-	Value            string         `json:"value"`
+	// Value is nil for authority types that do not carry an allowance (the node returns null).
+	Value *string `json:"value"`
 }
 
 type TokenRevokeAuthorityData struct {
 	AuthorityAddress common.Address `json:"authority_address"`
 	AuthorityType    AuthorityType  `json:"authority_type"`
 	Token            common.Address `json:"token"`
-	Value            string         `json:"value"`
+	// Value is nil for authority types that do not carry an allowance (the node returns null).
+	Value *string `json:"value"`
 }
 
 type TokenBlacklistAccountData struct {
@@ -101,50 +134,24 @@ type TokenUpdateMetadataData struct {
 	Token    common.Address      `json:"token"`
 }
 
+// MultiSigSignerInfo is one signer in a decoded "CreateMultiSig" transaction.
+// PublicKey is the node's 0x-hex compressed-key string (the read-side shape,
+// distinct from the write-side MultiSigSigner whose PublicKey is raw bytes).
+type MultiSigSignerInfo struct {
+	PublicKey string `json:"public_key"`
+	Weight    uint8  `json:"weight"`
+}
+
+// CreateMultiSigData is the decoded payload of a "CreateMultiSig" transaction.
+// MultisigAddress is the derived account address the node computes from the
+// signer set and threshold.
+type CreateMultiSigData struct {
+	Signers         []MultiSigSignerInfo `json:"signers"`
+	Threshold       uint16               `json:"threshold"`
+	MultisigAddress common.Address       `json:"multisig_address"`
+}
+
 type RawTransactionData struct {
 	Input string         `json:"input"`
 	Token common.Address `json:"token"`
 }
-
-var defaultTransactionPayloadConstructors = map[TransactionType]func() TransactionPayload{
-	TransactionTypeTokenCreate:           func() TransactionPayload { return &TokenCreateData{} },
-	TransactionTypeTokenTransfer:         func() TransactionPayload { return &TokenTransferData{} },
-	TransactionTypeTokenGrantAuthority:   func() TransactionPayload { return &TokenGrantAuthorityData{} },
-	TransactionTypeTokenRevokeAuthority:  func() TransactionPayload { return &TokenRevokeAuthorityData{} },
-	TransactionTypeTokenBlacklistAccount: func() TransactionPayload { return &TokenBlacklistAccountData{} },
-	TransactionTypeTokenWhitelistAccount: func() TransactionPayload { return &TokenWhitelistAccountData{} },
-	TransactionTypeTokenMint:             func() TransactionPayload { return &TokenMintData{} },
-	TransactionTypeTokenBridgeAndMint:    func() TransactionPayload { return &TokenBridgeAndMintData{} },
-	TransactionTypeTokenBurn:             func() TransactionPayload { return &TokenBurnData{} },
-	TransactionTypeTokenBurnAndBridge:    func() TransactionPayload { return &TokenBurnAndBridgeData{} },
-	TransactionTypeTokenCloseAccount:     func() TransactionPayload { return &TokenCloseAccountData{} },
-	TransactionTypeTokenPause:            func() TransactionPayload { return &TokenPauseData{} },
-	TransactionTypeTokenUnpause:          func() TransactionPayload { return &TokenUnpauseData{} },
-	TransactionTypeTokenUpdateMetadata:   func() TransactionPayload { return &TokenUpdateMetadataData{} },
-	TransactionTypeEmpty:                 func() TransactionPayload { return &EmptyData{} },
-	TransactionTypeRaw:                   func() TransactionPayload { return &RawTransactionData{} },
-}
-
-func init() {
-	for tt, ctor := range defaultTransactionPayloadConstructors {
-		RegisterTransactionPayload(tt, ctor)
-	}
-}
-
-// isTransactionPayload is a compile-time marker; it intentionally has no runtime behavior.
-func (*TokenCreateData) isTransactionPayload()           {}
-func (*EmptyData) isTransactionPayload()                 {}
-func (*TokenTransferData) isTransactionPayload()         {}
-func (*TokenGrantAuthorityData) isTransactionPayload()   {}
-func (*TokenRevokeAuthorityData) isTransactionPayload()  {}
-func (*TokenBlacklistAccountData) isTransactionPayload() {}
-func (*TokenWhitelistAccountData) isTransactionPayload() {}
-func (*TokenMintData) isTransactionPayload()             {}
-func (*TokenBridgeAndMintData) isTransactionPayload()    {}
-func (*TokenBurnData) isTransactionPayload()             {}
-func (*TokenBurnAndBridgeData) isTransactionPayload()    {}
-func (*TokenCloseAccountData) isTransactionPayload()     {}
-func (*TokenPauseData) isTransactionPayload()            {}
-func (*TokenUnpauseData) isTransactionPayload()          {}
-func (*TokenUpdateMetadataData) isTransactionPayload()   {}
-func (*RawTransactionData) isTransactionPayload()        {}

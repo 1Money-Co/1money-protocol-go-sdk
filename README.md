@@ -12,8 +12,82 @@ An SDK for the 1money blockchain in Go.
 Add go to your `go.mod` file
 
 ```bash
-go get -u  https://github.com/1Money-Co/1money-protocol-go-sdk
+go get -u github.com/1Money-Co/1money-protocol-go-sdk
 ```
+
+## v1.2.0: Domain-Separated Transaction Submission (default)
+
+As of v1.2.0 the new submit API signs transactions with the domain-separated
+("native v2") scheme (1Money L1 issue #1038) **by default**. This is a
+backward-compatible release: the import path is unchanged and existing code
+keeps working.
+
+```go
+import onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
+```
+
+(The "v2" here is the L1 REST/signing **protocol** version, not the Go module
+version — this is still a v1 module.)
+
+### One-step submission
+
+Submitting a transaction no longer requires hand-signing. Pass a payload and a
+`Signer`; the SDK handles signing, encoding, memo, endpoint selection, and
+response-hash verification:
+
+```go
+signer, _ := onemoney.NewPrivateKeySigner(privateKeyHex)
+client := onemoney.NewClient() // domain-separated v2 by default
+
+paymentResp, _ := client.Transactions().Payment(ctx, paymentPayload, signer)
+mintResp, _    := client.Tokens().Mint(ctx, mintPayload, signer)
+acct, _        := client.Accounts().CreateMultisig(ctx, multisigPayload, signer)
+```
+
+Submit methods live under `Transactions()`, `Tokens()`, and `Accounts()` and
+share the shape `(ctx, payload, signer, ...SubmitOption)`. The payload carries
+`chain_id` and `nonce` (fetch them via `GetChainId` and `GetAccountNonce`).
+Attach a memo with `onemoney.WithMemo(memo)`.
+
+### Custom signers (KMS / HSM / MPC)
+
+Any backend can sign by implementing the `Signer` interface (`SignHash`,
+`CompressedPublicKey`, `Address`) and passing it to the same methods — no other
+change. `SignHash` must return the 0/1 y-parity `v` (never the legacy 27/28).
+
+### Offline / external signing
+
+When signing happens out-of-band, build the transaction, sign the digest
+yourself, then submit — the one-step methods above run on this exact pipeline
+internally:
+
+```go
+prep, _ := onemoney.PrepareTransaction(mintPayload) // offline, no network
+digest  := prep.SigningHash()                       // 32-byte digest to sign
+sig     := signExternally(digest)                   // -> onemoney.Signature{R, S, V}
+
+authorized, _ := prep.Authorize(sig)                // holds the final tx hash
+resp, _       := client.Submit(ctx, authorized)     // submit + hash-verify
+```
+
+### Multisig account address
+
+`DeriveMultisigAddress(signers, threshold)` computes the account address
+deterministically — identical to the address the node assigns — so you can
+pre-fund or display it before submitting.
+
+### Legacy v1
+
+To stay on the legacy v1 path during the migration window, opt in explicitly:
+
+```go
+client := onemoney.NewClientWithOpts(onemoney.WithLegacyV1())
+```
+
+The pre-v2 methods (`SendPayment`, `MintToken`, `SignMessage`, the `*Request`
+types, etc.) still work but are deprecated. See [MIGRATION.md](./MIGRATION.md)
+for the migration guide, including how the v2 signing hash is built and why, and
+[CHANGELOG.md](./CHANGELOG.md) for the full change list.
 
 ## Example
 
@@ -38,8 +112,11 @@ You can read more about the Go SDK documentation on [1Money developer portal](ht
 3. Run `gofumpt -l -w .`
 4. Run `golangci-lint run`
 5. Run tests: `go test ./...`
-   - Unit tests and transaction tests will run automatically
-   - HTTP client tests are disabled by default (enable with `ENABLE_HTTP_CLIENT_TESTS=1`)
+   - Unit tests, signing/conformance tests, and the v2 submission tests (routing,
+     fail-closed hash verification, offline pipeline) run automatically — the v2
+     tests use an in-memory HTTP transport and open no socket
+   - The legacy socket-based HTTP client tests are disabled by default and require
+     localhost (enable with `ENABLE_HTTP_CLIENT_TESTS=1`)
 6. Commit with a good description
 7. Submit a PR
 
@@ -48,10 +125,11 @@ You can read more about the Go SDK documentation on [1Money developer portal](ht
 ### Quick Start
 
 ```bash
-# Run all tests (HTTP client tests disabled by default)
+# Run all tests. Includes the v2 submission tests (in-memory transport, no
+# socket); only the legacy socket-based HTTP client tests are skipped here.
 go test ./...
 
-# Enable HTTP client tests (requires localhost)
+# Also run the legacy socket-based HTTP client tests (requires localhost)
 ENABLE_HTTP_CLIENT_TESTS=1 go test ./...
 ```
 

@@ -8,6 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// ptr returns a pointer to v, for building struct literals with optional fields.
+func ptr[T any](v T) *T { return &v }
+
 func TestCheckpointTransactions_JSON(t *testing.T) {
 	t.Run("hashes", func(t *testing.T) {
 		input := `{"transactions": ["0x1", "0x2"]}`
@@ -27,7 +30,7 @@ func TestCheckpointTransactions_JSON(t *testing.T) {
 	})
 
 	t.Run("full", func(t *testing.T) {
-		input := `{"transactions": [{"hash": "0xabc", "checkpoint_hash": "0xparent", "checkpoint_number": 1, "from": "0x1111111111111111111111111111111111111111", "transaction_type": "TokenMint", "chain_id": 1212101, "nonce": 1, "signature": null, "transaction_index": 0}]}`
+		input := `{"transactions": [{"hash": "0xabc", "checkpoint_hash": "0xparent", "checkpoint_number": 1, "from": "0x1111111111111111111111111111111111111111", "transaction_type": "TokenMint", "chain_id": 1212101, "nonce": 1, "transaction_index": 0, "data": {"recipient": "0x2222222222222222222222222222222222222222", "token": "0x3333333333333333333333333333333333333333", "value": "10"}, "signature_type": "Single", "signature": {"r": "0x1", "s": "0x2", "v": 0}}]}`
 		target := struct {
 			Transactions CheckpointTransactions `json:"transactions"`
 		}{}
@@ -65,7 +68,7 @@ func TestCheckpointJSONRoundTrip(t *testing.T) {
 		Transactions: CheckpointTransactions{
 			Hashes: []string{"0x1", "0x2"},
 		},
-		Size: 2,
+		Size: ptr(uint64(2)),
 	}
 
 	data, err := json.Marshal(original)
@@ -93,17 +96,17 @@ func TestCheckpointJSONRoundTrip(t *testing.T) {
 			Full: []Transaction{
 				{
 					Hash:             "0xabc",
-					CheckpointHash:   "0xparent",
-					CheckpointNumber: 43,
+					CheckpointHash:   ptr("0xparent"),
+					CheckpointNumber: ptr(uint64(43)),
 					From:             common.HexToAddress("0x1111111111111111111111111111111111111111"),
 					TransactionType:  TransactionTypeTokenMint,
 					ChainID:          1212101,
 					Nonce:            1,
-					TransactionIndex: 0,
+					TransactionIndex: ptr(uint64(0)),
 				},
 			},
 		},
-		Size: 1,
+		Size: ptr(uint64(1)),
 	}
 
 	dataFull, err := json.Marshal(full)

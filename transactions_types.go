@@ -1,22 +1,18 @@
 package onemoney
 
 import (
-	"encoding/json"
-	"fmt"
 	"math/big"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 )
-
-type B256 string
-type Bytes []byte
 
 type TransactionType string
 
 const (
 	TransactionTypeTokenCreate           TransactionType = "TokenCreate"
 	TransactionTypeTokenTransfer         TransactionType = "TokenTransfer"
+	TransactionTypeBatchPayment          TransactionType = "BatchPayment"
+	TransactionTypeTokenClawback         TransactionType = "TokenClawback"
 	TransactionTypeTokenGrantAuthority   TransactionType = "TokenGrantAuthority"
 	TransactionTypeTokenRevokeAuthority  TransactionType = "TokenRevokeAuthority"
 	TransactionTypeTokenBlacklistAccount TransactionType = "TokenBlacklistAccount"
@@ -29,6 +25,7 @@ const (
 	TransactionTypeTokenPause            TransactionType = "TokenPause"
 	TransactionTypeTokenUnpause          TransactionType = "TokenUnpause"
 	TransactionTypeTokenUpdateMetadata   TransactionType = "TokenUpdateMetadata"
+	TransactionTypeCreateMultiSig        TransactionType = "CreateMultiSig"
 	TransactionTypeEmpty                 TransactionType = "Empty"
 	TransactionTypeRaw                   TransactionType = "Raw"
 )
@@ -39,43 +36,16 @@ type TransactionPayload interface {
 	isTransactionPayload()
 }
 
-// RegisterTransactionPayload adds or overrides the constructor used to instantiate
-// the payload for a specific TransactionType.
-func RegisterTransactionPayload(tt TransactionType, ctor func() TransactionPayload) {
-	transactionPayloadRegistryMu.Lock()
-	defer transactionPayloadRegistryMu.Unlock()
-	transactionPayloadRegistry[tt] = ctor
-}
-
-var (
-	transactionPayloadRegistryMu sync.RWMutex
-	transactionPayloadRegistry   = make(map[TransactionType]func() TransactionPayload)
-)
-
-func newTransactionPayload(tt TransactionType) (TransactionPayload, bool) {
-	transactionPayloadRegistryMu.RLock()
-	defer transactionPayloadRegistryMu.RUnlock()
-	ctor, ok := transactionPayloadRegistry[tt]
-	if !ok {
-		return nil, false
-	}
-	return ctor(), true
-}
-
-// UnknownTransactionPayload captures payloads for transaction types the SDK
-// does not yet recognize.
-type UnknownTransactionPayload map[string]interface{}
-
-func (UnknownTransactionPayload) isTransactionPayload() {}
-
 // -----------------------------------------------------------------------------
 // Transaction Core Types
 // -----------------------------------------------------------------------------
 
 type Transaction struct {
-	CheckpointHash   string          `json:"checkpoint_hash"`
-	CheckpointNumber uint64          `json:"checkpoint_number"`
-	TransactionIndex int             `json:"transaction_index"`
+	// CheckpointHash, CheckpointNumber and TransactionIndex are nil until the
+	// transaction is included in a checkpoint (the node returns null before then).
+	CheckpointHash   *string         `json:"checkpoint_hash"`
+	CheckpointNumber *uint64         `json:"checkpoint_number"`
+	TransactionIndex *uint64         `json:"transaction_index"`
 	Hash             string          `json:"hash"`
 	From             common.Address  `json:"from"`
 	ChainID          uint64          `json:"chain_id"`
@@ -86,125 +56,49 @@ type Transaction struct {
 	// The SDK automatically unmarshals Data into the appropriate type based on TransactionType.
 	// Use type assertion or the helper methods (AsTokenCreateData, AsTokenMintData, etc.) to
 	// access the typed data.
-	Data      TransactionPayload `json:"-"`
-	Signature *Signature         `json:"signature"`
+	Data TransactionPayload `json:"-"`
+	// SignatureType discriminates the authorization: "Single" or "Multi". It
+	// selects which of Signature / MultiSignature is populated.
+	SignatureType string `json:"signature_type,omitempty"`
+	// Signature is set when SignatureType == "Single" (the common single-signer
+	// case). It is nil for multisig transactions.
+	Signature *Signature `json:"-"`
+	// MultiSignature is set when SignatureType == "Multi" (multisig account). It
+	// is nil for single-signer transactions.
+	MultiSignature *MultiSigSignature `json:"-"`
+	// Memo is the optional signed memo (domain-separated v2). nil when absent.
+	Memo *Memo `json:"memo,omitempty"`
+	// SignatureScheme reports how the transaction was signed (legacy_native,
+	// domain_separated, ethereum, eip712). Empty when the node omits it.
+	SignatureScheme SignatureScheme `json:"signature_scheme,omitempty"`
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Transaction.
-// It automatically parses the Data field into the correct type based on TransactionType.
-func (t *Transaction) UnmarshalJSON(data []byte) error {
-	// First, unmarshal into a temporary struct to get TransactionType.
-	type Alias Transaction
-	aux := &struct {
-		RawData json.RawMessage `json:"data"`
-		*Alias
-	}{
-		Alias: (*Alias)(t),
-	}
+// SignatureScheme identifies how a transaction was signed, as reported by the
+// node. The wire values are lowercase snake_case.
+type SignatureScheme string
 
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
+const (
+	// SignatureSchemeLegacyNative is the legacy v1 native signing scheme.
+	SignatureSchemeLegacyNative SignatureScheme = "legacy_native"
+	// SignatureSchemeDomainSeparated is the domain-separated v2 signing scheme (#1038).
+	SignatureSchemeDomainSeparated SignatureScheme = "domain_separated"
+	// SignatureSchemeEthereum is an Ethereum-compatible signature.
+	SignatureSchemeEthereum SignatureScheme = "ethereum"
+	// SignatureSchemeEip712 is an EIP-712 typed-data signature.
+	SignatureSchemeEip712 SignatureScheme = "eip712"
+)
 
-	// Parse Data based on TransactionType.
-	if payload, ok := newTransactionPayload(t.TransactionType); ok {
-		if len(aux.RawData) > 0 {
-			if err := json.Unmarshal(aux.RawData, payload); err != nil {
-				return fmt.Errorf("failed to unmarshal %s data: %w", t.TransactionType, err)
-			}
-		}
-		t.Data = payload
-		return nil
-	}
-
-	// For unknown types, keep as raw JSON.
-	var rawData UnknownTransactionPayload
-	if len(aux.RawData) > 0 {
-		if err := json.Unmarshal(aux.RawData, &rawData); err != nil {
-			return fmt.Errorf("failed to unmarshal unknown transaction data: %w", err)
-		}
-	}
-	t.Data = rawData
-
-	return nil
+// MultiSigSignature is the authorization carried by a multisig transaction
+// (Transaction.SignatureType == "Multi").
+type MultiSigSignature struct {
+	Account    common.Address           `json:"account"`
+	Signatures []MultiSigSignatureEntry `json:"signatures"`
 }
 
-// Type-safe helper methods to access transaction data.
-
-func asPayload[T TransactionPayload](t *Transaction, expected TransactionType) (T, bool) {
-	var zero T
-	if t.TransactionType != expected {
-		return zero, false
-	}
-	payload, ok := t.Data.(T)
-	if !ok {
-		return zero, false
-	}
-	return payload, true
-}
-
-func (t *Transaction) AsTokenCreateData() (*TokenCreateData, bool) {
-	return asPayload[*TokenCreateData](t, TransactionTypeTokenCreate)
-}
-
-func (t *Transaction) AsTokenTransferData() (*TokenTransferData, bool) {
-	return asPayload[*TokenTransferData](t, TransactionTypeTokenTransfer)
-}
-
-func (t *Transaction) AsTokenGrantAuthorityData() (*TokenGrantAuthorityData, bool) {
-	return asPayload[*TokenGrantAuthorityData](t, TransactionTypeTokenGrantAuthority)
-}
-
-func (t *Transaction) AsTokenRevokeAuthorityData() (*TokenRevokeAuthorityData, bool) {
-	return asPayload[*TokenRevokeAuthorityData](t, TransactionTypeTokenRevokeAuthority)
-}
-
-func (t *Transaction) AsTokenBlacklistAccountData() (*TokenBlacklistAccountData, bool) {
-	return asPayload[*TokenBlacklistAccountData](t, TransactionTypeTokenBlacklistAccount)
-}
-
-func (t *Transaction) AsTokenWhitelistAccountData() (*TokenWhitelistAccountData, bool) {
-	return asPayload[*TokenWhitelistAccountData](t, TransactionTypeTokenWhitelistAccount)
-}
-
-func (t *Transaction) AsTokenMintData() (*TokenMintData, bool) {
-	return asPayload[*TokenMintData](t, TransactionTypeTokenMint)
-}
-
-func (t *Transaction) AsTokenBridgeAndMintData() (*TokenBridgeAndMintData, bool) {
-	return asPayload[*TokenBridgeAndMintData](t, TransactionTypeTokenBridgeAndMint)
-}
-
-func (t *Transaction) AsTokenBurnData() (*TokenBurnData, bool) {
-	return asPayload[*TokenBurnData](t, TransactionTypeTokenBurn)
-}
-
-func (t *Transaction) AsTokenBurnAndBridgeData() (*TokenBurnAndBridgeData, bool) {
-	return asPayload[*TokenBurnAndBridgeData](t, TransactionTypeTokenBurnAndBridge)
-}
-
-func (t *Transaction) AsTokenCloseAccountData() (*TokenCloseAccountData, bool) {
-	return asPayload[*TokenCloseAccountData](t, TransactionTypeTokenCloseAccount)
-}
-
-func (t *Transaction) AsTokenPauseData() (*TokenPauseData, bool) {
-	return asPayload[*TokenPauseData](t, TransactionTypeTokenPause)
-}
-
-func (t *Transaction) AsTokenUnpauseData() (*TokenUnpauseData, bool) {
-	return asPayload[*TokenUnpauseData](t, TransactionTypeTokenUnpause)
-}
-
-func (t *Transaction) AsTokenUpdateMetadataData() (*TokenUpdateMetadataData, bool) {
-	return asPayload[*TokenUpdateMetadataData](t, TransactionTypeTokenUpdateMetadata)
-}
-
-func (t *Transaction) AsEmptyData() (*EmptyData, bool) {
-	return asPayload[*EmptyData](t, TransactionTypeEmpty)
-}
-
-func (t *Transaction) AsRawTransactionData() (*RawTransactionData, bool) {
-	return asPayload[*RawTransactionData](t, TransactionTypeRaw)
+// MultiSigSignatureEntry is one signer's contribution to a multisig signature.
+type MultiSigSignatureEntry struct {
+	SignerPubkey string    `json:"signer_pubkey"` // 0x-hex, 33-byte compressed pubkey
+	Signature    Signature `json:"signature"`
 }
 
 // -----------------------------------------------------------------------------
@@ -212,27 +106,94 @@ func (t *Transaction) AsRawTransactionData() (*RawTransactionData, bool) {
 // -----------------------------------------------------------------------------
 
 type TransactionReceiptResponse struct {
-	Success          bool           `json:"success"`
-	TransactionHash  string         `json:"transaction_hash"`
-	TransactionIndex int            `json:"transaction_index"`
-	CheckpointHash   string         `json:"checkpoint_hash"`
-	CheckpointNumber uint64         `json:"checkpoint_number"`
-	From             common.Address `json:"from"`
-	FeeUsed          string         `json:"fee_used"`
-	// Deprecated: To is deprecated, use `Recipient` instead.
-	To           *common.Address `json:"to"`
-	Recipient    *common.Address `json:"recipient"`
-	TokenAddress *common.Address `json:"token_address"` // Pointer to handle null values
+	Success         bool   `json:"success"`
+	TransactionHash string `json:"transaction_hash"`
+	// TransactionIndex, CheckpointHash and CheckpointNumber are nil until the
+	// transaction is finalized in a checkpoint (the node returns null before then).
+	TransactionIndex *uint64         `json:"transaction_index"`
+	CheckpointHash   *string         `json:"checkpoint_hash"`
+	CheckpointNumber *uint64         `json:"checkpoint_number"`
+	From             common.Address  `json:"from"`
+	FeeUsed          string          `json:"fee_used"`
+	Recipient        *common.Address `json:"recipient"`
+	TokenAddress     *common.Address `json:"token_address"` // Pointer to handle null values
+	// SuccessInfo carries execution detail for a successful transaction; nil when absent.
+	SuccessInfo *SuccessInfo `json:"success_info,omitempty"`
+	// BatchInfo carries batch-payment detail for a batch receipt; nil for non-batch.
+	BatchInfo *BatchReceiptInfo `json:"batch_info,omitempty"`
+	// ExecutionEvents lists per-operation events (e.g. batch payment); empty when absent.
+	ExecutionEvents []ExecutionEvent `json:"execution_events,omitempty"`
+}
+
+// SuccessInfo carries the execution detail of a successful transaction.
+type SuccessInfo struct {
+	Sender     common.Address `json:"sender"`
+	Receiver   common.Address `json:"receiver"`
+	IsPrivate  bool           `json:"is_private"`
+	Message    string         `json:"message"`
+	BridgeInfo *BridgeInfo    `json:"bridge_info"`
+}
+
+// BridgeInfo carries cross-chain bridge detail attached to a successful bridge transaction.
+type BridgeInfo struct {
+	BbNonce            uint64 `json:"bbnonce"`
+	DestinationChainID uint64 `json:"destination_chain_id"`
+	DestinationAddress string `json:"destination_address"`
+	BridgeParam        string `json:"bridge_param"` // 0x-hex
+}
+
+// BatchReceiptInfo carries batch-payment detail for a batch transaction receipt.
+type BatchReceiptInfo struct {
+	BatchID         *string           `json:"batch_id"`
+	OperationsHash  *common.Hash      `json:"operations_hash"`
+	OperationsCount uint64            `json:"operations_count"`
+	TotalAmount     string            `json:"total_amount"`
+	Failure         *BatchFailureInfo `json:"failure"`
+}
+
+// BatchFailureInfo identifies the operation that failed within a batch payment.
+type BatchFailureInfo struct {
+	FailedOperationIndex uint64 `json:"failed_operation_index"`
+	Reason               string `json:"reason"`
+}
+
+// ExecutionEvent is one execution event emitted during transaction processing.
+// It is internally tagged by EventType (BatchStarted, PaymentExecuted,
+// BatchCompleted); only the fields relevant to EventType are populated.
+type ExecutionEvent struct {
+	EventType       string          `json:"event_type"`
+	BatchID         *string         `json:"batch_id,omitempty"`
+	OperationsCount *uint64         `json:"operations_count,omitempty"`
+	TotalAmount     *string         `json:"total_amount,omitempty"`
+	OperationsHash  *common.Hash    `json:"operations_hash,omitempty"`
+	OperationIndex  *uint64         `json:"operation_index,omitempty"`
+	Recipient       *common.Address `json:"recipient,omitempty"`
+	Amount          *string         `json:"amount,omitempty"`
 }
 
 type FinalizedTransactionResponse struct {
 	TransactionReceiptResponse
-	Epoch             uint64      `json:"epoch"`
-	CounterSignatures []Signature `json:"counter_signatures"`
+	Epoch uint64 `json:"epoch"`
+	// CounterSignature is the BLS aggregate of validator counter-signatures.
+	CounterSignature BlsAggregateSignature `json:"counter_signature"`
+	// Fee is the decimal fee charged; nil when the node omits it (older payloads).
+	Fee *string `json:"fee"`
+	// FeeBound reports whether the fee was bound at signing time (Security #1151).
+	FeeBound bool `json:"fee_bound"`
+}
+
+// BlsAggregateSignature is the aggregated validator counter-signature attached
+// to a finalized transaction.
+type BlsAggregateSignature struct {
+	SignerBitmask       string   `json:"signer_bitmask"`
+	Signature           string   `json:"signature"`
+	ValidatorPublicKeys []string `json:"validator_public_keys"`
 }
 
 type EstimateFeeResponse struct {
 	Fee string `json:"fee"`
+	// Plan is the pricing plan applied to the estimate; nil when absent.
+	Plan *string `json:"plan,omitempty"`
 }
 
 type PaymentPayload struct {
@@ -243,16 +204,28 @@ type PaymentPayload struct {
 	Token     common.Address `json:"token"`
 }
 
-type PaymentRequest struct {
-	PaymentPayload
-	Signature Signature `json:"signature"`
+// PaymentOperation is one recipient/amount pair inside a batch payment.
+type PaymentOperation struct {
+	Recipient common.Address `json:"recipient"`
+	Amount    *big.Int       `json:"amount"`
 }
 
-// Hash returns the transaction hash for the request (payload + signature).
-func (r PaymentRequest) Hash() (common.Hash, error) {
-	return Hash(r.PaymentPayload, r.Signature)
+// BatchPaymentPayload pays many recipients of one token in a single
+// transaction. operations_hash and batch_id are optional trailing fields.
+type BatchPaymentPayload struct {
+	ChainID        uint64             `json:"chain_id"`
+	Nonce          uint64             `json:"nonce"`
+	Token          common.Address     `json:"token"`
+	Operations     []PaymentOperation `json:"operations"`
+	MaxFee         *big.Int           `json:"max_fee"`
+	CreatedAt      uint64             `json:"created_at"`
+	OperationsHash *common.Hash       `json:"operations_hash,omitempty"`
+	BatchID        *string            `json:"batch_id,omitempty"`
 }
 
 type PaymentResponse struct {
 	Hash string `json:"hash"`
 }
+
+// TxHash reports the submitted transaction hash for hash-verification.
+func (r *PaymentResponse) TxHash() string { return r.Hash }
