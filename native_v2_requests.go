@@ -124,7 +124,7 @@ func pathsForOp(op nativeOperationType) (v1, v2 string) {
 	case opPayment:
 		return "/v1/transactions/payment", "/v2/transactions/payment"
 	case opBatchPayment:
-		return "/v1/transactions/batch_payment", "/v2/transactions/batch_payment"
+		return "", "/v2/transactions/batch_payment" // v2-only; the /v1 route is deprecated on L1
 	case opTokenIssue:
 		return "/v1/tokens/issue", "/v2/tokens/issue"
 	case opTokenMint:
@@ -182,13 +182,18 @@ func (c *Client) submitPayload(ctx context.Context, payload any, cfg submitConfi
 		return fmt.Errorf("nil signer: pass a Signer (e.g. NewPrivateKeySigner or a KMS/HSM-backed one)")
 	}
 	// Legacy v1 signs the bare payload and does not use a PreparedTransaction.
+	// Resolution runs first so a v2-only operation reports its own capability
+	// error rather than being masked by the generic legacy-memo guard.
 	if c.mode() == SubmissionModeLegacyV1 {
-		if cfg.memoSet {
-			return fmt.Errorf("memo is not supported in legacy v1 submission mode; use the default v2 mode to sign a memo")
-		}
 		op, err := opFromPayload(payload, cfg)
 		if err != nil {
 			return err
+		}
+		if op.pathV1 == "" {
+			return fmt.Errorf("%s requires domain-separated v2 submission mode", op.op.label())
+		}
+		if cfg.memoSet {
+			return fmt.Errorf("memo is not supported in legacy v1 submission mode; use the default v2 mode to sign a memo")
 		}
 		return c.submitLegacyV1(ctx, op, signer, out)
 	}
