@@ -76,7 +76,40 @@ resp, _       := client.Submit(ctx, authorized)     // submit + hash-verify
 deterministically — identical to the address the node assigns — so you can
 pre-fund or display it before submitting.
 
-### Batch payments
+### Legacy v1
+
+To stay on the legacy v1 path during the migration window, opt in explicitly:
+
+```go
+client := onemoney.NewClientWithOpts(onemoney.WithLegacyV1())
+```
+
+The pre-v2 methods (`SendPayment`, `MintToken`, `SignMessage`, the `*Request`
+types, etc.) still work but are deprecated. See [MIGRATION.md](./MIGRATION.md)
+for the migration guide, including how the v2 signing hash is built and why, and
+[CHANGELOG.md](./CHANGELOG.md) for the full change list.
+
+## v1.3.0: BatchPayment re-baselined (breaking)
+
+**This release breaks `BatchPayment` only.** `BatchPaymentPayload` is
+re-baselined onto the current L1 canonical transaction format:
+
+- `MaxFee` is removed from both the signed payload (`BatchPaymentPayload`) and
+  the read-side decoded type (`BatchPaymentData`). Code that sets or reads
+  `MaxFee` on either type no longer compiles.
+- The payload now always signs as `WithMemo<BatchPaymentPayload>`, matching
+  every other v2 operation.
+- **Signing hashes and transaction hashes produced by earlier SDK versions are
+  no longer valid for `BatchPayment`.** Rebuild and re-sign any
+  prepared-but-unsubmitted batch; a cached `SigningHash()` from an
+  offline/HSM flow is stale; a stored transaction hash used as a
+  reconciliation key will not match.
+
+Every other operation's signing, encoding, and submission behavior is
+unaffected. See
+[MIGRATION.md](./MIGRATION.md#batchpayment-2026-08-10-re-baseline) for the
+caller-facing migration steps and [CHANGELOG.md](./CHANGELOG.md) for the full
+detail.
 
 `Transactions().BatchPayment` pays many recipients of one token in a single
 transaction. It is v2-only: a client configured with `WithLegacyV1` returns an
@@ -118,19 +151,6 @@ estimate, _ := client.GetBatchPaymentEstimateFee(ctx, onemoney.BatchPaymentFeeEs
     Operations: payload.Operations,
 })
 ```
-
-### Legacy v1
-
-To stay on the legacy v1 path during the migration window, opt in explicitly:
-
-```go
-client := onemoney.NewClientWithOpts(onemoney.WithLegacyV1())
-```
-
-The pre-v2 methods (`SendPayment`, `MintToken`, `SignMessage`, the `*Request`
-types, etc.) still work but are deprecated. See [MIGRATION.md](./MIGRATION.md)
-for the migration guide, including how the v2 signing hash is built and why, and
-[CHANGELOG.md](./CHANGELOG.md) for the full change list.
 
 ## Example
 

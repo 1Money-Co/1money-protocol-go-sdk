@@ -69,17 +69,32 @@ Notes:
 
 BatchPayment was re-baselined onto the current L1 canonical format. Signing
 hashes and transaction hashes produced by earlier SDK versions are no longer
-valid for BatchPayment; every other operation is unaffected.
+valid for BatchPayment; every other operation is unaffected. Concretely:
+
+- Discard any batch you prepared but did not yet submit under an earlier SDK
+  version, and rebuild + re-sign it with the current one — its old signing
+  hash will not match what the node now expects.
+- If an offline/HSM flow cached a `PreparedTransaction.SigningHash()` for a
+  batch, that cached digest is stale; re-run `PrepareTransaction` and re-sign
+  rather than reusing it.
+- If you store a `BatchPayment` transaction hash as a reconciliation key
+  (e.g. matching submitted batches against node records), a hash computed by
+  an earlier SDK version will not match the node's hash for the same logical
+  batch.
 
 1. Remove `MaxFee` from every `BatchPaymentPayload` literal — the field no
    longer exists.
-2. Keep calling `Transactions().BatchPayment`; the method shape is unchanged.
-3. Pass `WithMemo(m)` to attach a memo. Omitting it signs the canonical empty
+2. **Read-type migration:** remove any use of `BatchPaymentData.MaxFee`
+   (reached via `tx.AsBatchPaymentData().MaxFee`) — the read DTO field is also
+   removed. This is a separate compile break from step 1 and is easy to miss
+   because it does not touch payload-construction code.
+3. Keep calling `Transactions().BatchPayment`; the method shape is unchanged.
+4. Pass `WithMemo(m)` to attach a memo. Omitting it signs the canonical empty
    memo, exactly as with every other v2 operation.
-4. Do not configure the client with `WithLegacyV1` for BatchPayment; it is
+5. Do not configure the client with `WithLegacyV1` for BatchPayment; it is
    v2-only and returns an error before signing.
-5. Call `GetBatchPaymentEstimateFee` for a non-binding fee quote.
-6. Call `DeriveBatchPaymentOperationsHash` before setting the optional
+6. Call `GetBatchPaymentEstimateFee` for a non-binding fee quote.
+7. Call `DeriveBatchPaymentOperationsHash` before setting the optional
    `OperationsHash` field.
 
 ## Offline / KMS / HSM signing

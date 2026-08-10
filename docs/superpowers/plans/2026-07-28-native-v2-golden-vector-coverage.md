@@ -105,6 +105,13 @@ Expected: FAIL until `build_fixture` supplies all canonical vectors.
 
 - [ ] **Step 5: Construct the 14 canonical typed payloads**
 
+> **Superseded for BatchPayment (2026-08-10):** the instruction below to use
+> bare `BatchPaymentPayload` for operation 14 is stale. `max_fee` was removed
+> from the signed payload, and BatchPayment now signs as
+> `WithMemo<BatchPaymentPayload>` like every other operation — there is no
+> bare-payload form for any of the fourteen operations. See
+> `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`.
+
 Use `WithMemo<T>` for operation types 1–13 and bare
 `BatchPaymentPayload` for operation 14. Raw JSON uses decimal U256 strings,
 hex addresses/bytes, JSON arrays, and JSON null for absent options. Use valid

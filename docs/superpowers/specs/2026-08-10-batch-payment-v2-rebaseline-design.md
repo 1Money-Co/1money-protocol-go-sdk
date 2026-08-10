@@ -506,6 +506,16 @@ Go implementation under test.
 
 #### 9.3.3 Hard cross-repository delivery gate
 
+> **Correction (found during implementation, 2026-08-10):** the merge
+> requirement below was explicitly waived by human decision: there is no L1
+> PR and no merge into `l1client/main`. The extended fixture's oracle is the
+> local, unpushed l1client branch `feat/go-sdk-vector-generator` at commit
+> `ee4ce971644587c6903cb8a393371088f8279c56`, used directly as
+> `--source-commit`. Steps 1 and 5 below (and the "Delivery is therefore
+> strictly serial" framing) describe the plan as originally conceived, not
+> what happened; read `_source.commit` as identifying that local branch
+> revision, not a `l1client/main` commit.
+
 The L1 generator is a hard prerequisite for the entire Go re-baseline, not only
 for a fixture refresh. The existing Go fixture decoder declares
 `batchFixturePayload.MaxFee` and constructs `BatchPaymentPayload.MaxFee` from
@@ -645,6 +655,16 @@ The re-baseline is complete when:
 7. The L1 generator PR is merged before the Go re-baseline PR consumes its
    output; no skipped or temporarily deleted BatchPayment fixture coverage is
    accepted.
+
+> **Correction (found during implementation, 2026-08-10):** criteria 6 and 7
+> assumed the L1 generator would be merged into `l1client/main`. That merge
+> was explicitly waived by human decision — there is no PR and no merge.
+> `_source.commit` instead identifies the local, unpushed l1client branch
+> `feat/go-sdk-vector-generator` at commit
+> `ee4ce971644587c6903cb8a393371088f8279c56`, which is the actual oracle used
+> and is reproducible from that branch. Read criterion 6 as satisfied by that
+> committed local-branch revision, and criterion 7 as not applicable.
+
 8. L1-generated vectors pin every BatchPayment trailing-option combination,
    default/populated memo behavior, and operations-hash derivation.
 9. Submit and estimate requests use one quoted-decimal operation serializer;
