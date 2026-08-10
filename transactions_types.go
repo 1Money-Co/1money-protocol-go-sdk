@@ -1,6 +1,7 @@
 package onemoney
 
 import (
+	"encoding/json"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -228,3 +229,25 @@ type PaymentResponse struct {
 
 // TxHash reports the submitted transaction hash for hash-verification.
 func (r *PaymentResponse) TxHash() string { return r.Hash }
+
+// BatchPaymentFeeEstimateRequest is the unsigned input to the batch-payment
+// fee-estimate endpoint. It carries no nonce, timestamp, memo, authorization, or
+// operations hash: the node cannot validate those from an unsigned request, and
+// the returned quote is non-binding.
+type BatchPaymentFeeEstimateRequest struct {
+	From       common.Address     `json:"from"`
+	Token      common.Address     `json:"token"`
+	Operations []PaymentOperation `json:"operations"`
+}
+
+// MarshalJSON renders the request with the same operation encoder the v2 submit
+// body uses, so amounts are quoted decimal strings rather than the bare JSON
+// numbers a default *big.Int marshal would emit. Client.GetBatchPaymentEstimateFee
+// and a caller's direct json.Marshal therefore produce identical bodies.
+func (r BatchPaymentFeeEstimateRequest) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"from":       r.From,
+		"token":      r.Token,
+		"operations": batchOperationsWireList(r.Operations),
+	})
+}

@@ -14,6 +14,7 @@ const (
 	endpointTransactionsFinalizedV1     = "/v1/transactions/finalized/by_hash"
 	endpointTransactionsEstimateFeeV1   = "/v1/transactions/estimate_fee"
 	endpointTransactionsPaymentV1       = "/v1/transactions/payment"
+	endpointBatchPaymentEstimateFeeV1   = "/v1/transactions/batch_payment/estimate_fee"
 )
 
 // GetTransactionByHash retrieves a transaction by its hash.
@@ -49,6 +50,22 @@ func (client *Client) GetEstimateFee(ctx context.Context, from, to, token common
 	params.Set("token", token.Hex())
 	params.Set("value", value)
 	return result, client.GetMethod(ctx, fmt.Sprintf("%s?%s", endpointTransactionsEstimateFeeV1, params.Encode()), result)
+}
+
+// GetBatchPaymentEstimateFee retrieves an estimated fee for an unsigned batch
+// payment. The result is a non-binding, point-in-time quote and does not
+// guarantee admission: the node cannot validate encoded size, authorization,
+// nonce, chain id, timestamp, memo, or operations hash from this request.
+//
+// The endpoint is POST because the operation list is a request body; it is a
+// read-only fee query. Its /v1 prefix is the L1 read/service surface and does
+// not imply legacy batch-payment submission, which this SDK does not support.
+func (client *Client) GetBatchPaymentEstimateFee(ctx context.Context, request BatchPaymentFeeEstimateRequest) (*EstimateFeeResponse, error) {
+	if err := validateBatchOperationAmounts(request.Operations); err != nil {
+		return nil, err
+	}
+	result := new(EstimateFeeResponse)
+	return result, client.PostMethod(ctx, endpointBatchPaymentEstimateFeeV1, request, result)
 }
 
 // SendPayment sends a pre-signed payment transaction to the network.

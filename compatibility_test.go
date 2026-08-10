@@ -124,9 +124,13 @@ func TestPublicAPICompatibility(t *testing.T) {
 	// memo-bearing, so WithMemo and TransactionsAPI.BatchPayment now document a
 	// memo instead of rejecting one), and DeriveBatchPaymentOperationsHash was
 	// added so callers can compute BatchPaymentPayload.OperationsHash themselves
-	// using the same operation encoder the signing path uses. It guards against
+	// using the same operation encoder the signing path uses, and
+	// BatchPaymentFeeEstimateRequest plus Client.GetBatchPaymentEstimateFee were
+	// added so callers can obtain a non-binding fee quote for an unsigned batch
+	// payment, with MarshalJSON routing amounts through the same
+	// batchOperationsWireList encoder the v2 submit body uses. It guards against
 	// unintentional drift, not intentional changes.
-	const publicAPIHash = "fccc1fc966502c2867b7fab65a7e3ec5e0065573754e63433bc82c276c876ee1"
+	const publicAPIHash = "35c1bc4a689beae3a55b46ccd166f4ad62bec7654c44addc515724a52c9cf93e"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}
