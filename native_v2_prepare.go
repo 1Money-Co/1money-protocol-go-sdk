@@ -41,11 +41,7 @@ func validatePayloadU256(payload any) error {
 	case PaymentPayload:
 		return validateU256("payment.value", p.Value)
 	case BatchPaymentPayload:
-		for index, operation := range p.Operations {
-			if err := validateU256(fmt.Sprintf("batch.operations[%d].amount", index), operation.Amount); err != nil {
-				return err
-			}
-		}
+		return validateBatchOperationAmounts(p.Operations)
 	case TokenMintPayload:
 		return validateU256("mint.value", p.Value)
 	case TokenBurnPayload:

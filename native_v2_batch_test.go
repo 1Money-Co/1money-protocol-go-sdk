@@ -229,6 +229,90 @@ func TestBatchPaymentAcceptsMemo(t *testing.T) {
 	}
 }
 
+// TestDeriveBatchPaymentOperationsHashMatchesRustOracle checks the exported
+// derivation against expected.operations_hash emitted by the L1 generator. A
+// Go-computed hash compared only with another Go-computed value is not an
+// acceptable oracle.
+func TestDeriveBatchPaymentOperationsHashMatchesRustOracle(t *testing.T) {
+	covered := 0
+	for _, vector := range loadPrepareAuthorizeFixture(t).Vectors {
+		if vector.Operation != "BatchPayment" || vector.Expected.OperationsHash == "" {
+			continue
+		}
+		vector := vector
+		t.Run(vector.Name, func(t *testing.T) {
+			payload, _ := vector.goPayload(t)
+			batch, ok := payload.(BatchPaymentPayload)
+			if !ok {
+				t.Fatalf("decoded payload type = %T, want BatchPaymentPayload", payload)
+			}
+			got, err := DeriveBatchPaymentOperationsHash(batch.Operations)
+			if err != nil {
+				t.Fatalf("derive: %v", err)
+			}
+			if !strings.EqualFold(got.Hex(), vector.Expected.OperationsHash) {
+				t.Fatalf("operations_hash\n got %s\nwant %s (Rust oracle)", got.Hex(), vector.Expected.OperationsHash)
+			}
+		})
+		covered++
+	}
+	if covered == 0 {
+		t.Fatal("no BatchPayment vector carried expected.operations_hash; regenerate the fixture from the L1 oracle")
+	}
+}
+
+// TestDeriveBatchPaymentOperationsHashNilAmount pins the nil == U256-zero rule
+// that the submit encoder already applies, so the helper hashes exactly what the
+// submit path signs.
+func TestDeriveBatchPaymentOperationsHashNilAmount(t *testing.T) {
+	nilAmount, err := DeriveBatchPaymentOperationsHash([]PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: nil}})
+	if err != nil {
+		t.Fatalf("nil amount must not error: %v", err)
+	}
+	zeroAmount, err := DeriveBatchPaymentOperationsHash([]PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(0)}})
+	if err != nil {
+		t.Fatalf("zero amount: %v", err)
+	}
+	if nilAmount != zeroAmount {
+		t.Errorf("nil amount hash %s != zero amount hash %s", nilAmount.Hex(), zeroAmount.Hex())
+	}
+}
+
+// TestDeriveBatchPaymentOperationsHashRejectsOutOfRange checks the same U256
+// bounds the submit path enforces.
+func TestDeriveBatchPaymentOperationsHashRejectsOutOfRange(t *testing.T) {
+	tooWide := new(big.Int).Lsh(big.NewInt(1), 256)
+	for name, amount := range map[string]*big.Int{
+		"negative": big.NewInt(-1),
+		"too wide": tooWide,
+	} {
+		if _, err := DeriveBatchPaymentOperationsHash([]PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: amount}}); err == nil {
+			t.Errorf("%s amount was accepted; want an error", name)
+		}
+	}
+}
+
+// TestDeriveBatchPaymentOperationsHashIsOrderSensitive guards against a helper
+// that sorts or normalizes operations: L1 hashes the list as given.
+func TestDeriveBatchPaymentOperationsHashIsOrderSensitive(t *testing.T) {
+	forward := []PaymentOperation{
+		{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1000)},
+		{Recipient: repeatAddr(0x0d), Amount: big.NewInt(2000)},
+	}
+	reverse := []PaymentOperation{forward[1], forward[0]}
+	a, err := DeriveBatchPaymentOperationsHash(forward)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := DeriveBatchPaymentOperationsHash(reverse)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a == b {
+		t.Error("reordering operations must change the hash")
+	}
+}
+
 // TestPaymentValueEdgeCases covers U256 boundary inputs the golden vectors do
 // not: nil (treated as zero), and the maximum 256-bit value.
 func TestPaymentValueEdgeCases(t *testing.T) {

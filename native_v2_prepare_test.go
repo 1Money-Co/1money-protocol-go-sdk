@@ -45,6 +45,7 @@ type prepareAuthorizeOptions struct {
 type prepareAuthorizeExpected struct {
 	SigningHash     string `json:"signing_hash"`
 	TransactionHash string `json:"transaction_hash"`
+	OperationsHash  string `json:"operations_hash"`
 }
 
 func loadPrepareAuthorizeFixture(t *testing.T) prepareAuthorizeFixture {

@@ -122,9 +122,11 @@ func TestPublicAPICompatibility(t *testing.T) {
 	// on the current L1 canonical format (the signed batch fee field was dropped
 	// from both BatchPaymentPayload and BatchPaymentData, and batch payments became
 	// memo-bearing, so WithMemo and TransactionsAPI.BatchPayment now document a
-	// memo instead of rejecting one). It guards against unintentional drift, not
-	// intentional changes.
-	const publicAPIHash = "192ca2daeaa5b4dabe85194cd9ea92ffa50debe79387bdee56c0e805878f430b"
+	// memo instead of rejecting one), and DeriveBatchPaymentOperationsHash was
+	// added so callers can compute BatchPaymentPayload.OperationsHash themselves
+	// using the same operation encoder the signing path uses. It guards against
+	// unintentional drift, not intentional changes.
+	const publicAPIHash = "fccc1fc966502c2867b7fab65a7e3ec5e0065573754e63433bc82c276c876ee1"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}
