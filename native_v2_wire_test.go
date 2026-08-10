@@ -66,7 +66,7 @@ func TestAuthorizedBodyDoesNotAliasPayload(t *testing.T) {
 		payload := BatchPaymentPayload{
 			ChainID: 1, Nonce: 1, Token: repeatAddr(0x01),
 			Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1)}},
-			MaxFee:     big.NewInt(1), CreatedAt: 1, OperationsHash: &h,
+			CreatedAt:  1, OperationsHash: &h,
 		}
 		authorized := authorizeForAlias(t, payload)
 		before, _ := json.Marshal(authorized.body)

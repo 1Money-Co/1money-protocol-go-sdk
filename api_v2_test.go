@@ -37,7 +37,7 @@ func batchPaymentFixture() BatchPaymentPayload {
 	return BatchPaymentPayload{
 		ChainID: 1, Nonce: 1, Token: repeatAddr(0x01),
 		Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1)}},
-		MaxFee:     big.NewInt(1), CreatedAt: 1,
+		CreatedAt:  1,
 	}
 }
 
@@ -46,7 +46,6 @@ func paymentOp(p PaymentPayload) nativeV2Op {
 		op:          opPayment,
 		payloadList: p.rlpList(),
 		fields:      p.wireFields(),
-		memoCapable: true,
 		pathV1:      "/v1/transactions/payment",
 		pathV2:      "/v2/transactions/payment",
 	}
@@ -207,13 +206,25 @@ func TestLegacyModeRejectsMemo(t *testing.T) {
 	}
 }
 
-// TestBatchPaymentRejectsMemo asserts that an explicit memo is rejected (not
-// silently dropped) for batch payments, which carry no memo.
-func TestBatchPaymentRejectsMemo(t *testing.T) {
-	c := NewClient()
-	_, err := c.Transactions().BatchPayment(context.Background(), batchPaymentFixture(), testSigner(t), WithMemo(Memo{Type: "purpose/SALA"}))
-	if err == nil {
-		t.Fatal("expected memo-not-supported error for batch payment, got nil")
+// TestBatchPaymentSubmitsMemo asserts the batch v2 body always carries the
+// three-field memo object, which the L1 BatchPaymentRequestV2 requires.
+func TestBatchPaymentSubmitsMemo(t *testing.T) {
+	memo := Memo{Type: "purpose/PAYROLL", Format: "text/plain", Data: "may-2026"}
+	var gotMemo json.RawMessage
+	var gotPath string
+	hc := fakeHTTPClient(nil, func(path string, body map[string]json.RawMessage) interface{} {
+		gotPath, gotMemo = path, body["memo"]
+		return map[string]string{"hash": v2HashFromBody(body, opBatchPayment, batchPaymentFixture().rlpList(), memo)}
+	})
+	c := NewClientWithCustomUrl("http://sdk.test", WithHTTPClient(hc))
+	if _, err := c.Transactions().BatchPayment(context.Background(), batchPaymentFixture(), testSigner(t), WithMemo(memo)); err != nil {
+		t.Fatalf("batch payment with memo should succeed: %v", err)
+	}
+	if gotPath != "/v2/transactions/batch_payment" {
+		t.Errorf("path = %q, want /v2/transactions/batch_payment", gotPath)
+	}
+	if string(gotMemo) != `{"type":"purpose/PAYROLL","format":"text/plain","data":"may-2026"}` {
+		t.Errorf("memo = %s, want the full three-field object", gotMemo)
 	}
 }
 

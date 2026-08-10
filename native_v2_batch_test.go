@@ -19,7 +19,7 @@ func TestBatchPaymentOptionalTrailingFields(t *testing.T) {
 		return BatchPaymentPayload{
 			ChainID: 1, Nonce: 1, Token: repeatAddr(0x01),
 			Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1000)}},
-			MaxFee:     big.NewInt(5000), CreatedAt: 1,
+			CreatedAt:  1,
 		}
 	}
 	h := common.BytesToHash(repeatBytes(0x11, 32))
@@ -33,9 +33,9 @@ func TestBatchPaymentOptionalTrailingFields(t *testing.T) {
 	idOnly := base()
 	idOnly.BatchID = &id
 
-	// elems returns the top-level RLP elements of a payload's canonical encoding.
+	// elems returns the top-level RLP elements of a payload's field list.
 	elems := func(p BatchPaymentPayload) []rlp.RawValue {
-		raw, err := encodeBare(p.rlpList())
+		raw, err := rlp.EncodeToBytes(p.rlpList())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -46,24 +46,24 @@ func TestBatchPaymentOptionalTrailingFields(t *testing.T) {
 		return out
 	}
 
-	// Element counts per §4.3 (6 fixed fields + trailing optionals).
-	if got := len(elems(neither)); got != 6 {
-		t.Errorf("neither: got %d elements, want 6 (no trailing placeholders)", got)
+	// Element counts per §4.3 (5 fixed fields + trailing optionals).
+	if got := len(elems(neither)); got != 5 {
+		t.Errorf("neither: got %d elements, want 5 (no trailing placeholders)", got)
 	}
-	if got := len(elems(hashOnly)); got != 7 {
-		t.Errorf("hash-only: got %d elements, want 7", got)
+	if got := len(elems(hashOnly)); got != 6 {
+		t.Errorf("hash-only: got %d elements, want 6", got)
 	}
-	if got := len(elems(both)); got != 8 {
-		t.Errorf("both: got %d elements, want 8", got)
+	if got := len(elems(both)); got != 7 {
+		t.Errorf("both: got %d elements, want 7", got)
 	}
 	idOnlyElems := elems(idOnly)
-	if len(idOnlyElems) != 8 {
-		t.Fatalf("batch_id-only: got %d elements, want 8 (placeholder + batch_id)", len(idOnlyElems))
+	if len(idOnlyElems) != 7 {
+		t.Fatalf("batch_id-only: got %d elements, want 7 (placeholder + batch_id)", len(idOnlyElems))
 	}
-	// The operations_hash slot (index 6) must be the 0x80 empty-string placeholder
+	// The operations_hash slot (index 5) must be the 0x80 empty-string placeholder
 	// when absent-before-present, not dropped or zero-filled.
-	if !bytes.Equal(idOnlyElems[6], []byte{0x80}) {
-		t.Errorf("batch_id-only: operations_hash slot = %x, want 0x80 placeholder", idOnlyElems[6])
+	if !bytes.Equal(idOnlyElems[5], []byte{0x80}) {
+		t.Errorf("batch_id-only: operations_hash slot = %x, want 0x80 placeholder", idOnlyElems[5])
 	}
 
 	// Every combination must feed the signed preimage: distinct inputs -> distinct
@@ -86,15 +86,16 @@ func TestBatchPaymentOptionalTrailingFields(t *testing.T) {
 
 // TestBatchPaymentOptionalGoldenVectors validates every trailing-Option
 // encoding class against raw-field vectors exported by the Rust production
-// implementation. Structural RLP assertions remain in the test above.
+// implementation. Since BatchPayment became memo-bearing, the generator emits
+// each option class twice — once with the canonical empty memo and once with a
+// populated one (the "_memo" companion) — so both memo states of every option
+// class are pinned to the L1 oracle. Structural RLP assertions remain in the
+// test above.
 func TestBatchPaymentOptionalGoldenVectors(t *testing.T) {
-	required := map[string]bool{
-		"BatchPayment_canonical": false,
-		"batch_option_hash_only": false,
-		"batch_option_id_only":   false,
-		"batch_option_both":      false,
-		"batch_option_empty_id":  false,
-		"batch_option_zero_hash": false,
+	required := map[string]bool{"BatchPayment_canonical": false}
+	for _, class := range []string{"neither", "hash_only", "id_only", "both", "empty_id", "zero_hash"} {
+		required["batch_option_"+class] = false
+		required["batch_option_"+class+"_memo"] = false
 	}
 	for _, vector := range loadPrepareAuthorizeFixture(t).Vectors {
 		if _, ok := required[vector.Name]; !ok {
@@ -108,10 +109,13 @@ func TestBatchPaymentOptionalGoldenVectors(t *testing.T) {
 			if !ok {
 				t.Fatalf("decoded payload type = %T, want BatchPaymentPayload", payload)
 			}
-			if len(options) != 0 {
-				t.Fatalf("BatchPayment options = %d, want none", len(options))
+			// The "_memo" companions must actually carry a memo, and the others must
+			// not — otherwise a memo-state regression would silently stop being tested.
+			wantMemo := strings.HasSuffix(vector.Name, "_memo")
+			if gotMemo := vector.Options.Memo != nil; gotMemo != wantMemo {
+				t.Fatalf("options.memo present = %v, want %v", gotMemo, wantMemo)
 			}
-			prep, err := PrepareTransaction(batch)
+			prep, err := PrepareTransaction(batch, options...)
 			if err != nil {
 				t.Fatalf("prepare: %v", err)
 			}
@@ -140,13 +144,13 @@ func TestBatchPaymentPairwiseGoldenCoverage(t *testing.T) {
 	optionLevels := []string{"neither", "hash_only", "id_only", "both"}
 	operationLevels := []string{"empty", "single", "forward", "reverse"}
 	amountLevels := []string{"ordinary", "zero", "max"}
-	feeLevels := []string{"ordinary", "zero", "max"}
+	memoLevels := []string{"empty", "populated"}
 	cross("option", optionLevels, "operations", operationLevels)
 	cross("option", optionLevels, "amount", amountLevels)
-	cross("option", optionLevels, "fee", feeLevels)
-	cross("operations", operationLevels, "fee", feeLevels)
+	cross("option", optionLevels, "memo", memoLevels)
+	cross("operations", operationLevels, "memo", memoLevels)
 	cross("operations", operationLevels[1:], "amount", amountLevels)
-	cross("amount", amountLevels, "fee", feeLevels)
+	cross("amount", amountLevels, "memo", memoLevels)
 
 	maxU256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1)).String()
 	for _, vector := range loadPrepareAuthorizeFixture(t).Vectors {
@@ -178,15 +182,13 @@ func TestBatchPaymentPairwiseGoldenCoverage(t *testing.T) {
 		default:
 			t.Fatalf("%s: unexpected operation count %d", vector.Name, len(raw.Operations))
 		}
-		feeLevel := "ordinary"
-		if raw.MaxFee == "0" {
-			feeLevel = "zero"
-		} else if raw.MaxFee == maxU256 {
-			feeLevel = "max"
+		memoLevel := "empty"
+		if vector.Options.Memo != nil {
+			memoLevel = "populated"
 		}
 		observed.add("option:" + optionLevel + "|operations:" + operationLevel)
-		observed.add("option:" + optionLevel + "|fee:" + feeLevel)
-		observed.add("operations:" + operationLevel + "|fee:" + feeLevel)
+		observed.add("option:" + optionLevel + "|memo:" + memoLevel)
+		observed.add("operations:" + operationLevel + "|memo:" + memoLevel)
 
 		if len(raw.Operations) != 0 {
 			amountLevel := "ordinary"
@@ -197,29 +199,33 @@ func TestBatchPaymentPairwiseGoldenCoverage(t *testing.T) {
 			}
 			observed.add("option:" + optionLevel + "|amount:" + amountLevel)
 			observed.add("operations:" + operationLevel + "|amount:" + amountLevel)
-			observed.add("amount:" + amountLevel + "|fee:" + feeLevel)
+			observed.add("amount:" + amountLevel + "|memo:" + memoLevel)
 		}
 	}
 
 	assertFixtureSetContains(t, "BatchPayment pairwise", observed, sortedFixtureSet(required)...)
 }
 
-// TestPrepareTransactionRejectsBatchMemo verifies the offline pipeline rejects a
-// memo on a batch payment (which carries none) instead of silently dropping it,
-// matching the one-step submit path — the guard lives in the shared
-// prepareFromPayload so both paths enforce it.
-func TestPrepareTransactionRejectsBatchMemo(t *testing.T) {
+// TestBatchPaymentAcceptsMemo verifies BatchPayment is memo-bearing like every
+// other canonical v2 operation: a memo prepares successfully and changes the
+// signing hash, because the memo is inside WithMemo<BatchPaymentPayload>.
+func TestBatchPaymentAcceptsMemo(t *testing.T) {
 	batch := BatchPaymentPayload{
 		ChainID: 1, Nonce: 1, Token: repeatAddr(0x01),
 		Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1000)}},
-		MaxFee:     big.NewInt(5000), CreatedAt: 1,
+		CreatedAt:  1,
 	}
-	if _, err := PrepareTransaction(batch, WithMemo(Memo{Type: "purpose/SALA", Format: "text/plain", Data: "x"})); err == nil {
-		t.Fatal("PrepareTransaction accepted a memo on a batch payment; want error (memo would be silently dropped)")
-	}
-	// Without a memo the same batch must still prepare successfully.
-	if _, err := PrepareTransaction(batch); err != nil {
+
+	bare, err := PrepareTransaction(batch)
+	if err != nil {
 		t.Fatalf("PrepareTransaction(batch) without memo: %v", err)
+	}
+	withMemo, err := PrepareTransaction(batch, WithMemo(Memo{Type: "purpose/SALA", Format: "text/plain", Data: "x"}))
+	if err != nil {
+		t.Fatalf("PrepareTransaction(batch) with memo: %v", err)
+	}
+	if bytes.Equal(bare.SigningHash(), withMemo.SigningHash()) {
+		t.Error("memo did not change the batch signing hash; the memo is not in the signed preimage")
 	}
 }
 

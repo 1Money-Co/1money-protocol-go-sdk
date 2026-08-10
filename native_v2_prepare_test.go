@@ -230,7 +230,6 @@ type batchFixturePayload struct {
 	Nonce          uint64                  `json:"nonce"`
 	Token          string                  `json:"token"`
 	Operations     []batchFixtureOperation `json:"operations"`
-	MaxFee         string                  `json:"max_fee"`
 	CreatedAt      uint64                  `json:"created_at"`
 	OperationsHash *string                 `json:"operations_hash"`
 	BatchID        *string                 `json:"batch_id"`
@@ -356,7 +355,7 @@ func (v prepareAuthorizeVector) goPayload(t *testing.T) (any, []SubmitOption) {
 		}
 		return BatchPaymentPayload{
 			ChainID: raw.ChainID, Nonce: raw.Nonce, Token: parseFixtureAddress(t, raw.Token),
-			Operations: operations, MaxFee: parseFixtureBig(t, raw.MaxFee), CreatedAt: raw.CreatedAt,
+			Operations: operations, CreatedAt: raw.CreatedAt,
 			OperationsHash: parseFixtureHashPtr(t, raw.OperationsHash), BatchID: raw.BatchID,
 		}, options
 	default:
@@ -545,7 +544,6 @@ func TestPrepareAuthorizeFixtureSemanticCoverage(t *testing.T) {
 				record("TokenBurnAndBridge.destination_chain_id", fmt.Sprint(raw.DestinationChainID))
 			case "BatchPayment":
 				raw := decodeFixturePayload[batchFixturePayload](t, vector.Payload)
-				record("BatchPayment.max_fee", raw.MaxFee)
 				record("BatchPayment.created_at", fmt.Sprint(raw.CreatedAt))
 				for _, operation := range raw.Operations {
 					record("BatchPayment.operations.amount", operation.Amount)
@@ -555,7 +553,7 @@ func TestPrepareAuthorizeFixtureSemanticCoverage(t *testing.T) {
 
 		maxU256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1)).String()
 		for _, field := range []string{
-			"Payment.value", "BatchPayment.operations.amount", "BatchPayment.max_fee",
+			"Payment.value", "BatchPayment.operations.amount",
 			"TokenMint.value", "TokenAuthority.value", "TokenBurn.value", "TokenClawback.value",
 			"TokenBridgeAndMint.value", "TokenBurnAndBridge.value", "TokenBurnAndBridge.escrow_fee",
 		} {
@@ -986,14 +984,7 @@ func TestPrepareRejectsOutOfRangeU256(t *testing.T) {
 			return BatchPaymentPayload{
 				ChainID: 1, Nonce: 1, Token: repeatAddr(2),
 				Operations: []PaymentOperation{{Recipient: repeatAddr(1), Amount: value}},
-				MaxFee:     big.NewInt(1), CreatedAt: 1,
-			}
-		}},
-		{"batch.max_fee", func(value *big.Int) any {
-			return BatchPaymentPayload{
-				ChainID: 1, Nonce: 1, Token: repeatAddr(2),
-				Operations: []PaymentOperation{{Recipient: repeatAddr(1), Amount: big.NewInt(1)}},
-				MaxFee:     value, CreatedAt: 1,
+				CreatedAt:  1,
 			}
 		}},
 		{"mint.value", func(value *big.Int) any {

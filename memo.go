@@ -26,9 +26,8 @@ type submitConfig struct {
 type SubmitOption func(*submitConfig)
 
 // WithMemo attaches a signed memo to the submitted transaction. Without it, the
-// canonical empty memo is used. Submitting a memo on a path that cannot carry
-// one (legacy v1 mode, or a batch payment) is rejected rather than silently
-// dropped, so audit data is never lost without notice.
+// canonical empty memo is used. Submitting a memo in legacy v1 mode is rejected
+// rather than silently dropped, so audit data is never lost without notice.
 func WithMemo(m Memo) SubmitOption {
 	return func(c *submitConfig) {
 		c.memo = m

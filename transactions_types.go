@@ -217,7 +217,6 @@ type BatchPaymentPayload struct {
 	Nonce          uint64             `json:"nonce"`
 	Token          common.Address     `json:"token"`
 	Operations     []PaymentOperation `json:"operations"`
-	MaxFee         *big.Int           `json:"max_fee"`
 	CreatedAt      uint64             `json:"created_at"`
 	OperationsHash *common.Hash       `json:"operations_hash,omitempty"`
 	BatchID        *string            `json:"batch_id,omitempty"`

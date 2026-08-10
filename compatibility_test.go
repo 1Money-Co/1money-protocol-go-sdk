@@ -118,9 +118,13 @@ func TestPublicAPICompatibility(t *testing.T) {
 	// polymorphic signatures, BLS counter-signature, clawback metadata, typed
 	// pricing), Transaction gained a MarshalJSON method so a decoded transaction
 	// re-serializes with its data and authorization intact, and WithDebug was
-	// added for verbose request/response logging. It guards against unintentional
-	// drift, not intentional changes.
-	const publicAPIHash = "f14701deb000cc000d493aaab815aeb4e65ed353091ec786cfbea7dbb1fe9bcb"
+	// added for verbose request/response logging, and BatchPayment was re-baselined
+	// on the current L1 canonical format (the signed batch fee field was dropped
+	// from both BatchPaymentPayload and BatchPaymentData, and batch payments became
+	// memo-bearing, so WithMemo and TransactionsAPI.BatchPayment now document a
+	// memo instead of rejecting one). It guards against unintentional drift, not
+	// intentional changes.
+	const publicAPIHash = "192ca2daeaa5b4dabe85194cd9ea92ffa50debe79387bdee56c0e805878f430b"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}

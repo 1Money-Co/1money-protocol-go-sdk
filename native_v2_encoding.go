@@ -103,7 +103,7 @@ func (p BatchPaymentPayload) rlpList() []interface{} {
 	for _, o := range p.Operations {
 		ops = append(ops, []interface{}{o.Recipient, bigOrZero(o.Amount)})
 	}
-	list := []interface{}{p.ChainID, p.Nonce, p.Token, ops, bigOrZero(p.MaxFee), p.CreatedAt}
+	list := []interface{}{p.ChainID, p.Nonce, p.Token, ops, p.CreatedAt}
 	// Trailing optional fields (native-v2-signing-spec §4.3): only appended when
 	// present; an absent field before a present one becomes an empty placeholder.
 	if p.OperationsHash != nil || p.BatchID != nil {
@@ -234,7 +234,7 @@ func (p BatchPaymentPayload) wireFields() map[string]interface{} {
 	}
 	body := map[string]interface{}{
 		"chain_id": p.ChainID, "nonce": p.Nonce, "token": p.Token, "operations": ops,
-		"max_fee": bigStr(p.MaxFee), "created_at": p.CreatedAt,
+		"created_at": p.CreatedAt,
 	}
 	if p.OperationsHash != nil {
 		// Store a value copy so the body never aliases the caller's pointer.

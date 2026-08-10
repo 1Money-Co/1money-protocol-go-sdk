@@ -79,8 +79,9 @@ func (a TransactionsAPI) Payment(ctx context.Context, payload PaymentPayload, si
 	return out, a.c.submitPayload(ctx, payload, resolveSubmit(opts), signer, out)
 }
 
-// BatchPayment signs and submits a batch payment. Batch payments carry no memo:
-// passing WithMemo returns an error rather than silently dropping it.
+// BatchPayment signs and submits a batch payment. Batch payments are
+// memo-bearing like every other canonical v2 operation: pass WithMemo to attach
+// one, otherwise the canonical empty memo is signed.
 func (a TransactionsAPI) BatchPayment(ctx context.Context, payload BatchPaymentPayload, signer Signer, opts ...SubmitOption) (*PaymentResponse, error) {
 	out := new(PaymentResponse)
 	return out, a.c.submitPayload(ctx, payload, resolveSubmit(opts), signer, out)

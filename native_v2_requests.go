@@ -30,18 +30,16 @@ func singleAuthorization(sig Signature) nativeAuthorization {
 // nativeV2Op carries everything the submit core needs for one operation.
 type nativeV2Op struct {
 	op          nativeOperationType
-	payloadList []interface{}          // canonical RLP field list (Task: native_v2_encoding.go)
-	fields      map[string]interface{} // flattened JSON body fields (native_v2_wire.go)
-	memoCapable bool                   // false only for BatchPayment
+	payloadList []interface{}          // canonical RLP field list (native_v2_encoding.go)
+	fields      map[string]interface{} // flattened JSON body fields (native_v2_encoding.go)
 	pathV1      string
 	pathV2      string
 }
 
+// payloadRLP builds payload_rlp for the canonical native-v2 form. All fourteen
+// operations are WithMemo<Payload>; there is no bare-payload alternative.
 func (op nativeV2Op) payloadRLP(memo Memo) ([]byte, error) {
-	if op.memoCapable {
-		return encodeWithMemo(op.payloadList, memo)
-	}
-	return encodeBare(op.payloadList)
+	return encodeWithMemo(op.payloadList, memo)
 }
 
 // TransactionResponse is the minimal submission response (just the transaction
@@ -157,10 +155,10 @@ func pathsForOp(op nativeOperationType) (v1, v2 string) {
 }
 
 // opFromPayload builds a complete submit operation from a payload value and
-// config, sourcing operation type, RLP list, body fields, memo-capability, and
-// REST paths from the single central mappings.
+// config, sourcing operation type, RLP list, body fields, and REST paths from
+// the single central mappings.
 func opFromPayload(payload any, cfg submitConfig) (nativeV2Op, error) {
-	op, list, fields, memoCapable, err := resolvePayloadOp(payload, cfg)
+	op, list, fields, err := resolvePayloadOp(payload, cfg)
 	if err != nil {
 		return nativeV2Op{}, err
 	}
@@ -169,7 +167,6 @@ func opFromPayload(payload any, cfg submitConfig) (nativeV2Op, error) {
 		op:          op,
 		payloadList: list,
 		fields:      fields,
-		memoCapable: memoCapable,
 		pathV1:      v1,
 		pathV2:      v2,
 	}, nil
@@ -195,8 +192,8 @@ func (c *Client) submitPayload(ctx context.Context, payload any, cfg submitConfi
 		}
 		return c.submitLegacyV1(ctx, op, signer, out)
 	}
-	// prepareFromPayload rejects a memo on a memo-incapable operation (e.g. batch
-	// payment), so no separate check is needed here.
+	// Every canonical v2 operation is memo-bearing, so a memo needs no capability
+	// check here — prepareFromPayload folds it into the signed preimage.
 	prepared, err := prepareFromPayload(payload, cfg)
 	if err != nil {
 		return err

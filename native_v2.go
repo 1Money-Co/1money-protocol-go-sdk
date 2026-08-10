@@ -41,16 +41,10 @@ func memoList(m Memo) []interface{} {
 	return []interface{}{[]byte(m.Type), []byte(m.Format), []byte(m.Data)}
 }
 
-// encodeWithMemo builds payload_rlp = rlp([ payloadList, memoList ]) for a
-// memo-capable operation.
+// encodeWithMemo builds payload_rlp = rlp([ payloadList, memoList ]), the
+// canonical form for every native-v2 operation.
 func encodeWithMemo(payloadList []interface{}, m Memo) ([]byte, error) {
 	return rlp.EncodeToBytes([]interface{}{payloadList, memoList(m)})
-}
-
-// encodeBare builds payload_rlp = rlp(payloadList) for an operation with no
-// memo wrapper (BatchPayment).
-func encodeBare(payloadList []interface{}) ([]byte, error) {
-	return rlp.EncodeToBytes(payloadList)
 }
 
 // singleDescriptor is the SingleSecp256k1 authorization descriptor: [0].

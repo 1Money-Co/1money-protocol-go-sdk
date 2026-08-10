@@ -41,9 +41,6 @@ func validatePayloadU256(payload any) error {
 	case PaymentPayload:
 		return validateU256("payment.value", p.Value)
 	case BatchPaymentPayload:
-		if err := validateU256("batch.max_fee", p.MaxFee); err != nil {
-			return err
-		}
 		for index, operation := range p.Operations {
 			if err := validateU256(fmt.Sprintf("batch.operations[%d].amount", index), operation.Amount); err != nil {
 				return err
@@ -79,58 +76,56 @@ func validatePayloadU256(payload any) error {
 //   - bodyFields:  the flattened JSON request-body fields (e.g. U256 amounts as
 //     decimal strings, addresses as 0x-hex); memo and authorization are added
 //     later, at Authorize time.
-//   - memoCapable: whether the operation carries a memo (false only for
-//     BatchPayment).
 //   - err:         non-nil for an unsupported payload type, or an ambiguous
 //     TokenManageListPayload with no WithManageListKind.
-func resolvePayloadOp(payload any, cfg submitConfig) (op nativeOperationType, payloadList []interface{}, bodyFields map[string]interface{}, memoCapable bool, err error) {
+func resolvePayloadOp(payload any, cfg submitConfig) (op nativeOperationType, payloadList []interface{}, bodyFields map[string]interface{}, err error) {
 	if err := validatePayloadU256(payload); err != nil {
-		return 0, nil, nil, false, err
+		return 0, nil, nil, err
 	}
 	switch p := payload.(type) {
 	case PaymentPayload:
-		return opPayment, p.rlpList(), p.wireFields(), true, nil
+		return opPayment, p.rlpList(), p.wireFields(), nil
 	case BatchPaymentPayload:
-		return opBatchPayment, p.rlpList(), p.wireFields(), false, nil
+		return opBatchPayment, p.rlpList(), p.wireFields(), nil
 	case TokenIssuePayload:
-		return opTokenIssue, p.rlpList(), p.wireFields(), true, nil
+		return opTokenIssue, p.rlpList(), p.wireFields(), nil
 	case TokenMintPayload:
-		return opTokenMint, p.rlpList(), p.wireFields(), true, nil
+		return opTokenMint, p.rlpList(), p.wireFields(), nil
 	case TokenBurnPayload:
-		return opTokenBurn, p.rlpList(), p.wireFields(), true, nil
+		return opTokenBurn, p.rlpList(), p.wireFields(), nil
 	case TokenBridgeAndMintPayload:
-		return opTokenBridgeAndMint, p.rlpList(), p.wireFields(), true, nil
+		return opTokenBridgeAndMint, p.rlpList(), p.wireFields(), nil
 	case TokenBurnAndBridgePayload:
-		return opTokenBurnAndBridge, p.rlpList(), p.wireFields(), true, nil
+		return opTokenBurnAndBridge, p.rlpList(), p.wireFields(), nil
 	case TokenAuthorityPayload:
-		return opTokenAuthority, p.rlpList(), p.wireFields(), true, nil
+		return opTokenAuthority, p.rlpList(), p.wireFields(), nil
 	case TokenClawbackPayload:
-		return opTokenClawback, p.rlpList(), p.wireFields(), true, nil
+		return opTokenClawback, p.rlpList(), p.wireFields(), nil
 	case PauseTokenPayload:
-		return opTokenPause, p.rlpList(), p.wireFields(), true, nil
+		return opTokenPause, p.rlpList(), p.wireFields(), nil
 	case UpdateMetadataPayload:
-		return opTokenMetadata, p.rlpList(), p.wireFields(), true, nil
+		return opTokenMetadata, p.rlpList(), p.wireFields(), nil
 	case CreateMultiSigPayload:
 		if err := validateMultisigConfig(p.Signers, p.Threshold); err != nil {
-			return 0, nil, nil, false, err
+			return 0, nil, nil, err
 		}
-		return opCreateMultiSig, p.rlpList(), p.wireFields(), true, nil
+		return opCreateMultiSig, p.rlpList(), p.wireFields(), nil
 	case TokenManageListPayload:
 		if cfg.listKind == nil {
-			return 0, nil, nil, false, fmt.Errorf("TokenManageListPayload is ambiguous: pass WithManageListKind(ManageListBlacklist or ManageListWhitelist)")
+			return 0, nil, nil, fmt.Errorf("TokenManageListPayload is ambiguous: pass WithManageListKind(ManageListBlacklist or ManageListWhitelist)")
 		}
 		// The operation type is part of the signing domain, so an unknown kind
 		// must error rather than silently map to blacklist.
 		switch *cfg.listKind {
 		case ManageListBlacklist:
-			return opTokenBlacklist, p.rlpList(), p.wireFields(), true, nil
+			return opTokenBlacklist, p.rlpList(), p.wireFields(), nil
 		case ManageListWhitelist:
-			return opTokenWhitelist, p.rlpList(), p.wireFields(), true, nil
+			return opTokenWhitelist, p.rlpList(), p.wireFields(), nil
 		default:
-			return 0, nil, nil, false, fmt.Errorf("invalid ManageListKind %d", *cfg.listKind)
+			return 0, nil, nil, fmt.Errorf("invalid ManageListKind %d", *cfg.listKind)
 		}
 	default:
-		return 0, nil, nil, false, fmt.Errorf("unsupported payload type %T", payload)
+		return 0, nil, nil, fmt.Errorf("unsupported payload type %T", payload)
 	}
 }
 
@@ -147,7 +142,6 @@ type PreparedTransaction struct {
 	signingHash []byte
 	fields      map[string]interface{}
 	memo        Memo
-	memoCapable bool
 	pathV2      string
 }
 
@@ -162,18 +156,12 @@ func PrepareTransaction(payload any, opts ...SubmitOption) (*PreparedTransaction
 // prepareFromPayload resolves a payload to its operation and builds the
 // PreparedTransaction. It is the single payload -> prepared path, shared by the
 // public PrepareTransaction (offline) and the namespace submit path, so both run
-// on exactly one pipeline.
+// on exactly one pipeline. Every canonical native-v2 operation carries a memo,
+// so there is no memo-capability guard here.
 func prepareFromPayload(payload any, cfg submitConfig) (*PreparedTransaction, error) {
 	op, err := opFromPayload(payload, cfg)
 	if err != nil {
 		return nil, err
-	}
-	// A memo on an operation that cannot carry one (batch payment) is rejected
-	// rather than silently dropped, so audit data is never lost without notice.
-	// This lives in the shared path so both PrepareTransaction (offline) and the
-	// namespace submit path enforce it identically.
-	if cfg.memoSet && !op.memoCapable {
-		return nil, fmt.Errorf("memo is not supported for this operation (batch payments carry no memo)")
 	}
 	return newPrepared(op, cfg.memo)
 }
@@ -197,7 +185,6 @@ func newPrepared(op nativeV2Op, memo Memo) (*PreparedTransaction, error) {
 		signingHash: sh,
 		fields:      op.fields,
 		memo:        memo,
-		memoCapable: op.memoCapable,
 		pathV2:      op.pathV2,
 	}, nil
 }
@@ -232,9 +219,7 @@ func (p *PreparedTransaction) Authorize(sig Signature) (*AuthorizedTransaction, 
 	for k, v := range p.fields {
 		body[k] = v
 	}
-	if p.memoCapable {
-		body["memo"] = p.memo
-	}
+	body["memo"] = p.memo
 	body["authorization"] = singleAuthorization(sig)
 	return &AuthorizedTransaction{op: p.op, txHash: txHash, body: body, path: p.pathV2}, nil
 }
