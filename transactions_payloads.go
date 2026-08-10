@@ -33,7 +33,6 @@ type BatchPaymentOperationData struct {
 // whole transaction decode.
 type BatchPaymentData struct {
 	Token          *common.Address             `json:"token"`
-	MaxFee         string                      `json:"max_fee"`
 	Operations     []BatchPaymentOperationData `json:"operations"`
 	OperationsHash *string                     `json:"operations_hash"`
 	BatchID        *string                     `json:"batch_id"`

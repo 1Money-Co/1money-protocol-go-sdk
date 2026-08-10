@@ -69,7 +69,6 @@ func payloadCases() []payloadTestCase {
 			txType: TransactionTypeBatchPayment,
 			data: `{
                 "token": "0x1111111111111111111111111111111111111111",
-                "max_fee": "5000",
                 "operations": [
                     {"recipient": "0x2222222222222222222222222222222222222222", "amount": "1000"}
                 ],
@@ -85,7 +84,6 @@ func payloadCases() []payloadTestCase {
 				if assert.NotNil(t, payload.Token) {
 					assert.Equal(t, addr("0x1111111111111111111111111111111111111111"), *payload.Token)
 				}
-				assert.Equal(t, "5000", payload.MaxFee)
 				assert.Equal(t, uint64(1747785600), payload.CreatedAt)
 				if assert.Len(t, payload.Operations, 1) {
 					assert.Equal(t, addr("0x2222222222222222222222222222222222222222"), payload.Operations[0].Recipient)
@@ -410,7 +408,7 @@ func TestTransaction_Unmarshal_AllPayloads(t *testing.T) {
 // (token, operations_hash, batch_id) decode to nil rather than failing the whole
 // Transaction unmarshal — the reason those fields are pointers.
 func TestBatchPayment_Unmarshal_NullOptionals(t *testing.T) {
-	raw := `{"transaction_type":"BatchPayment","data":{"token":null,"max_fee":"0","operations":[],"operations_hash":null,"batch_id":null,"created_at":0}}`
+	raw := `{"transaction_type":"BatchPayment","data":{"token":null,"operations":[],"operations_hash":null,"batch_id":null,"created_at":0}}`
 	var tx Transaction
 	if !assert.NoError(t, json.Unmarshal([]byte(raw), &tx)) {
 		return
