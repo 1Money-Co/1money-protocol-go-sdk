@@ -72,7 +72,10 @@ func TestBatchPaymentOptionalTrailingFields(t *testing.T) {
 	for name, p := range map[string]BatchPaymentPayload{
 		"neither": neither, "hashOnly": hashOnly, "both": both, "idOnly": idOnly,
 	} {
-		prep, err := PrepareTransaction(p)
+		// Canonical encoder: `hashOnly` and `both` carry an arbitrary
+		// operations_hash, which the admission gate rejects. What this loop pins
+		// is that each optional-field combination reaches the signed preimage.
+		prep, err := prepareCanonical(p, resolveSubmit(nil))
 		if err != nil {
 			t.Fatalf("%s: prepare: %v", name, err)
 		}
@@ -115,9 +118,12 @@ func TestBatchPaymentOptionalGoldenVectors(t *testing.T) {
 			if gotMemo := vector.Options.Memo != nil; gotMemo != wantMemo {
 				t.Fatalf("options.memo present = %v, want %v", gotMemo, wantMemo)
 			}
-			prep, err := PrepareTransaction(batch, options...)
+			// Canonical encoder, not PrepareTransaction: these vectors pin the
+			// encoding of optional-field combinations, and several carry an
+			// arbitrary operations_hash the admission gate rightly rejects.
+			prep, err := prepareCanonical(batch, resolveSubmit(options))
 			if err != nil {
-				t.Fatalf("prepare: %v", err)
+				t.Fatalf("prepareCanonical: %v", err)
 			}
 			if got := hexLower(prep.SigningHash()); got != vector.Expected.SigningHash {
 				t.Fatalf("SigningHash\n got %s\nwant %s (Rust oracle)", got, vector.Expected.SigningHash)
@@ -334,5 +340,142 @@ func TestPaymentValueEdgeCases(t *testing.T) {
 	maxU256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
 	if bytes.Equal(hashFor(maxU256), hashFor(big.NewInt(0))) {
 		t.Error("max-U256 Value must not collide with zero Value")
+	}
+}
+
+// TestPrepareRejectsInadmissibleBatchPayment pins the node's static,
+// governance-independent BatchPayment rules at the SDK boundary. Each case here
+// is one the node rejects at admission without consulting governance state, so
+// failing before signing costs the caller nothing and saves a signing operation
+// plus a round trip -- and, for an HSM- or KMS-backed Signer, a real key use.
+func TestPrepareRejectsInadmissibleBatchPayment(t *testing.T) {
+	maxU256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
+	base := func(operations []PaymentOperation) BatchPaymentPayload {
+		return BatchPaymentPayload{
+			ChainID: 1, Nonce: 1, Token: repeatAddr(0x01),
+			Operations: operations, CreatedAt: 1,
+		}
+	}
+	good := []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1000)}}
+
+	wrongHash := common.BytesToHash(repeatBytes(0x11, 32))
+	staleOperations := []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1000)}}
+	staleHash, err := DeriveBatchPaymentOperationsHash(staleOperations)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name    string
+		payload BatchPaymentPayload
+		want    string
+	}{
+		{"empty operations", base(nil), "operations must not be empty"},
+		{"empty operations slice", base([]PaymentOperation{}), "operations must not be empty"},
+		{
+			"zero recipient",
+			base([]PaymentOperation{{Recipient: common.Address{}, Amount: big.NewInt(1)}}),
+			"operation 0 has an invalid recipient",
+		},
+		{
+			"zero recipient at a later index",
+			base([]PaymentOperation{
+				{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1)},
+				{Recipient: common.Address{}, Amount: big.NewInt(1)},
+			}),
+			"operation 1 has an invalid recipient",
+		},
+		{
+			"explicit zero amount",
+			base([]PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(0)}}),
+			"operation 0 amount must be greater than 0",
+		},
+		{
+			"nil amount is zero and equally inadmissible",
+			base([]PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: nil}}),
+			"operation 0 amount must be greater than 0",
+		},
+		{
+			"total overflows U256",
+			base([]PaymentOperation{
+				{Recipient: repeatAddr(0x0c), Amount: maxU256},
+				{Recipient: repeatAddr(0x0d), Amount: big.NewInt(1)},
+			}),
+			"total amount overflows U256",
+		},
+		{
+			"non-canonical operations_hash",
+			func() BatchPaymentPayload {
+				p := base(good)
+				p.OperationsHash = &wrongHash
+				return p
+			}(),
+			"operations_hash mismatch",
+		},
+		{
+			"stale operations_hash after editing operations",
+			func() BatchPaymentPayload {
+				// The realistic mistake: derive the hash, then change the
+				// operations without re-deriving.
+				p := base([]PaymentOperation{
+					{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1000)},
+					{Recipient: repeatAddr(0x0d), Amount: big.NewInt(2000)},
+				})
+				p.OperationsHash = &staleHash
+				return p
+			}(),
+			"operations_hash mismatch",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := PrepareTransaction(tc.payload)
+			if err == nil {
+				t.Fatalf("payload was accepted; want rejection containing %q", tc.want)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("err = %q, want it to contain %q", err, tc.want)
+			}
+		})
+	}
+
+	t.Run("admissible payload still prepares", func(t *testing.T) {
+		if _, err := PrepareTransaction(base(good)); err != nil {
+			t.Fatalf("a valid batch payment must prepare: %v", err)
+		}
+	})
+
+	t.Run("canonical operations_hash is accepted", func(t *testing.T) {
+		p := base(good)
+		hash, err := DeriveBatchPaymentOperationsHash(good)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.OperationsHash = &hash
+		if _, err := PrepareTransaction(p); err != nil {
+			t.Fatalf("a canonically derived operations_hash must be accepted: %v", err)
+		}
+	})
+}
+
+// TestDeriveBatchPaymentOperationsHashStaysPermissive guards the other half of
+// the split: the exported derivation mirrors the node's PURE
+// canonical_operations_hash domain, so it must keep accepting inputs the
+// admission gate rejects. Tightening it to match the gate would make it
+// impossible to compute the hash of a batch before fixing it up, and would break
+// the fixture vectors that pin those encodings.
+func TestDeriveBatchPaymentOperationsHashStaysPermissive(t *testing.T) {
+	if _, err := DeriveBatchPaymentOperationsHash(nil); err != nil {
+		t.Errorf("empty operation list must hash, not error: %v", err)
+	}
+	zero := []PaymentOperation{{Recipient: common.Address{}, Amount: big.NewInt(0)}}
+	if _, err := DeriveBatchPaymentOperationsHash(zero); err != nil {
+		t.Errorf("zero recipient and zero amount must hash, not error: %v", err)
+	}
+	// And the gate rejects that same input, which is the point of the split.
+	if err := validateBatchOperationsStatic(zero); err == nil {
+		t.Error("the admission gate must reject what the pure helper accepts here")
 	}
 }

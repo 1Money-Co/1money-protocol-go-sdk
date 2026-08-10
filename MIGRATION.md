@@ -95,7 +95,35 @@ valid for BatchPayment; every other operation is unaffected. Concretely:
    v2-only and returns an error before signing.
 6. Call `GetBatchPaymentEstimateFee` for a non-binding fee quote.
 7. Call `DeriveBatchPaymentOperationsHash` before setting the optional
-   `OperationsHash` field.
+   `OperationsHash` field. If you set it and then edit `Operations`, re-derive:
+   `PrepareTransaction` now rejects a stale hash instead of letting the node do
+   it.
+8. **Expect some failures to move earlier.** These inputs were previously signed
+   and submitted, then rejected by the node; they now fail locally in
+   `PrepareTransaction` (or in the namespace submit method) before signing:
+
+   | Input | Now rejected because |
+   |---|---|
+   | `Operations` empty | the node requires a non-empty list |
+   | a recipient equal to the zero address | the node rejects it per operation |
+   | an amount of `0`, or a `nil` `Amount` | the node requires a strictly positive amount, and `nil` encodes as zero |
+   | amounts summing past `2^256-1` | the node's total-amount overflow guard |
+   | `OperationsHash` not matching `Operations` | the node re-derives and compares it |
+   | a memo over `type` 128 B / `format` 64 B / `data` 256 B, non-URL-safe characters in `type`/`format`, or control codepoints in `data` | protocol memo limits, enforced for **all** operations, not just batch |
+
+   No transaction the node used to accept becomes invalid. If your code relied
+   on receiving an HTTP error for one of these, it now receives a local error
+   instead — and never spends a signing operation on it, which matters for an
+   HSM- or KMS-backed `Signer`.
+
+   Governance-dependent rejections are unchanged and still come from the server:
+   batch payments disabled, the operations-per-batch limit, the encoded-size
+   limit, and fee-asset mismatch.
+
+   `DeriveBatchPaymentOperationsHash` is deliberately exempt — it mirrors the
+   node's pure hash function, so it still accepts an empty operation list and
+   zero amounts. Use it to compute a hash; use `PrepareTransaction` to find out
+   whether the batch is submittable.
 
 ## Offline / KMS / HSM signing
 

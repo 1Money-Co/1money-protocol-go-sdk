@@ -2,6 +2,7 @@ package onemoney
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -38,13 +39,83 @@ func batchOperationsWireList(operations []PaymentOperation) []map[string]interfa
 	return out
 }
 
-// validateBatchOperationAmounts applies the U256 bounds the submit path applies,
-// so the exported derivation rejects exactly what signing would reject.
+// validateBatchOperationAmounts applies the U256 encodability bounds only: every
+// non-nil amount must be non-negative and representable in 256 bits. It is the
+// *encoding* gate, used by paths that must produce correct bytes for whatever
+// the caller supplied -- the pure operations-hash derivation and the wire
+// marshaller. It deliberately does NOT enforce the node's admission rules; see
+// validateBatchOperationsStatic for those.
 func validateBatchOperationAmounts(operations []PaymentOperation) error {
 	for index, operation := range operations {
 		if err := validateU256(fmt.Sprintf("batch.operations[%d].amount", index), operation.Amount); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// validateBatchOperationsStatic applies exactly the node's static,
+// governance-independent operation rules, in the node's own order: a non-empty
+// list, a non-zero recipient and a strictly positive amount per operation, and a
+// total that does not overflow U256.
+//
+// These are the rules the node applies without consulting the governance
+// certificate, so the SDK can apply them offline and fail before signing rather
+// than let a caller sign a transaction that is certain to be rejected. The
+// node's remaining checks -- batch payments enabled, the configured
+// operations-per-batch limit, the encoded-size limit, and fee-asset matching --
+// are governance-dependent and are deliberately left to the server; the SDK
+// would have to guess at governance state to duplicate them.
+//
+// A nil amount encodes as U256 zero everywhere in this SDK, so it fails the
+// strictly-positive rule here exactly as an explicit zero does.
+func validateBatchOperationsStatic(operations []PaymentOperation) error {
+	if len(operations) == 0 {
+		return fmt.Errorf("batch payment operations must not be empty")
+	}
+	total := new(big.Int)
+	for index, operation := range operations {
+		if err := validateU256(fmt.Sprintf("batch.operations[%d].amount", index), operation.Amount); err != nil {
+			return err
+		}
+		if operation.Recipient == (common.Address{}) {
+			return fmt.Errorf("batch payment operation %d has an invalid recipient: the zero address", index)
+		}
+		amount := bigOrZero(operation.Amount)
+		if amount.Sign() == 0 {
+			return fmt.Errorf("batch payment operation %d amount must be greater than 0", index)
+		}
+		total.Add(total, amount)
+		if total.BitLen() > 256 {
+			return fmt.Errorf("batch payment total amount overflows U256 at operation %d", index)
+		}
+	}
+	return nil
+}
+
+// validateBatchPaymentSubmission is the complete pre-signing gate for a batch
+// payment: the node's static operation rules plus operations-hash consistency.
+//
+// The hash check closes the gap that made OperationsHash a trap. The node
+// re-derives the canonical hash whenever the field is present and rejects a
+// mismatch, so a caller who computed it from a stale operation list would
+// otherwise sign and submit a transaction that cannot be accepted.
+func validateBatchPaymentSubmission(payload BatchPaymentPayload) error {
+	if err := validateBatchOperationsStatic(payload.Operations); err != nil {
+		return err
+	}
+	if payload.OperationsHash == nil {
+		return nil
+	}
+	want, err := DeriveBatchPaymentOperationsHash(payload.Operations)
+	if err != nil {
+		return err
+	}
+	if *payload.OperationsHash != want {
+		return fmt.Errorf(
+			"batch payment operations_hash mismatch: payload has %s, operations derive %s; use DeriveBatchPaymentOperationsHash or leave the field nil",
+			payload.OperationsHash.Hex(), want.Hex(),
+		)
 	}
 	return nil
 }

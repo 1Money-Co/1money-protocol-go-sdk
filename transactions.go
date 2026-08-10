@@ -61,7 +61,10 @@ func (client *Client) GetEstimateFee(ctx context.Context, from, to, token common
 // read-only fee query. Its /v1 prefix is the L1 read/service surface and does
 // not imply legacy batch-payment submission, which this SDK does not support.
 func (client *Client) GetBatchPaymentEstimateFee(ctx context.Context, request BatchPaymentFeeEstimateRequest) (*EstimateFeeResponse, error) {
-	if err := validateBatchOperationAmounts(request.Operations); err != nil {
+	// The node's estimate endpoint applies the same static operation rules as
+	// admission does, so apply them here too: an estimate for an empty batch, a
+	// zero recipient, or a zero amount cannot succeed.
+	if err := validateBatchOperationsStatic(request.Operations); err != nil {
 		return nil, err
 	}
 	result := new(EstimateFeeResponse)

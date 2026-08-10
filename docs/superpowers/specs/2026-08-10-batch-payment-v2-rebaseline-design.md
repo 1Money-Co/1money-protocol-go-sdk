@@ -392,13 +392,73 @@ The SDK validates only information required to encode a valid request:
 - A node-returned transaction hash mismatch remains a terminal, non-retried
   error.
 
-The SDK does not duplicate governance-dependent validation. Empty operations,
-zero recipients, zero amounts, configured operation limits, fee-asset matching,
-batch enablement, and committed-state availability remain authoritative server
-checks and are returned through the existing HTTP error mechanism.
+> **Correction (2026-08-10).** An earlier revision of this section deferred
+> empty operations, zero recipients, and zero amounts to the node, justified as
+> "the SDK does not duplicate governance-dependent validation", and stated that
+> memo strings receive no SDK validation. Both were misclassifications. Of the
+> node's nine BatchPayment checks only four consult the governance certificate;
+> the rest are static. And the memo rules are protocol constants, not SDK
+> policy. The corrected boundary is below. It also aligns the Go SDK with the
+> TypeScript SDK, which rejects the same static violations before signing —
+> without it, the two SDKs failed the same input at different stages.
 
-Memo strings receive no additional SDK policy validation. `EmptyMemo()` is a
-valid canonical value.
+### 8.1 Where each rule lives
+
+The node applies nine checks to a BatchPayment. Four consult the governance
+certificate and stay with the server, because the SDK would have to guess at
+governance state to duplicate them:
+
+- batch payments enabled (`config.enabled`)
+- the configured operations-per-batch limit
+- the configured encoded-size limit
+- fee-asset matching
+
+Five are static — they read only the payload — so the SDK applies them before
+signing. Failing at the SDK boundary costs the caller nothing; failing at the
+node costs a signing operation, and with an HSM- or KMS-backed `Signer`, a real
+key use:
+
+- `operations` must not be empty
+- every `recipient` must be non-zero
+- every amount must be strictly greater than zero
+- the running total must not overflow U256
+- a supplied `operations_hash` must equal the canonical hash of `operations`
+
+The memo's size and character rules are likewise static protocol constants
+(`memo.type` ≤ 128 B, `memo.format` ≤ 64 B, `memo.data` ≤ 256 B, object ≤ 512 B,
+URL-safe characters in `type`/`format`, no control codepoints in `data`). They
+are validated in the one shared prepare path, so all fourteen memo-bearing
+operations are covered, not just BatchPayment.
+
+### 8.2 Encoding gate versus admission gate
+
+These are two separate layers, and conflating them would break the fixtures:
+
+- **Encoding** (`validatePayloadEncodable`, `validateBatchOperationAmounts`,
+  `DeriveBatchPaymentOperationsHash`, `MarshalJSON`) checks only that values can
+  be canonically encoded — every non-nil U256 non-negative and within 256 bits.
+  It stays permissive: canonical encoding is well-defined for an empty operation
+  list, a zero amount, or an arbitrary `operations_hash`, and the golden-vector
+  fixtures deliberately pin those encodings.
+- **Admission** (`validatePayloadAdmissible`, `Memo.validate`) applies the
+  node's static rules and runs only on the path to signing.
+
+A nil `PaymentOperation.Amount` therefore still encodes as U256 zero everywhere
+— that equivalence is what keeps the derivation honest — while submission
+rejects it, exactly as an explicit zero is rejected.
+
+`prepareCanonical` is the unexported encoding-only entry point that fixture
+conformance tests use. Every production entry point goes through
+`prepareFromPayload`, which gates first.
+
+### 8.3 Remaining server-side errors
+
+Governance-dependent rejections, plus committed-state availability, are returned
+through the existing HTTP error mechanism.
+
+`EmptyMemo()` remains a valid canonical value: an empty memo subfield is exempt
+from the character and length rules on both sides, so the canonical
+three-empty-strings memo always passes.
 
 ## 9. Testing Strategy
 

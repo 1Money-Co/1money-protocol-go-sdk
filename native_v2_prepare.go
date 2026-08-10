@@ -36,7 +36,13 @@ func validateU256(name string, value *big.Int) error {
 	return nil
 }
 
-func validatePayloadU256(payload any) error {
+// validatePayloadEncodable checks only that a payload's numeric fields can be
+// canonically encoded: every non-nil U256 is non-negative and fits in 256 bits.
+// It says nothing about whether the node would accept the transaction --
+// see validatePayloadAdmissible for that. Encoding is well-defined for payloads
+// the node rejects, and the golden-vector fixtures deliberately pin some of
+// those encodings.
+func validatePayloadEncodable(payload any) error {
 	switch p := payload.(type) {
 	case PaymentPayload:
 		return validateU256("payment.value", p.Value)
@@ -75,7 +81,7 @@ func validatePayloadU256(payload any) error {
 //   - err:         non-nil for an unsupported payload type, or an ambiguous
 //     TokenManageListPayload with no WithManageListKind.
 func resolvePayloadOp(payload any, cfg submitConfig) (op nativeOperationType, payloadList []interface{}, bodyFields map[string]interface{}, err error) {
-	if err := validatePayloadU256(payload); err != nil {
+	if err := validatePayloadEncodable(payload); err != nil {
 		return 0, nil, nil, err
 	}
 	switch p := payload.(type) {
@@ -155,6 +161,45 @@ func PrepareTransaction(payload any, opts ...SubmitOption) (*PreparedTransaction
 // on exactly one pipeline. Every canonical native-v2 operation carries a memo,
 // so there is no memo-capability guard here.
 func prepareFromPayload(payload any, cfg submitConfig) (*PreparedTransaction, error) {
+	if err := validatePayloadAdmissible(payload); err != nil {
+		return nil, err
+	}
+	// The memo is inside the signed payload for all fourteen operations, and its
+	// size and character rules are protocol constants the node enforces at
+	// admission. Validating here, in the one shared prepare path, means no
+	// operation can sign a memo the node will reject.
+	if err := cfg.memo.validate(); err != nil {
+		return nil, err
+	}
+	return prepareCanonical(payload, cfg)
+}
+
+// validatePayloadAdmissible applies the node's static, governance-independent
+// admission rules. It is the gate that separates "this encodes correctly" from
+// "the node can accept this", and it runs before signing so a caller never
+// spends a signing operation -- or an HSM round trip -- on a transaction that is
+// certain to be rejected.
+//
+// Only BatchPayment carries such rules today. The node's remaining BatchPayment
+// checks are governance-dependent (batch payments enabled, the
+// operations-per-batch limit, the encoded-size limit, fee-asset matching) and
+// stay with the server: the SDK would have to guess at governance state.
+func validatePayloadAdmissible(payload any) error {
+	if batch, ok := payload.(BatchPaymentPayload); ok {
+		return validateBatchPaymentSubmission(batch)
+	}
+	return nil
+}
+
+// prepareCanonical builds a PreparedTransaction for a payload's canonical
+// encoding, WITHOUT the admission gate.
+//
+// It exists because canonical encoding is well-defined for payloads the node
+// would reject at admission -- an arbitrary operations_hash, an empty operation
+// list, a zero amount -- and the golden-vector fixtures deliberately pin those
+// encodings. Only fixture-conformance tests should use it. Every production
+// entry point goes through prepareFromPayload, which gates first.
+func prepareCanonical(payload any, cfg submitConfig) (*PreparedTransaction, error) {
 	op, err := opFromPayload(payload, cfg)
 	if err != nil {
 		return nil, err

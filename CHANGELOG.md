@@ -6,9 +6,14 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.3.0] - 2026-08-10
 
-BatchPayment is re-baselined onto the current L1 canonical transaction format.
-This is a **breaking change scoped to BatchPayment only**; every other
-operation's signing, encoding, and submission behavior is unaffected.
+BatchPayment is re-baselined onto the current L1 canonical transaction format,
+and the SDK now rejects statically-invalid transactions before signing instead of
+letting the node reject them.
+
+The BatchPayment format change is **breaking and scoped to BatchPayment only**.
+The new pre-signing validation additionally moves the failure point for input
+that was already destined to be rejected: no previously-accepted transaction
+becomes invalid, but some calls that used to fail at the node now fail locally.
 
 ### Changed
 
@@ -21,6 +26,21 @@ operation's signing, encoding, and submission behavior is unaffected.
   no longer valid for BatchPayment.** BatchPayment is v2-only: a client
   configured with `WithLegacyV1` returns an error before signing and before any
   network call.
+- **The node's static rules are now enforced before signing.** Previously these
+  inputs were signed, submitted, and rejected by the node; they now fail locally,
+  which saves a round trip and — with an HSM- or KMS-backed `Signer` — a real key
+  use. For BatchPayment: an empty operation list, a zero-address recipient, an
+  amount of zero (including a `nil` `Amount`, which encodes as zero), a total
+  that overflows U256, and an `OperationsHash` that does not match the canonical
+  hash of `Operations`. For **every** operation: the memo's protocol limits
+  (`type` ≤ 128 B, `format` ≤ 64 B, `data` ≤ 256 B, object ≤ 512 B, URL-safe
+  characters in `type`/`format`, no control codepoints in `data`).
+  `GetBatchPaymentEstimateFee` applies the same static operation rules, matching
+  the node's estimate endpoint. Governance-dependent rules — batch payments
+  enabled, the operations-per-batch limit, the encoded-size limit, and fee-asset
+  matching — remain server-side, since the SDK cannot know governance state.
+  `DeriveBatchPaymentOperationsHash` is deliberately unaffected: it mirrors the
+  node's *pure* hash domain and still accepts an empty list and zero amounts.
 
 ### Added
 

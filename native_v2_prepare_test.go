@@ -754,9 +754,14 @@ func TestPrepareAndAuthorizeMatchRustGoldenVectors(t *testing.T) {
 		vector := vector
 		t.Run(vector.Name, func(t *testing.T) {
 			payload, options := vector.goPayload(t)
-			prepared, err := PrepareTransaction(payload, options...)
+			// Use the canonical encoder, not PrepareTransaction: the fixture
+			// deliberately includes payloads the node rejects at admission (an
+			// arbitrary operations_hash, an empty operation list, a zero amount)
+			// precisely to pin their ENCODING. The admission gate is exercised
+			// separately, in TestPrepareRejectsInadmissibleBatchPayment.
+			prepared, err := prepareCanonical(payload, resolveSubmit(options))
 			if err != nil {
-				t.Fatalf("PrepareTransaction: %v", err)
+				t.Fatalf("prepareCanonical: %v", err)
 			}
 			if got := hexLower(prepared.SigningHash()); got != vector.Expected.SigningHash {
 				t.Fatalf("SigningHash\n got %s\nwant %s (Rust oracle)", got, vector.Expected.SigningHash)
@@ -1048,11 +1053,15 @@ func TestPrepareRejectsOutOfRangeU256(t *testing.T) {
 	for _, factory := range factories {
 		factory := factory
 		t.Run(factory.name+"/nil_equals_zero", func(t *testing.T) {
-			withNil, err := PrepareTransaction(factory.make(nil))
+			// nil == U256 zero is an ENCODING equivalence, so assert it through
+			// the canonical encoder. The submission gate legitimately rejects a
+			// zero batch-payment amount, which would otherwise mask the property
+			// this subtest exists to pin.
+			withNil, err := prepareCanonical(factory.make(nil), resolveSubmit(nil))
 			if err != nil {
 				t.Fatalf("prepare nil: %v", err)
 			}
-			withZero, err := PrepareTransaction(factory.make(big.NewInt(0)))
+			withZero, err := prepareCanonical(factory.make(big.NewInt(0)), resolveSubmit(nil))
 			if err != nil {
 				t.Fatalf("prepare zero: %v", err)
 			}
