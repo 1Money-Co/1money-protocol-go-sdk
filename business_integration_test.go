@@ -1196,14 +1196,29 @@ func TestBusinessFlow_BatchPayment(t *testing.T) {
 			{Recipient: suite.Account2.Address, Amount: amount2},
 			{Recipient: recipient3.Address, Amount: amount3},
 		},
-		MaxFee:    big.NewInt(100000000),
 		CreatedAt: uint64(time.Now().Unix()),
 	}
 
-	t.Logf("📦 Batch paying %d recipients from %s", len(payload.Operations), suite.Account1.Address.Hex())
+	t.Logf("Batch paying %d recipients from %s", len(payload.Operations), suite.Account1.Address.Hex())
 	result, err := suite.Client.Transactions().BatchPayment(ctx, payload, suite.Account1.Signer)
 	if err != nil {
 		t.Fatalf("Failed to submit batch payment: %v", err)
+	}
+
+	prepared, err := PrepareTransaction(payload)
+	if err != nil {
+		t.Fatalf("PrepareTransaction for hash cross-check: %v", err)
+	}
+	signature, err := suite.Account1.Signer.SignHash(prepared.SigningHash())
+	if err != nil {
+		t.Fatalf("sign for hash cross-check: %v", err)
+	}
+	authorized, err := prepared.Authorize(signature)
+	if err != nil {
+		t.Fatalf("authorize for hash cross-check: %v", err)
+	}
+	if !strings.EqualFold(hexLower(authorized.TransactionHash()), result.Hash) {
+		t.Fatalf("local tx hash %s != server hash %s", hexLower(authorized.TransactionHash()), result.Hash)
 	}
 
 	receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
@@ -1220,6 +1235,39 @@ func TestBusinessFlow_BatchPayment(t *testing.T) {
 
 	assert.Equal(t, amount2.String(), suite.getTokenBalance(suite.Account2.Address, tokenAddr), "recipient2 balance mismatch")
 	assert.Equal(t, amount3.String(), suite.getTokenBalance(recipient3.Address, tokenAddr), "recipient3 balance mismatch")
+
+	batchData, ok := tx.AsBatchPaymentData()
+	if !ok {
+		t.Fatal("transaction did not decode as BatchPaymentData")
+	}
+	if len(batchData.Operations) != len(payload.Operations) {
+		t.Errorf("decoded %d operations, want %d", len(batchData.Operations), len(payload.Operations))
+	}
+	if batchData.CreatedAt != payload.CreatedAt {
+		t.Errorf("decoded created_at %d, want %d", batchData.CreatedAt, payload.CreatedAt)
+	}
+
+	suite.refreshCheckpoint()
+	memoPayload := payload
+	memoPayload.Nonce = suite.getNonce(suite.Account1.Address)
+	memoPayload.CreatedAt = uint64(time.Now().Unix())
+	memo := Memo{Type: "purpose/PAYROLL", Format: "text/plain", Data: "batch-flow-memo"}
+
+	memoResult, err := suite.Client.Transactions().BatchPayment(ctx, memoPayload, suite.Account1.Signer, WithMemo(memo))
+	if err != nil {
+		t.Fatalf("Failed to submit batch payment with memo: %v", err)
+	}
+	memoReceipt := suite.waitForTransaction(memoResult.Hash, 60*time.Second)
+	if !memoReceipt.Success {
+		t.Fatal("Batch payment with memo failed")
+	}
+	memoTx := suite.fetchTransaction(t, memoResult.Hash)
+	if memoTx.Memo == nil {
+		t.Fatal("batch payment response carried no memo")
+	}
+	if *memoTx.Memo != memo {
+		t.Errorf("memo = %+v, want %+v", *memoTx.Memo, memo)
+	}
 
 	t.Log("\n🎉 Batch payment test passed!")
 }
