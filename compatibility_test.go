@@ -113,23 +113,26 @@ func TestPublicAPICompatibility(t *testing.T) {
 	// Baseline of the exported API surface (from its first exported API section
 	// onward; the package overview is excluded because doc.go intentionally adds
 	// it). Update this hash deliberately whenever the public API changes on
-	// purpose — e.g. the query-response types were aligned with the l1client REST
-	// wire format (nullable checkpoint fields, batch/success receipt detail,
-	// polymorphic signatures, BLS counter-signature, clawback metadata, typed
-	// pricing), Transaction gained a MarshalJSON method so a decoded transaction
-	// re-serializes with its data and authorization intact, and WithDebug was
-	// added for verbose request/response logging, and BatchPayment was re-baselined
-	// on the current L1 canonical format (the signed batch fee field was dropped
-	// from both BatchPaymentPayload and BatchPaymentData, and batch payments became
-	// memo-bearing, so WithMemo and TransactionsAPI.BatchPayment now document a
-	// memo instead of rejecting one), and DeriveBatchPaymentOperationsHash was
-	// added so callers can compute BatchPaymentPayload.OperationsHash themselves
-	// using the same operation encoder the signing path uses, and
-	// BatchPaymentFeeEstimateRequest plus Client.GetBatchPaymentEstimateFee were
-	// added so callers can obtain a non-binding fee quote for an unsigned batch
-	// payment, with MarshalJSON routing amounts through the same
-	// batchOperationsWireList encoder the v2 submit body uses. It guards against
-	// unintentional drift, not intentional changes.
+	// purpose. Recorded intentional changes:
+	//   - Query-response types aligned with the l1client REST wire format
+	//     (nullable checkpoint fields, batch/success receipt detail, polymorphic
+	//     signatures, BLS counter-signature, clawback metadata, typed pricing).
+	//   - Transaction gained a MarshalJSON method so a decoded transaction
+	//     re-serializes with its data and authorization intact.
+	//   - WithDebug was added for verbose request/response logging.
+	//   - BatchPayment was re-baselined on the current L1 canonical format:
+	//     max_fee was dropped from both BatchPaymentPayload and BatchPaymentData,
+	//     and batch payments became memo-bearing, so WithMemo and
+	//     TransactionsAPI.BatchPayment now document a memo instead of rejecting
+	//     one.
+	//   - DeriveBatchPaymentOperationsHash was added so callers can compute
+	//     BatchPaymentPayload.OperationsHash themselves, using the same operation
+	//     encoder the signing path uses.
+	//   - BatchPaymentFeeEstimateRequest and Client.GetBatchPaymentEstimateFee
+	//     were added so callers can obtain a non-binding fee quote for an
+	//     unsigned batch payment; MarshalJSON routes amounts through the same
+	//     batchOperationsWireList encoder the v2 submit body uses.
+	// It guards against unintentional drift, not intentional changes.
 	const publicAPIHash = "35c1bc4a689beae3a55b46ccd166f4ad62bec7654c44addc515724a52c9cf93e"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)

@@ -1205,22 +1205,6 @@ func TestBusinessFlow_BatchPayment(t *testing.T) {
 		t.Fatalf("Failed to submit batch payment: %v", err)
 	}
 
-	prepared, err := PrepareTransaction(payload)
-	if err != nil {
-		t.Fatalf("PrepareTransaction for hash cross-check: %v", err)
-	}
-	signature, err := suite.Account1.Signer.SignHash(prepared.SigningHash())
-	if err != nil {
-		t.Fatalf("sign for hash cross-check: %v", err)
-	}
-	authorized, err := prepared.Authorize(signature)
-	if err != nil {
-		t.Fatalf("authorize for hash cross-check: %v", err)
-	}
-	if !strings.EqualFold(hexLower(authorized.TransactionHash()), result.Hash) {
-		t.Fatalf("local tx hash %s != server hash %s", hexLower(authorized.TransactionHash()), result.Hash)
-	}
-
 	receipt := suite.waitForTransaction(result.Hash, 60*time.Second)
 	if !receipt.Success {
 		t.Fatal("Batch payment transaction failed")
@@ -1231,6 +1215,21 @@ func TestBusinessFlow_BatchPayment(t *testing.T) {
 	assert.Equal(t, TransactionTypeBatchPayment, tx.TransactionType, "unexpected transaction type")
 	if data, ok := tx.AsBatchPaymentData(); ok {
 		assert.Len(t, data.Operations, 2, "expected 2 batch operations")
+	}
+
+	// A native-v2 BatchPayment always signs WithMemo<BatchPaymentPayload>, even
+	// when the caller never calls WithMemo (the SDK defaults to EmptyMemo()).
+	// Assert the node round-trips that default as the canonical empty memo
+	// (three empty strings) rather than as an absent/null field. This is a
+	// genuine node-behavior assertion, unlike a signing-hash cross-check here
+	// would be: submitAuthorized (native_v2_requests.go) already enforces
+	// local/server hash equality before BatchPayment can return success, and
+	// go-ethereum signing is deterministic, so re-deriving and comparing that
+	// hash again would only re-prove what a successful submission already
+	// guarantees — and would false-fail for a KMS/HSM signer whose signatures
+	// are not deterministic.
+	if assert.NotNil(t, tx.Memo, "a native-v2 transaction always carries a memo object, even the canonical empty one") {
+		assert.Equal(t, EmptyMemo(), *tx.Memo, "default BatchPayment submission should round-trip the canonical empty memo")
 	}
 
 	assert.Equal(t, amount2.String(), suite.getTokenBalance(suite.Account2.Address, tokenAddr), "recipient2 balance mismatch")

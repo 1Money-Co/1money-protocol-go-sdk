@@ -823,6 +823,25 @@ func TestBatchPaymentFeeEstimateRequestMarshalsAsWireBody(t *testing.T) {
 	}
 }
 
+// TestBatchPaymentFeeEstimateRequestMarshalJSONRejectsInvalidAmount asserts
+// that a direct json.Marshal validates operation amounts exactly like
+// Client.GetBatchPaymentEstimateFee does. Before this fix, MarshalJSON never
+// called validateBatchOperationAmounts, so json.Marshal of a negative amount
+// silently produced `"amount":"-5"` with a nil error while the client method
+// correctly rejected the same input.
+func TestBatchPaymentFeeEstimateRequestMarshalJSONRejectsInvalidAmount(t *testing.T) {
+	request := BatchPaymentFeeEstimateRequest{
+		From:  common.HexToAddress("0x3333333333333333333333333333333333333333"),
+		Token: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		Operations: []PaymentOperation{
+			{Recipient: common.HexToAddress("0x2222222222222222222222222222222222222222"), Amount: big.NewInt(-5)},
+		},
+	}
+	if _, err := json.Marshal(request); err == nil {
+		t.Fatal("json.Marshal of a negative amount succeeded; want an error")
+	}
+}
+
 // TestGetBatchPaymentEstimateFee asserts the endpoint, the exact request body,
 // and that a null plan decodes.
 func TestGetBatchPaymentEstimateFee(t *testing.T) {

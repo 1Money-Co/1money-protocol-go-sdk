@@ -245,6 +245,9 @@ type BatchPaymentFeeEstimateRequest struct {
 // numbers a default *big.Int marshal would emit. Client.GetBatchPaymentEstimateFee
 // and a caller's direct json.Marshal therefore produce identical bodies.
 func (r BatchPaymentFeeEstimateRequest) MarshalJSON() ([]byte, error) {
+	if err := validateBatchOperationAmounts(r.Operations); err != nil {
+		return nil, err
+	}
 	return json.Marshal(map[string]interface{}{
 		"from":       r.From,
 		"token":      r.Token,
