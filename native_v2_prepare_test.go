@@ -16,14 +16,22 @@ import (
 )
 
 type prepareAuthorizeFixture struct {
-	Source  prepareAuthorizeSource   `json:"_source"`
+	Meta prepareAuthorizeFixtureMeta `json:"_fixture"`
+	// Source must stay absent. It is the retired external-provenance block; a
+	// non-empty value means someone reintroduced a dependency on another
+	// repository's history, which the vendored-fixture model forbids.
+	Source  map[string]any           `json:"_source"`
 	Vectors []prepareAuthorizeVector `json:"vectors"`
 }
 
-type prepareAuthorizeSource struct {
-	Repository string `json:"repository"`
-	Commit     string `json:"commit"`
-	Generator  string `json:"generator"`
+// prepareAuthorizeFixtureMeta is the fixture's self-description. The fixture is
+// owned by this SDK: it records no external repository identity, source path, or
+// generator, and the suite never needs another checkout to run.
+type prepareAuthorizeFixtureMeta struct {
+	Owner            string `json:"owner"`
+	Status           string `json:"status"`
+	ProtocolContract string `json:"protocol_contract"`
+	Note             string `json:"note"`
 }
 
 type prepareAuthorizeVector struct {
@@ -370,8 +378,17 @@ func TestPrepareAuthorizeFixtureCompleteness(t *testing.T) {
 	if len(fixture.Vectors) <= 14 {
 		t.Fatalf("got %d vectors, want canonical and edge vectors", len(fixture.Vectors))
 	}
-	if fixture.Source.Repository != "l1client" || len(fixture.Source.Commit) != 40 || fixture.Source.Generator == "" {
-		t.Fatalf("invalid fixture source: %+v", fixture.Source)
+	// The fixture is a self-contained SDK test input. Running the suite must
+	// never require another repository, so no external provenance may be
+	// recorded, and the fixture must say what protocol contract it encodes.
+	if len(fixture.Source) != 0 {
+		t.Fatalf("fixture records external provenance %+v; vendored fixtures must be self-contained (see testdata/README.md)", fixture.Source)
+	}
+	if fixture.Meta.Owner != "1money-protocol-go-sdk" {
+		t.Fatalf("fixture owner = %q, want this SDK", fixture.Meta.Owner)
+	}
+	if fixture.Meta.ProtocolContract == "" || fixture.Meta.Note == "" {
+		t.Fatalf("fixture must declare its protocol contract and the never-recompute rule: %+v", fixture.Meta)
 	}
 
 	names := make(map[string]struct{}, len(fixture.Vectors))

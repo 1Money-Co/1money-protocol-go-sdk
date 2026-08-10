@@ -1,8 +1,9 @@
 {
-  "_source": {
-    "repository": "l1client",
-    "commit": "ee4ce971644587c6903cb8a393371088f8279c56",
-    "generator": "crates/om-sdk/examples/export_go_sdk_native_v2_vectors.rs"
+  "_fixture": {
+    "owner": "1money-protocol-go-sdk",
+    "status": "self-contained; maintained by this SDK",
+    "protocol_contract": "native-v2 signing, l1client 7ad79889",
+    "note": "Expected values are external to this SDK's implementation and must never be recomputed from it. Changing one is an intentional fixture update, reviewed together with the test that consumes it. See testdata/README.md."
   },
   "vectors": [
     {

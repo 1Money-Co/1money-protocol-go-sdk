@@ -492,30 +492,34 @@ git commit -m "test(sdk): lock batch payment vector coverage"
 
 ---
 
-## GATE — cross-repository handoff
+## GATE — vendor the vector set
 
-> **Correction (decision made after this plan was written, 2026-08-10):** the
-> merge-to-`main` gate below was explicitly waived by human decision: there is
-> no L1 PR and no merge. The oracle is the local, unpushed l1client branch
-> `feat/go-sdk-vector-generator` at commit
-> `ee4ce971644587c6903cb8a393371088f8279c56`, used directly. Read the two
-> checklist items below as historical record of the original plan, not as
-> live requirements; the corresponding design-level correction is in
+> **Delivery-model decision (made after this plan was written, 2026-08-10):**
+> this was originally a cross-repository handoff requiring the Phase A work to
+> be merged into `l1client/main` first, with the fixture recording that commit.
+> That model is withdrawn — see
 > `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`
-> §9.3.3.
+> §9.3.3. **Both fixtures are self-contained SDK test inputs owned by this
+> repository.** Phase A is how the vectors were obtained, not a prerequisite:
+> nothing in `l1client` has to merge, be pushed, or stay reachable for this
+> change to be complete or verifiable, and there is no regeneration step.
 
-**Do not start Phase B Task 5 until every box below is checked.** Task 4 is independent of the fixture and may run in parallel with the L1 PR review.
+**Do not start Phase B Task 5 until every box below is checked.** Task 4 is independent of the fixture and may run in parallel.
 
-- [ ] The Phase A PR is **merged** into `l1client/main`.
-- [ ] Record the commit on the local branch (superseded — no merge; see the correction above): `cd /Users/nsh/workspace/1money/layer1/l1client && git checkout feat/go-sdk-vector-generator && git rev-parse HEAD` (expected `ee4ce971644587c6903cb8a393371088f8279c56`)
-- [ ] Generate the extended fixture from that exact merged commit:
+- [x] Phase A produced a correct vector set (Tasks 1-3, reviewed clean).
+- [x] Generate the extended fixture:
 
 ```bash
 cd /Users/nsh/workspace/1money/layer1/l1client
-L1_SHA=$(git rev-parse HEAD)
-cargo run -p onemoney-protocol --example export_go_sdk_native_v2_vectors -- --source-commit "$L1_SHA" \
+cargo run -p onemoney-protocol --example export_go_sdk_native_v2_vectors -- --source-commit "$(git rev-parse HEAD)" \
   > /Users/nsh/workspace/1money/layer1/1money-protocol-go-sdk/testdata/prepare-authorize-hash-vectors.json
 ```
+
+The generator requires a `--source-commit` argument, so pass one; then **replace
+the emitted `_source` block with the self-describing `_fixture` block** (owner,
+status, protocol contract, and the never-recompute rule) documented in
+`testdata/README.md`. The vendored fixture records no external repository
+identity, path, or generator.
 
 - [ ] Copy the frozen fixture verbatim:
 
@@ -532,9 +536,11 @@ python3 -c "
 import json
 ext = json.load(open('testdata/prepare-authorize-hash-vectors.json'))
 frozen = json.load(open('testdata/native-v2-signing-vectors.json'))
-print('_source.commit:', ext['_source']['commit'])
-assert len(ext['_source']['commit']) == 40
+assert '_source' not in ext, 'vendored fixture must not record external repo provenance'
+print('_fixture:', ext['_fixture'])
+assert ext['_fixture']['owner'] == '1money-protocol-go-sdk'
 b = [v for v in ext['vectors'] if v['operation'] == 'BatchPayment']
+assert all(v['expected'].get('operations_hash') for v in b)
 assert not any('max_fee' in v['payload'] for v in b)
 names = {v['name'] for v in frozen['base_vectors']}
 assert 'BatchPayment_single' in names and 'BatchPayment_multi' in names
@@ -547,7 +553,7 @@ print('ok')
 "
 ```
 
-Expected: prints the 40-char SHA, the BatchPayment vector count, and `ok`. At this point `go build ./...` still passes but `go test ./...` does **not** — the Go package is mid-re-baseline until Task 5 completes. That red window is expected and is confined to the Go PR's working tree.
+Expected: prints the `_fixture` block, the BatchPayment vector count, and `ok`. At this point `go build ./...` still passes but `go test ./...` does **not** — the Go package is mid-re-baseline until Task 5 completes. That red window is expected and is confined to this repository's working tree.
 
 ---
 
@@ -2218,14 +2224,13 @@ git commit -m "docs: record the BatchPayment v2 re-baseline"
 ## Final Verification
 
 > **Correction (2026-08-10):** two bullets below no longer apply as written.
-> The last bullet's `git -C ../l1client branch --contains <sha> | grep main`
-> check is **SUPERSEDED**: the merge-to-`main` gate was explicitly waived by
-> human decision (no PR, no merge — see the GATE correction above), so that
-> commit is on exactly one local, unpushed l1client branch
-> (`feat/go-sdk-vector-generator`) and this check fails by design, not by
-> defect. The `golangci-lint` bullet is **OPEN (deferred to CI)**: `golangci-lint`
-> is not installed in this environment, so it is not a failed or skipped local
-> check — it is left for CI to gate, per this file's environment note.
+> The last bullet's cross-repository provenance check is **REPLACED**: under the
+> vendored-fixture model (design §9.3.3) the fixture records no external
+> repository identity, so there is nothing to resolve against `l1client`. Verify
+> self-containment instead — see the replacement bullet. The `golangci-lint`
+> bullet is **OPEN (deferred to CI)**: `golangci-lint` is not installed in this
+> environment, so it is not a failed or skipped local check — it is left for CI
+> to gate, per this file's environment note.
 
 Run from the Go SDK root once every task is complete:
 
@@ -2233,8 +2238,21 @@ Run from the Go SDK root once every task is complete:
 - [ ] `go test ./...` — all PASS
 - [ ] `golangci-lint run` — no findings. **[OPEN — deferred to CI, see correction above.]** **Environment note:** `golangci-lint` is not installed on this machine, so this check cannot be run locally and must be left to CI. Substitute locally with `go vet ./...` (must be clean) and `staticcheck ./...` (one pre-existing `SA1012` in the untouched `misc_test.go` is the known baseline — anything else is a finding).
 - [ ] `go vet -tags integration ./...` — no findings
-- [ ] `grep -rn 'MaxFee\|max_fee' --include='*.go' .` — no output
+- [ ] `grep -rn 'MaxFee\|max_fee' --include='*.go' .` — one expected hit: the `compatibility_test.go` baseline comment names `max_fee` deliberately, so the retired field stays searchable. No other hit.
 - [ ] `grep -rn 'memoCapable\|encodeBare' --include='*.go' .` — no output
-- [ ] `python3 -c "import json; print(json.load(open('testdata/prepare-authorize-hash-vectors.json'))['_source']['commit'])"` — prints the merged `l1client/main` SHA from the GATE, and `git -C ../l1client branch --contains <that sha> | grep main` confirms it is on main. **[SUPERSEDED — see correction above; the second half of this check fails by design since the commit was deliberately never merged.]**
+- [ ] Fixture self-containment — the vendored fixture must carry no external repository provenance and must declare its own ownership:
+
+```bash
+python3 -c "
+import json
+f = json.load(open('testdata/prepare-authorize-hash-vectors.json'))
+assert '_source' not in f, 'external provenance must not be recorded'
+assert f['_fixture']['owner'] == '1money-protocol-go-sdk'
+print(f['_fixture'])
+"
+```
+
+- [ ] `testdata/README.md` exists and states the never-recompute rule
+- [ ] `go test ./...` passes with the `l1client` checkout absent or on an unrelated revision — the suite must not depend on it
 
 Success criteria 1-14 in `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md` §12 map to these checks plus the per-task assertions above.
