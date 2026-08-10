@@ -208,6 +208,15 @@ Notes carried into implementation:
 
 ### Task 5: New payload/response types + `memo.go`
 
+> **Superseded for BatchPayment (2026-08-10):** `max_fee` was removed from the
+> signed payload and BatchPayment became memo-bearing. See
+> `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`.
+> The BatchPayment field order below is stale; the current order is
+> `chain_id, nonce, token, operations, created_at, operations_hash?, batch_id?`.
+> The "bare list for BatchPayment" note in Step 4 below is also stale;
+> BatchPayment now encodes as `WithMemo<BatchPaymentPayload>` like every other
+> operation.
+
 **Files:**
 - Create: `memo.go`
 - Create: `native_v2_types.go` (new payloads/responses)
@@ -247,6 +256,11 @@ Notes carried into implementation:
 ---
 
 ### Task 7: `Transactions()` namespace
+
+> **Superseded for BatchPayment (2026-08-10):** the "no memo" claim in Step 1
+> below is stale. BatchPayment is memo-bearing in the current API and accepts
+> `WithMemo` like `Payment`. See
+> `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`.
 
 **Files:**
 - Create: `api_transactions.go`

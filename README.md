@@ -76,6 +76,49 @@ resp, _       := client.Submit(ctx, authorized)     // submit + hash-verify
 deterministically — identical to the address the node assigns — so you can
 pre-fund or display it before submitting.
 
+### Batch payments
+
+`Transactions().BatchPayment` pays many recipients of one token in a single
+transaction. It is v2-only: a client configured with `WithLegacyV1` returns an
+error before signing or any network call, so there is no legacy fallback.
+
+```go
+payload := onemoney.BatchPaymentPayload{
+    ChainID:   chainID,
+    Nonce:     nonce,
+    Token:     tokenAddress,
+    CreatedAt: createdAt,
+    Operations: []onemoney.PaymentOperation{
+        {Recipient: recipientOne, Amount: amountOne},
+        {Recipient: recipientTwo, Amount: amountTwo},
+    },
+}
+
+resp, _ := client.Transactions().BatchPayment(ctx, payload, signer)
+```
+
+Attach a memo the same way as any other v2 operation, with
+`onemoney.WithMemo(memo)`; omitting it signs the canonical empty memo.
+`OperationsHash` is optional — populate it with
+`DeriveBatchPaymentOperationsHash` if your system needs to publish the
+operation set independently of whatever signs the transaction:
+
+```go
+hash, _ := onemoney.DeriveBatchPaymentOperationsHash(payload.Operations)
+payload.OperationsHash = &hash
+```
+
+Get a non-binding, point-in-time fee quote for an unsigned batch before
+submitting — it does not guarantee admission:
+
+```go
+estimate, _ := client.GetBatchPaymentEstimateFee(ctx, onemoney.BatchPaymentFeeEstimateRequest{
+    From:       fromAddress,
+    Token:      tokenAddress,
+    Operations: payload.Operations,
+})
+```
+
 ### Legacy v1
 
 To stay on the legacy v1 path during the migration window, opt in explicitly:

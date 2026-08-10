@@ -4,6 +4,46 @@ All notable changes to the 1Money Protocol Go SDK are documented here. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-08-10
+
+BatchPayment is re-baselined onto the current L1 canonical transaction format.
+This is a **breaking change scoped to BatchPayment only**; every other
+operation's signing, encoding, and submission behavior is unaffected.
+
+### Changed
+
+- **BREAKING — BatchPayment re-baselined to the current L1 canonical format.**
+  `BatchPaymentPayload.MaxFee` and `BatchPaymentData.MaxFee` are removed; the
+  signed payload is now `WithMemo<BatchPaymentPayload>` for both the default
+  empty memo and a caller-supplied one. The canonical RLP field order is now
+  `chain_id, nonce, token, operations, created_at, operations_hash?, batch_id?`.
+  **Signing hashes and transaction hashes produced by earlier SDK versions are
+  no longer valid for BatchPayment.** BatchPayment is v2-only: a client
+  configured with `WithLegacyV1` returns an error before signing and before any
+  network call.
+
+### Added
+
+- **`Client.GetBatchPaymentEstimateFee`** — a non-binding, point-in-time fee
+  quote for an unsigned batch, via `POST
+  /v1/transactions/batch_payment/estimate_fee`. It does not guarantee
+  admission: the node cannot validate encoded size, authorization, nonce,
+  chain id, timestamp, memo, or operations hash from this request.
+- **`BatchPaymentFeeEstimateRequest`** — the unsigned input to the fee-estimate
+  call (`From`, `Token`, `Operations`), with a value-receiver `MarshalJSON` so
+  a direct `json.Marshal` produces the same wire body the client sends.
+- **`DeriveBatchPaymentOperationsHash`** — computes `keccak256(RLP(operations))`,
+  byte-identical to the node's
+  `BatchPaymentPayload::canonical_operations_hash`; the supported way to
+  populate the optional `BatchPaymentPayload.OperationsHash`. A nil `Amount` is
+  treated as U256 zero; negative or wider-than-U256 amounts return an error;
+  operation order is significant.
+- **`Transactions().BatchPayment`** now accepts `WithMemo`, exactly like every
+  other v2 operation.
+
+See [MIGRATION.md](./MIGRATION.md#batchpayment-2026-08-10-re-baseline) for the
+caller-facing migration steps.
+
 ## [1.2.0] - 2026-07-29
 
 This release is the **complete set of changes since `v1.1.0`**. It does two

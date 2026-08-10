@@ -87,6 +87,14 @@ new exporter.
 
 ## 4. Fixture schema
 
+> **Superseded for BatchPayment (2026-08-10):** the example vector's `max_fee`
+> field below, and the "BatchPayment has no memo option" statement in 4.1, are
+> both stale. `max_fee` was removed from the signed BatchPayment payload, and
+> BatchPayment now carries a `memo` option like every other operation. The
+> current field order is
+> `chain_id, nonce, token, operations, created_at, operations_hash?, batch_id?`.
+> See `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`.
+
 The fixture is a heterogeneous collection keyed by native operation:
 
 ```json
@@ -204,6 +212,11 @@ This is the only planned final change in `l1client`; no L1 production behavior,
 REST API, payload definition, RLP implementation, or hash algorithm changes.
 
 ## 6. Go fixture consumer
+
+> **Superseded for BatchPayment (2026-08-10):** the table row below marking
+> BatchPayment as "no memo" is stale; BatchPayment now accepts an optional
+> `WithMemo` like the other operations. See
+> `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`.
 
 The Go test loader switches on `operation` and decodes `payload` into the
 corresponding public Go payload type:
@@ -454,6 +467,10 @@ Vectors change one target field at a time unless that vector is explicitly
 part of the BatchPayment pairwise matrix.
 
 ### 8.7 Numeric boundaries
+
+> **Superseded for BatchPayment (2026-08-10):** `BatchPayment operation
+> ... MaxFee` below is stale; `MaxFee` was removed from the signed payload. See
+> `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`.
 
 Every U256-bearing field has independent successful Rust vectors for:
 

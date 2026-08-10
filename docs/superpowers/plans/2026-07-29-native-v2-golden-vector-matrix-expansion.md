@@ -108,6 +108,11 @@ Run the Task 1 test command. Expected: PASS.
 
 ### Task 2: Add exhaustive enum/boolean and per-field numeric vectors
 
+> **Superseded for BatchPayment (2026-08-10):** the `BatchPayment.max_fee`
+> field-key entry below is stale; `max_fee` was removed from the signed
+> payload. See
+> `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`.
+
 **Files:**
 - Modify: `l1client/crates/om-sdk/examples/export_go_sdk_native_v2_vectors.rs`
 - Test: `l1client/crates/om-sdk/examples/export_go_sdk_native_v2_vectors.rs`

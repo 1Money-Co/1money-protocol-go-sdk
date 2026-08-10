@@ -60,9 +60,27 @@ Notes:
 
 - `GrantAuthority`/`RevokeAuthority` and `Pause`/`Unpause` set the payload
   `Action` for you — you no longer set it by hand.
-- Attach a signed memo with `onemoney.WithMemo(memo)`. Batch payments and the
-  legacy path carry no memo, so passing `WithMemo` there returns an error rather
-  than dropping it silently.
+- Attach a signed memo with `onemoney.WithMemo(memo)`. BatchPayment is
+  memo-bearing like every other v2 operation. Only the legacy v1 path carries
+  no memo, so passing `WithMemo` there returns an error rather than dropping it
+  silently.
+
+## BatchPayment (2026-08-10 re-baseline)
+
+BatchPayment was re-baselined onto the current L1 canonical format. Signing
+hashes and transaction hashes produced by earlier SDK versions are no longer
+valid for BatchPayment; every other operation is unaffected.
+
+1. Remove `MaxFee` from every `BatchPaymentPayload` literal — the field no
+   longer exists.
+2. Keep calling `Transactions().BatchPayment`; the method shape is unchanged.
+3. Pass `WithMemo(m)` to attach a memo. Omitting it signs the canonical empty
+   memo, exactly as with every other v2 operation.
+4. Do not configure the client with `WithLegacyV1` for BatchPayment; it is
+   v2-only and returns an error before signing.
+5. Call `GetBatchPaymentEstimateFee` for a non-binding fee quote.
+6. Call `DeriveBatchPaymentOperationsHash` before setting the optional
+   `OperationsHash` field.
 
 ## Offline / KMS / HSM signing
 
@@ -129,11 +147,11 @@ Each element:
   a multisig-authorized operation is `[1, account]`. (The current public API
   produces single-signature submissions.)
 - **`payload_rlp`** — the canonical business payload, embedded as one opaque RLP
-  byte-string. For a memo-capable operation it is `rlp([ payload_fields, memo ])`
-  where `memo` is the 3-element list `[type, format, data]` (three empty strings
-  when there is no memo). For batch payment (which carries no memo) it is just
-  `rlp(payload_fields)`. Field order per operation is frozen and validated
-  byte-for-byte against the L1 golden vectors.
+  byte-string. It is `rlp([ payload_fields, memo ])` for every v2 operation,
+  including BatchPayment, where `memo` is the 3-element list
+  `[type, format, data]` (three empty strings when there is no memo). Field
+  order per operation is frozen and validated byte-for-byte against the L1
+  golden vectors.
 
 After signing, the public **transaction hash** appends the proof and re-hashes:
 

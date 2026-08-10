@@ -148,6 +148,14 @@ layout (native-v2-signing-spec §4.2).
 
 ## 7. Domain-separated signing core (correctness engine)
 
+> **Superseded for BatchPayment (2026-08-10):** `max_fee` was removed from the
+> signed payload and BatchPayment became memo-bearing. See
+> `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`.
+> The claim below that BatchPayment's `payload_rlp` skips the memo wrapper is
+> stale; BatchPayment now uses `WithMemo<BatchPaymentPayload>` for both the
+> default empty memo and a caller-supplied one, exactly like the other
+> operations.
+
 `native_v2.go` implements the frozen spec exactly:
 
 - `NATIVE_TX_DOMAIN_V2 = "1money.native.transaction.v2"` (28 bytes).
@@ -196,6 +204,11 @@ inputs in Go, and asserts the encoded `payload_rlp` matches the vector. This
 closes the loop: Go signing is byte-identical to Rust/Python end to end.
 
 ## 8. Memo and transaction-hash verification
+
+> **Superseded for BatchPayment (2026-08-10):** the claim below that
+> BatchPayment has no memo is stale. BatchPayment now carries a required
+> `memo` object exactly like the other v2 operations. See
+> `docs/superpowers/specs/2026-08-10-batch-payment-v2-rebaseline-design.md`.
 
 - `type Memo struct { Type, Format, Data string }`. Default (no option) = empty
   memo (three empty strings), the canonical "no business memo" form. `WithMemo(m
