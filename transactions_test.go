@@ -1,6 +1,7 @@
 package onemoney
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -963,4 +964,91 @@ func jsonEqual(t *testing.T, a, b []byte) bool {
 		t.Fatalf("unmarshal b: %v (%s)", err, b)
 	}
 	return reflect.DeepEqual(av, bv)
+}
+
+// TestBatchPaymentFeeEstimateRequestRoundTrips pins that the public DTO can read
+// back its own wire output. MarshalJSON emits quoted decimal amounts, which the
+// default *big.Int decoder rejects, so UnmarshalJSON is what makes the type a
+// complete wire type rather than a marshal-only one.
+//
+// The round trip is identity on the WIRE, not on the Go value: a nil Amount
+// marshals to "0" and returns as an explicit zero. The protocol defines those as
+// the same U256, so re-marshalling must produce byte-identical output -- that is
+// the invariant worth asserting.
+func TestBatchPaymentFeeEstimateRequestRoundTrips(t *testing.T) {
+	req := BatchPaymentFeeEstimateRequest{
+		From:  common.HexToAddress("0x3333333333333333333333333333333333333333"),
+		Token: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		Operations: []PaymentOperation{
+			{Recipient: common.HexToAddress("0x2222222222222222222222222222222222222222"), Amount: big.NewInt(100)},
+			{Recipient: common.HexToAddress("0x4444444444444444444444444444444444444444"), Amount: nil},
+			{Recipient: common.HexToAddress("0x5555555555555555555555555555555555555555"), Amount: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))},
+		},
+	}
+
+	first, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var back BatchPaymentFeeEstimateRequest
+	if err := json.Unmarshal(first, &back); err != nil {
+		t.Fatalf("unmarshal of our own output must succeed: %v (body %s)", err, first)
+	}
+	if back.From != req.From || back.Token != req.Token {
+		t.Errorf("addresses did not survive: from=%s token=%s", back.From.Hex(), back.Token.Hex())
+	}
+	if len(back.Operations) != len(req.Operations) {
+		t.Fatalf("decoded %d operations, want %d", len(back.Operations), len(req.Operations))
+	}
+	if back.Operations[1].Amount == nil || back.Operations[1].Amount.Sign() != 0 {
+		t.Errorf("nil amount must return as explicit zero, got %v", back.Operations[1].Amount)
+	}
+
+	second, err := json.Marshal(back)
+	if err != nil {
+		t.Fatalf("re-marshal: %v", err)
+	}
+	if !bytes.Equal(first, second) {
+		t.Errorf("round trip is not wire-identity:\n first  = %s\n second = %s", first, second)
+	}
+}
+
+// TestBatchPaymentFeeEstimateRequestUnmarshalRejects covers the decoder's own
+// rules, including that a rejected document leaves the receiver untouched rather
+// than half-populated -- the reason UnmarshalJSON parses into a temporary.
+func TestBatchPaymentFeeEstimateRequestUnmarshalRejects(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"bare number amount", `{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":100}]}`, "cannot unmarshal"},
+		{"non-decimal amount", `{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":"0x64"}]}`, "not a decimal string"},
+		{"empty amount", `{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":""}]}`, "not a decimal string"},
+		{"negative amount", `{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":"-5"}]}`, "must be non-negative"},
+		{
+			"amount wider than U256",
+			`{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":"115792089237316195423570985008687907853269984665640564039457584007913129639936"}]}`,
+			"exceeds U256",
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			sentinel := BatchPaymentFeeEstimateRequest{Token: common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead")}
+			got := sentinel
+			err := json.Unmarshal([]byte(tc.body), &got)
+			if err == nil {
+				t.Fatalf("body was accepted; want %q", tc.want)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("err = %q, want it to contain %q", err, tc.want)
+			}
+			// A failed decode must not leave a half-populated receiver.
+			if got.Token != sentinel.Token || got.From != sentinel.From || got.Operations != nil {
+				t.Errorf("receiver was mutated by a failed decode: %+v", got)
+			}
+		})
+	}
 }

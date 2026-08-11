@@ -52,6 +52,14 @@ becomes invalid, but some calls that used to fail at the node now fail locally.
 - **`BatchPaymentFeeEstimateRequest`** — the unsigned input to the fee-estimate
   call (`From`, `Token`, `Operations`), with a value-receiver `MarshalJSON` so
   a direct `json.Marshal` produces the same wire body the client sends.
+- **`BatchPaymentFeeEstimateRequest.UnmarshalJSON`** — so the public wire type can
+  read back its own output. `MarshalJSON` emits quoted decimal amounts, which
+  `*big.Int`'s default decoder rejects, and without this a marshal/unmarshal round
+  trip failed on the SDK's own body. Only the quoted-decimal form is accepted; a
+  failed decode leaves the receiver untouched rather than half-populated. The round
+  trip is identity on the wire, not on the Go value: a nil `Amount` marshals to
+  `"0"` and returns as an explicit zero, which the protocol defines as the same
+  U256.
 - **`DeriveBatchPaymentOperationsHash`** — computes `keccak256(RLP(operations))`,
   byte-identical to the node's
   `BatchPaymentPayload::canonical_operations_hash`; the supported way to

@@ -2,6 +2,7 @@ package onemoney
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -240,10 +241,64 @@ type BatchPaymentFeeEstimateRequest struct {
 	Operations []PaymentOperation `json:"operations"`
 }
 
+// batchFeeEstimateWire is the wire shape of BatchPaymentFeeEstimateRequest. It
+// exists so UnmarshalJSON can parse into a temporary value and assign to the
+// receiver only after every field has parsed, rather than leaving a
+// half-populated receiver behind an error the caller might ignore.
+type batchFeeEstimateWire struct {
+	From       common.Address `json:"from"`
+	Token      common.Address `json:"token"`
+	Operations []struct {
+		Recipient common.Address `json:"recipient"`
+		Amount    string         `json:"amount"`
+	} `json:"operations"`
+}
+
+// UnmarshalJSON reads the wire form MarshalJSON produces. It exists because the
+// struct tags alone cannot: `Amount` is a *big.Int, whose default decoder rejects
+// the quoted decimal string the wire form uses, so a marshal/unmarshal round trip
+// would fail on the SDK's own output.
+//
+// Only the quoted-decimal form is accepted. There is no bare-number legacy form
+// to support, and accepting one would reintroduce the precision loss that quoting
+// exists to prevent.
+//
+// The round trip is identity on the wire, not on the Go value: a nil Amount
+// marshals to "0" and decodes back as an explicit zero. That loses nothing,
+// because the protocol defines nil and zero as the same U256 — they produce the
+// same RLP, the same signing hash, and the same admission verdict.
+func (r *BatchPaymentFeeEstimateRequest) UnmarshalJSON(data []byte) error {
+	var wire batchFeeEstimateWire
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	operations := make([]PaymentOperation, 0, len(wire.Operations))
+	for index, operation := range wire.Operations {
+		amount, ok := new(big.Int).SetString(operation.Amount, 10)
+		if !ok {
+			return fmt.Errorf("batch.operations[%d].amount is not a decimal string: %q", index, operation.Amount)
+		}
+		if err := validateU256(fmt.Sprintf("batch.operations[%d].amount", index), amount); err != nil {
+			return err
+		}
+		operations = append(operations, PaymentOperation{Recipient: operation.Recipient, Amount: amount})
+	}
+	// Assign only now that everything parsed.
+	r.From, r.Token, r.Operations = wire.From, wire.Token, operations
+	return nil
+}
+
 // MarshalJSON renders the request with the same operation encoder the v2 submit
 // body uses, so amounts are quoted decimal strings rather than the bare JSON
 // numbers a default *big.Int marshal would emit. Client.GetBatchPaymentEstimateFee
 // and a caller's direct json.Marshal therefore produce identical bodies.
+//
+// It enforces U256 encodability — not BatchPayment admission. A negative or
+// wider-than-256-bit amount has no U256 wire form at all: the node's JSON
+// extractor fails to deserialize it before any validator runs. Returning an error
+// here is therefore the only honest outcome; emitting "amount":"-5" would produce
+// a body that cannot exist. To record un-validated input, use a separate logging
+// type rather than asking this wire DTO to serialize an impossible value.
 func (r BatchPaymentFeeEstimateRequest) MarshalJSON() ([]byte, error) {
 	if err := validateBatchOperationAmounts(r.Operations); err != nil {
 		return nil, err

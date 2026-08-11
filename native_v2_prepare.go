@@ -160,18 +160,33 @@ func PrepareTransaction(payload any, opts ...SubmitOption) (*PreparedTransaction
 // public PrepareTransaction (offline) and the namespace submit path, so both run
 // on exactly one pipeline. Every canonical native-v2 operation carries a memo,
 // so there is no memo-capability guard here.
+// The three gates run in the order the node reaches the same conclusions, so a
+// caller that keys on the error to decide what to fix is pointed at the same
+// field the node would point at:
+//
+//  1. Encoding validity and operation resolution. On the node this is request
+//     deserialization, inside the JSON extractor — a value with no U256 wire form
+//     (negative, wider than 256 bits) fails there, before the verifier runs at
+//     all.
+//  2. Memo. The verifier validates the memo for every origin
+//     (om-verifier/src/transaction_verifier.rs) before any operation-specific
+//     rule.
+//  3. Operation-specific static admission rules, which the verifier reaches last.
+//
+// Swapping 1 and 2 would report a bad memo for a payload whose amount cannot be
+// deserialized at all, which is not what the node does.
 func prepareFromPayload(payload any, cfg submitConfig) (*PreparedTransaction, error) {
-	if err := validatePayloadAdmissible(payload); err != nil {
+	op, err := opFromPayload(payload, cfg)
+	if err != nil {
 		return nil, err
 	}
-	// The memo is inside the signed payload for all fourteen operations, and its
-	// size and character rules are protocol constants the node enforces at
-	// admission. Validating here, in the one shared prepare path, means no
-	// operation can sign a memo the node will reject.
 	if err := cfg.memo.validate(); err != nil {
 		return nil, err
 	}
-	return prepareCanonical(payload, cfg)
+	if err := validatePayloadAdmissible(payload); err != nil {
+		return nil, err
+	}
+	return newPrepared(op, cfg.memo)
 }
 
 // validatePayloadAdmissible applies the node's static, governance-independent

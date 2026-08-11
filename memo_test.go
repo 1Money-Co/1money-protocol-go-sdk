@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // TestMemoValidationMirrorsNodeRules pins the memo rules the node enforces at
@@ -195,4 +197,62 @@ func TestMemoValidationCheckOrderMatchesNode(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestPrepareGateOrderMatchesNode pins the order of the three gates against the
+// order the node reaches the same conclusions in. The node deserializes the
+// request first (so a value with no U256 wire form fails before any validator
+// runs), then validates the memo for every origin, then applies
+// operation-specific static rules. Simply swapping the memo and admission checks
+// would get the first case right and the second wrong.
+func TestPrepareGateOrderMatchesNode(t *testing.T) {
+	badMemo := WithMemo(Memo{Data: "line\nbreak"})
+
+	t.Run("memo precedes batch admission", func(t *testing.T) {
+		// Encodable amounts, but no operations at all, plus an illegal memo. The
+		// node validates the memo before it looks at the batch rules.
+		payload := BatchPaymentPayload{
+			ChainID: 1, Nonce: 1, Token: repeatAddr(0x01), CreatedAt: 1,
+		}
+		_, err := PrepareTransaction(payload, badMemo)
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		if !strings.Contains(err.Error(), "memo.data contains a control character") {
+			t.Errorf("err = %q, want the memo error first (got the admission error instead?)", err)
+		}
+	})
+
+	t.Run("encoding validity precedes memo", func(t *testing.T) {
+		// A negative amount has no U256 wire form, so the node's JSON extractor
+		// rejects the request before the verifier validates the memo.
+		payload := BatchPaymentPayload{
+			ChainID: 1, Nonce: 1, Token: repeatAddr(0x01), CreatedAt: 1,
+			Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(-5)}},
+		}
+		_, err := PrepareTransaction(payload, badMemo)
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		if !strings.Contains(err.Error(), "must be non-negative") {
+			t.Errorf("err = %q, want the U256 encoding error first", err)
+		}
+	})
+
+	t.Run("encoding validity precedes batch admission", func(t *testing.T) {
+		// Both broken: an over-wide amount (no wire form) and a zero-address
+		// recipient (inadmissible). Encoding wins.
+		tooWide := new(big.Int).Lsh(big.NewInt(1), 256)
+		payload := BatchPaymentPayload{
+			ChainID: 1, Nonce: 1, Token: repeatAddr(0x01), CreatedAt: 1,
+			Operations: []PaymentOperation{{Recipient: common.Address{}, Amount: tooWide}},
+		}
+		_, err := PrepareTransaction(payload)
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		if !strings.Contains(err.Error(), "exceeds U256") {
+			t.Errorf("err = %q, want the U256 encoding error first", err)
+		}
+	})
 }

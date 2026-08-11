@@ -132,8 +132,11 @@ func TestPublicAPICompatibility(t *testing.T) {
 	//     were added so callers can obtain a non-binding fee quote for an
 	//     unsigned batch payment; MarshalJSON routes amounts through the same
 	//     batchOperationsWireList encoder the v2 submit body uses.
+	//   - BatchPaymentFeeEstimateRequest gained UnmarshalJSON, so the public wire
+	//     type can read back its own output: the quoted decimal amounts
+	//     MarshalJSON emits are not decodable by *big.Int's default decoder.
 	// It guards against unintentional drift, not intentional changes.
-	const publicAPIHash = "35c1bc4a689beae3a55b46ccd166f4ad62bec7654c44addc515724a52c9cf93e"
+	const publicAPIHash = "4ae541e6ef2eccfdbb0f063118b0e4959ced1af665b9c3817b1c62a05520e137"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}
