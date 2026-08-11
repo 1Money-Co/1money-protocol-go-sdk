@@ -73,11 +73,16 @@ func validateBatchOperationsStatic(operations []PaymentOperation) error {
 	if len(operations) == 0 {
 		return fmt.Errorf("batch payment operations must not be empty")
 	}
+	// Encodability first, in one sweep, so the range rule is not re-implemented
+	// here and an amount with no U256 wire form is reported as such rather than as
+	// an admission problem. On the prepare path validatePayloadEncodable has
+	// already done this; the fee-estimate path reaches this function directly and
+	// has not.
+	if err := validateBatchOperationAmounts(operations); err != nil {
+		return err
+	}
 	total := new(big.Int)
 	for index, operation := range operations {
-		if err := validateU256(fmt.Sprintf("batch.operations[%d].amount", index), operation.Amount); err != nil {
-			return err
-		}
 		if operation.Recipient == (common.Address{}) {
 			return fmt.Errorf("batch payment operation %d has an invalid recipient: the zero address", index)
 		}
@@ -107,7 +112,8 @@ func validateBatchPaymentSubmission(payload BatchPaymentPayload) error {
 	if payload.OperationsHash == nil {
 		return nil
 	}
-	want, err := DeriveBatchPaymentOperationsHash(payload.Operations)
+	// Unchecked: validateBatchOperationsStatic above already swept the amounts.
+	want, err := deriveBatchOperationsHashUnchecked(payload.Operations)
 	if err != nil {
 		return err
 	}
@@ -142,6 +148,14 @@ func DeriveBatchPaymentOperationsHash(operations []PaymentOperation) (common.Has
 	if err := validateBatchOperationAmounts(operations); err != nil {
 		return common.Hash{}, err
 	}
+	return deriveBatchOperationsHashUnchecked(operations)
+}
+
+// deriveBatchOperationsHashUnchecked hashes the operation list without
+// re-validating it, for callers that have already validated. Mirrors the
+// checked/unchecked split deriveMultisigAddressUnchecked uses, and keeps the
+// amounts from being range-checked twice on the signing path.
+func deriveBatchOperationsHashUnchecked(operations []PaymentOperation) (common.Hash, error) {
 	encoded, err := rlp.EncodeToBytes(batchOperationsRLPList(operations))
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("rlp encode batch operations: %w", err)

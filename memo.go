@@ -127,8 +127,11 @@ func (m Memo) validate() error {
 
 type submitConfig struct {
 	memo Memo
-	// memoSet is true once WithMemo was applied, letting paths that cannot carry
-	// a memo reject it instead of silently dropping it.
+	// memoSet is true once WithMemo was applied. All fourteen canonical v2
+	// operations are memo-bearing, so this no longer distinguishes memo-capable
+	// operations from memo-incapable ones -- that concept is gone. Its one
+	// remaining consumer is legacy-v1 submission, which signs a bare payload and
+	// so must reject an explicit memo rather than silently drop it.
 	memoSet  bool
 	listKind *ManageListKind
 }
