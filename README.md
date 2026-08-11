@@ -155,6 +155,10 @@ estimate, _ := client.GetBatchPaymentEstimateFee(ctx, onemoney.BatchPaymentFeeEs
 })
 ```
 
+The SDK rejects only amounts that cannot be encoded as U256 on this unsigned
+path. The estimate service is authoritative for empty batches, recipient and
+amount admission, aggregate overflow, and any future pricing semantics.
+
 ## Example
 
 ### TestNetwork

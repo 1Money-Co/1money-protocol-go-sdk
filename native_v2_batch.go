@@ -44,7 +44,7 @@ func batchOperationsWireList(operations []PaymentOperation) []map[string]interfa
 // *encoding* gate, used by paths that must produce correct bytes for whatever
 // the caller supplied -- the pure operations-hash derivation and the wire
 // marshaller. It deliberately does NOT enforce the node's admission rules; see
-// validateBatchOperationsStatic for those.
+// validateBatchPaymentSubmission for those.
 func validateBatchOperationAmounts(operations []PaymentOperation) error {
 	for index, operation := range operations {
 		if err := validateU256(fmt.Sprintf("batch.operations[%d].amount", index), operation.Amount); err != nil {
@@ -54,10 +54,10 @@ func validateBatchOperationAmounts(operations []PaymentOperation) error {
 	return nil
 }
 
-// validateBatchOperationsStatic applies exactly the node's static,
-// governance-independent operation rules, in the node's own order: a non-empty
-// list, a non-zero recipient and a strictly positive amount per operation, and a
-// total that does not overflow U256.
+// validateBatchOperationItems applies the first phase of the node's static,
+// governance-independent operation rules: a non-empty list followed by a full
+// recipient/amount scan. Total overflow is deliberately a separate final phase
+// in validateBatchPaymentSubmission, after operations_hash, matching the node.
 //
 // These are the rules the node applies without consulting the governance
 // certificate, so the SDK can apply them offline and fail before signing rather
@@ -69,19 +69,16 @@ func validateBatchOperationAmounts(operations []PaymentOperation) error {
 //
 // A nil amount encodes as U256 zero everywhere in this SDK, so it fails the
 // strictly-positive rule here exactly as an explicit zero does.
-func validateBatchOperationsStatic(operations []PaymentOperation) error {
+func validateBatchOperationItems(operations []PaymentOperation) error {
 	if len(operations) == 0 {
 		return fmt.Errorf("batch payment operations must not be empty")
 	}
-	// Encodability first, in one sweep, so the range rule is not re-implemented
-	// here and an amount with no U256 wire form is reported as such rather than as
-	// an admission problem. On the prepare path validatePayloadEncodable has
-	// already done this; the fee-estimate path reaches this function directly and
-	// has not.
+	// Keep this helper self-contained for direct tests and future callers. On the
+	// public prepare path the earlier encoding gate has already checked the same
+	// range rule.
 	if err := validateBatchOperationAmounts(operations); err != nil {
 		return err
 	}
-	total := new(big.Int)
 	for index, operation := range operations {
 		if operation.Recipient == (common.Address{}) {
 			return fmt.Errorf("batch payment operation %d has an invalid recipient: the zero address", index)
@@ -90,9 +87,20 @@ func validateBatchOperationsStatic(operations []PaymentOperation) error {
 		if amount.Sign() == 0 {
 			return fmt.Errorf("batch payment operation %d amount must be greater than 0", index)
 		}
-		total.Add(total, amount)
+	}
+	return nil
+}
+
+// validateBatchOperationTotal performs the node's final static BatchPayment
+// phase. The verifier folds the total only after every recipient/amount and the
+// optional operations_hash have been checked, and reports one generic overflow
+// error rather than attributing it to an operation.
+func validateBatchOperationTotal(operations []PaymentOperation) error {
+	total := new(big.Int)
+	for _, operation := range operations {
+		total.Add(total, bigOrZero(operation.Amount))
 		if total.BitLen() > 256 {
-			return fmt.Errorf("batch payment total amount overflows U256 at operation %d", index)
+			return fmt.Errorf("batch payment total amount overflow")
 		}
 	}
 	return nil
@@ -106,24 +114,23 @@ func validateBatchOperationsStatic(operations []PaymentOperation) error {
 // mismatch, so a caller who computed it from a stale operation list would
 // otherwise sign and submit a transaction that cannot be accepted.
 func validateBatchPaymentSubmission(payload BatchPaymentPayload) error {
-	if err := validateBatchOperationsStatic(payload.Operations); err != nil {
+	if err := validateBatchOperationItems(payload.Operations); err != nil {
 		return err
 	}
-	if payload.OperationsHash == nil {
-		return nil
+	if payload.OperationsHash != nil {
+		// Unchecked: validateBatchOperationItems above already swept the amounts.
+		want, err := deriveBatchOperationsHashUnchecked(payload.Operations)
+		if err != nil {
+			return err
+		}
+		if *payload.OperationsHash != want {
+			return fmt.Errorf(
+				"batch payment operations_hash mismatch: payload has %s, operations derive %s; use DeriveBatchPaymentOperationsHash or leave the field nil",
+				payload.OperationsHash.Hex(), want.Hex(),
+			)
+		}
 	}
-	// Unchecked: validateBatchOperationsStatic above already swept the amounts.
-	want, err := deriveBatchOperationsHashUnchecked(payload.Operations)
-	if err != nil {
-		return err
-	}
-	if *payload.OperationsHash != want {
-		return fmt.Errorf(
-			"batch payment operations_hash mismatch: payload has %s, operations derive %s; use DeriveBatchPaymentOperationsHash or leave the field nil",
-			payload.OperationsHash.Hex(), want.Hex(),
-		)
-	}
-	return nil
+	return validateBatchOperationTotal(payload.Operations)
 }
 
 // DeriveBatchPaymentOperationsHash computes the canonical operations hash for a

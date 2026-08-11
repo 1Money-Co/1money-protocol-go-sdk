@@ -93,7 +93,9 @@ valid for BatchPayment; every other operation is unaffected. Concretely:
    memo, exactly as with every other v2 operation.
 5. Do not configure the client with `WithLegacyV1` for BatchPayment; it is
    v2-only and returns an error before signing.
-6. Call `GetBatchPaymentEstimateFee` for a non-binding fee quote.
+6. Call `GetBatchPaymentEstimateFee` for a non-binding fee quote. The SDK checks
+   only U256 wire encodability on this unsigned path; the estimate service owns
+   admission and pricing semantics.
 7. Call `DeriveBatchPaymentOperationsHash` before setting the optional
    `OperationsHash` field. If you set it and then edit `Operations`, re-derive:
    `PrepareTransaction` now rejects a stale hash instead of letting the node do

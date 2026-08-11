@@ -119,38 +119,38 @@ func (r *PauseTokenResponse) TxHash() string         { return r.Hash }
 
 // pathsForOp returns the legacy v1 and domain-separated v2 REST paths for an
 // operation. Single source of truth for native write endpoints.
-func pathsForOp(op nativeOperationType) (v1, v2 string) {
+func pathsForOp(op nativeOperationType) (v1, v2 string, err error) {
 	switch op {
 	case opPayment:
-		return "/v1/transactions/payment", "/v2/transactions/payment"
+		return "/v1/transactions/payment", "/v2/transactions/payment", nil
 	case opBatchPayment:
-		return "", "/v2/transactions/batch_payment" // v2-only; the /v1 route is deprecated on L1
+		return "", "/v2/transactions/batch_payment", nil // v2-only; the /v1 route is deprecated on L1
 	case opTokenIssue:
-		return "/v1/tokens/issue", "/v2/tokens/issue"
+		return "/v1/tokens/issue", "/v2/tokens/issue", nil
 	case opTokenMint:
-		return "/v1/tokens/mint", "/v2/tokens/mint"
+		return "/v1/tokens/mint", "/v2/tokens/mint", nil
 	case opTokenBurn:
-		return "/v1/tokens/burn", "/v2/tokens/burn"
+		return "/v1/tokens/burn", "/v2/tokens/burn", nil
 	case opTokenBridgeAndMint:
-		return "/v1/tokens/bridge_and_mint", "/v2/tokens/bridge_and_mint"
+		return "/v1/tokens/bridge_and_mint", "/v2/tokens/bridge_and_mint", nil
 	case opTokenBurnAndBridge:
-		return "/v1/tokens/burn_and_bridge", "/v2/tokens/burn_and_bridge"
+		return "/v1/tokens/burn_and_bridge", "/v2/tokens/burn_and_bridge", nil
 	case opTokenAuthority:
-		return "/v1/tokens/grant_authority", "/v2/tokens/grant_authority"
+		return "/v1/tokens/grant_authority", "/v2/tokens/grant_authority", nil
 	case opTokenClawback:
-		return "/v1/tokens/clawback", "/v2/tokens/clawback"
+		return "/v1/tokens/clawback", "/v2/tokens/clawback", nil
 	case opTokenBlacklist:
-		return "/v1/tokens/manage_blacklist", "/v2/tokens/manage_blacklist"
+		return "/v1/tokens/manage_blacklist", "/v2/tokens/manage_blacklist", nil
 	case opTokenWhitelist:
-		return "/v1/tokens/manage_whitelist", "/v2/tokens/manage_whitelist"
+		return "/v1/tokens/manage_whitelist", "/v2/tokens/manage_whitelist", nil
 	case opTokenPause:
-		return "/v1/tokens/pause", "/v2/tokens/pause"
+		return "/v1/tokens/pause", "/v2/tokens/pause", nil
 	case opTokenMetadata:
-		return "/v1/tokens/update_metadata", "/v2/tokens/update_metadata"
+		return "/v1/tokens/update_metadata", "/v2/tokens/update_metadata", nil
 	case opCreateMultiSig:
-		return "", "/v2/accounts/multisig" // v2-only, no legacy form
+		return "", "/v2/accounts/multisig", nil // v2-only, no legacy form
 	default:
-		return "", ""
+		return "", "", fmt.Errorf("%s: no domain-separated v2 endpoint configured", op.label())
 	}
 }
 
@@ -162,7 +162,10 @@ func opFromPayload(payload any, cfg submitConfig) (nativeV2Op, error) {
 	if err != nil {
 		return nativeV2Op{}, err
 	}
-	v1, v2 := pathsForOp(op)
+	v1, v2, err := pathsForOp(op)
+	if err != nil {
+		return nativeV2Op{}, err
+	}
 	return nativeV2Op{
 		op:          op,
 		payloadList: list,

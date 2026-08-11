@@ -28,10 +28,11 @@ type prepareAuthorizeFixture struct {
 // owned by this SDK: it records no external repository identity, source path, or
 // generator, and the suite never needs another checkout to run.
 type prepareAuthorizeFixtureMeta struct {
-	Owner            string `json:"owner"`
-	Status           string `json:"status"`
-	ProtocolContract string `json:"protocol_contract"`
-	Note             string `json:"note"`
+	Owner                   string            `json:"owner"`
+	Status                  string            `json:"status"`
+	ProtocolContract        string            `json:"protocol_contract"`
+	Note                    string            `json:"note"`
+	PublicPrepareRejections map[string]string `json:"public_prepare_rejections"`
 }
 
 type prepareAuthorizeVector struct {
@@ -392,12 +393,14 @@ func TestPrepareAuthorizeFixtureCompleteness(t *testing.T) {
 	}
 
 	names := make(map[string]struct{}, len(fixture.Vectors))
+	vectorsByName := make(map[string]prepareAuthorizeVector, len(fixture.Vectors))
 	var canonical []uint16
 	for _, vector := range fixture.Vectors {
 		if _, exists := names[vector.Name]; exists {
 			t.Fatalf("duplicate vector name %q", vector.Name)
 		}
 		names[vector.Name] = struct{}{}
+		vectorsByName[vector.Name] = vector
 		if vector.Operation == "" || len(vector.Payload) == 0 {
 			t.Fatalf("%s: incomplete operation/payload", vector.Name)
 		}
@@ -409,6 +412,22 @@ func TestPrepareAuthorizeFixtureCompleteness(t *testing.T) {
 		parseFixtureHex(t, vector.Expected.TransactionHash, 32)
 		if vector.Class == "canonical" {
 			canonical = append(canonical, vector.OperationType)
+		}
+	}
+	if got := len(fixture.Meta.PublicPrepareRejections); got != 22 {
+		t.Fatalf("public_prepare_rejections contains %d vectors, want the reviewed 22 encoding-only vectors", got)
+	}
+	for name, wantError := range fixture.Meta.PublicPrepareRejections {
+		vector, ok := vectorsByName[name]
+		if !ok {
+			t.Errorf("public_prepare_rejections names missing vector %q", name)
+			continue
+		}
+		if vector.Operation != "BatchPayment" {
+			t.Errorf("public_prepare_rejections[%q] has operation %q, want BatchPayment", name, vector.Operation)
+		}
+		if wantError == "" {
+			t.Errorf("public_prepare_rejections[%q] has an empty expected error", name)
 		}
 	}
 	if len(canonical) != 14 {
@@ -742,52 +761,119 @@ func TestPrepareAuthorizeFixtureDecodesPublicPayloads(t *testing.T) {
 	}
 }
 
-func TestPrepareAndAuthorizeMatchRustGoldenVectors(t *testing.T) {
+func rustFixtureSigner(t *testing.T) common.Address {
+	t.Helper()
+
 	const rustTestPrivateKey = "01833a126ec45d0191519748146b9e35647aab7fed28de1c8e17824970f964a3"
 	key, err := crypto.HexToECDSA(rustTestPrivateKey)
 	if err != nil {
 		t.Fatalf("parse Rust test key: %v", err)
 	}
-	wantSigner := crypto.PubkeyToAddress(key.PublicKey)
+	return crypto.PubkeyToAddress(key.PublicKey)
+}
 
-	for _, vector := range loadPrepareAuthorizeFixture(t).Vectors {
+func assertPrepareAuthorizeVector(
+	t *testing.T,
+	prepared *PreparedTransaction,
+	vector prepareAuthorizeVector,
+	wantSigner common.Address,
+) {
+	t.Helper()
+
+	if got := hexLower(prepared.SigningHash()); got != vector.Expected.SigningHash {
+		t.Fatalf("SigningHash\n got %s\nwant %s (Rust oracle)", got, vector.Expected.SigningHash)
+	}
+
+	authorized, err := prepared.Authorize(vector.Authorization)
+	if err != nil {
+		t.Fatalf("Authorize: %v", err)
+	}
+	if got := hexLower(authorized.TransactionHash()); got != vector.Expected.TransactionHash {
+		t.Fatalf("TransactionHash\n got %s\nwant %s (Rust oracle)", got, vector.Expected.TransactionHash)
+	}
+
+	signature := append(
+		parseFixtureHex(t, vector.Authorization.R, 32),
+		parseFixtureHex(t, vector.Authorization.S, 32)...,
+	)
+	signature = append(signature, byte(vector.Authorization.V))
+	publicKey, err := crypto.SigToPub(prepared.SigningHash(), signature)
+	if err != nil {
+		t.Fatalf("recover Rust fixture signer: %v", err)
+	}
+	if got := crypto.PubkeyToAddress(*publicKey); got != wantSigner {
+		t.Fatalf("recovered signer = %s, want %s", got, wantSigner)
+	}
+}
+
+func TestCanonicalPrepareAndAuthorizeMatchRustGoldenVectors(t *testing.T) {
+	fixture := loadPrepareAuthorizeFixture(t)
+	wantSigner := rustFixtureSigner(t)
+	covered := 0
+
+	for _, vector := range fixture.Vectors {
 		vector := vector
 		t.Run(vector.Name, func(t *testing.T) {
 			payload, options := vector.goPayload(t)
-			// Use the canonical encoder, not PrepareTransaction: the fixture
-			// deliberately includes payloads the node rejects at admission (an
-			// arbitrary operations_hash, an empty operation list, a zero amount)
-			// precisely to pin their ENCODING. The admission gate is exercised
-			// separately, in TestPrepareRejectsInadmissibleBatchPayment.
 			prepared, err := prepareCanonical(payload, resolveSubmit(options))
 			if err != nil {
 				t.Fatalf("prepareCanonical: %v", err)
 			}
-			if got := hexLower(prepared.SigningHash()); got != vector.Expected.SigningHash {
-				t.Fatalf("SigningHash\n got %s\nwant %s (Rust oracle)", got, vector.Expected.SigningHash)
-			}
+			assertPrepareAuthorizeVector(t, prepared, vector, wantSigner)
+		})
+		covered++
+	}
+	if covered != 213 {
+		t.Fatalf("canonical oracle coverage = %d, want 213", covered)
+	}
+}
 
-			authorized, err := prepared.Authorize(vector.Authorization)
-			if err != nil {
-				t.Fatalf("Authorize: %v", err)
-			}
-			if got := hexLower(authorized.TransactionHash()); got != vector.Expected.TransactionHash {
-				t.Fatalf("TransactionHash\n got %s\nwant %s (Rust oracle)", got, vector.Expected.TransactionHash)
-			}
+func TestPublicPrepareAndAuthorizeMatchRustGoldenVectors(t *testing.T) {
+	fixture := loadPrepareAuthorizeFixture(t)
+	wantSigner := rustFixtureSigner(t)
+	covered := 0
 
-			signature := append(
-				parseFixtureHex(t, vector.Authorization.R, 32),
-				parseFixtureHex(t, vector.Authorization.S, 32)...,
-			)
-			signature = append(signature, byte(vector.Authorization.V))
-			publicKey, err := crypto.SigToPub(prepared.SigningHash(), signature)
+	for _, vector := range fixture.Vectors {
+		if _, encodingOnly := fixture.Meta.PublicPrepareRejections[vector.Name]; encodingOnly {
+			continue
+		}
+		vector := vector
+		t.Run(vector.Name, func(t *testing.T) {
+			payload, options := vector.goPayload(t)
+			prepared, err := PrepareTransaction(payload, options...)
 			if err != nil {
-				t.Fatalf("recover Rust fixture signer: %v", err)
+				t.Fatalf("PrepareTransaction: %v", err)
 			}
-			if got := crypto.PubkeyToAddress(*publicKey); got != wantSigner {
-				t.Fatalf("recovered signer = %s, want %s", got, wantSigner)
+			assertPrepareAuthorizeVector(t, prepared, vector, wantSigner)
+		})
+		covered++
+	}
+	if covered != 191 {
+		t.Fatalf("public prepare oracle coverage = %d, want 191", covered)
+	}
+}
+
+func TestEncodingOnlyVectorsAreRejectedByPublicPrepare(t *testing.T) {
+	fixture := loadPrepareAuthorizeFixture(t)
+	covered := 0
+
+	for _, vector := range fixture.Vectors {
+		wantError, encodingOnly := fixture.Meta.PublicPrepareRejections[vector.Name]
+		if !encodingOnly {
+			continue
+		}
+		vector := vector
+		t.Run(vector.Name, func(t *testing.T) {
+			payload, options := vector.goPayload(t)
+			_, err := PrepareTransaction(payload, options...)
+			if err == nil || !strings.Contains(err.Error(), wantError) {
+				t.Fatalf("PrepareTransaction error = %v, want substring %q", err, wantError)
 			}
 		})
+		covered++
+	}
+	if covered != 22 {
+		t.Fatalf("public prepare rejection coverage = %d, want 22", covered)
 	}
 }
 

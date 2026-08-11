@@ -3,7 +3,31 @@
     "owner": "1money-protocol-go-sdk",
     "status": "self-contained; maintained by this SDK",
     "protocol_contract": "native-v2 signing, l1client 7ad79889",
-    "note": "Expected values are external to this SDK's implementation and must never be recomputed from it. Changing one is an intentional fixture update, reviewed together with the test that consumes it. See testdata/README.md."
+    "note": "Expected values are external to this SDK's implementation and must never be recomputed from it. Changing one is an intentional fixture update, reviewed together with the test that consumes it. See testdata/README.md.",
+    "public_prepare_rejections": {
+      "batch_option_hash_only": "operations_hash mismatch",
+      "batch_option_hash_only_memo": "operations_hash mismatch",
+      "batch_option_both": "operations_hash mismatch",
+      "batch_option_both_memo": "operations_hash mismatch",
+      "batch_option_zero_hash": "operations_hash mismatch",
+      "batch_option_zero_hash_memo": "operations_hash mismatch",
+      "batch_operations_empty": "operations must not be empty",
+      "batch_operation_amount_zero": "amount must be greater than 0",
+      "batch_pairwise_01_neither_forward_zero_populated": "amount must be greater than 0",
+      "batch_pairwise_02_hash_only_single_max_populated": "operations_hash mismatch",
+      "batch_pairwise_03_hash_only_reverse_zero_empty": "amount must be greater than 0",
+      "batch_pairwise_04_id_only_forward_max_empty": "total amount overflow",
+      "batch_pairwise_06_both_single_zero_empty": "amount must be greater than 0",
+      "batch_pairwise_07_both_forward_ordinary_populated": "operations_hash mismatch",
+      "batch_pairwise_08_neither_reverse_max_empty": "total amount overflow",
+      "batch_pairwise_09_neither_empty_none_empty": "operations must not be empty",
+      "batch_pairwise_10_hash_only_empty_none_populated": "operations must not be empty",
+      "batch_pairwise_11_hash_only_forward_ordinary_empty": "operations_hash mismatch",
+      "batch_pairwise_12_id_only_single_zero_empty": "amount must be greater than 0",
+      "batch_pairwise_13_both_reverse_max_empty": "operations_hash mismatch",
+      "batch_pairwise_14_id_only_empty_none_empty": "operations must not be empty",
+      "batch_pairwise_15_both_empty_none_empty": "operations must not be empty"
+    }
   },
   "vectors": [
     {

@@ -227,6 +227,13 @@ Both behaviors are pinned by tests: the namespace guard through
 `Accounts().CreateMultisig`, and the generic capability error through a direct
 `submitPayload` call.
 
+`pathsForOp` is fallible for a separate reason: an unknown operation mapping is
+not the same thing as a known v2-only operation. Its default case returns an
+explicit "no domain-separated v2 endpoint configured" error, and operation
+resolution propagates that error before preparation, signing, or HTTP I/O. A
+known v2-only operation still has a non-empty v2 path and an intentionally empty
+v1 path, preserving the stable legacy-mode capability error.
+
 After the BatchPayment re-baseline, all fourteen canonical native-v2 operations
 use `WithMemo<Payload>`. The implementation therefore removes the now-constant
 `memoCapable` return value and fields from `resolvePayloadOp`, `nativeV2Op`, and
@@ -424,6 +431,11 @@ key use:
 - the running total must not overflow U256
 - a supplied `operations_hash` must equal the canonical hash of `operations`
 
+The checks follow the node's observable order: reject an empty list, scan every
+recipient and individual amount, compare a supplied operations hash, and only
+then fold the aggregate total. Total overflow is therefore a distinct final
+phase and is not attributed to whichever loop index first crosses U256.
+
 The memo's size and character rules are likewise static protocol constants
 (`memo.type` ≤ 128 B, `memo.format` ≤ 64 B, `memo.data` ≤ 256 B, object ≤ 512 B,
 URL-safe characters in `type`/`format`, no control codepoints in `data`). They
@@ -450,6 +462,19 @@ rejects it, exactly as an explicit zero is rejected.
 `prepareCanonical` is the unexported encoding-only entry point that fixture
 conformance tests use. Every production entry point goes through
 `prepareFromPayload`, which gates first.
+
+The extended oracle suite has two complementary passes. All 213 vectors go
+through `prepareCanonical` to pin encoding, while the 191 admission-valid
+vectors also go through exported `PrepareTransaction`. The 22 intentionally
+inadmissible vectors are listed explicitly in fixture metadata and are checked
+for public rejection. The split must not be inferred by invoking the Go
+validator under test.
+
+The unsigned estimate path is different: it validates only U256 wire
+encodability and delegates empty-list, recipient, positive-amount, aggregate,
+and future estimate semantics to the server. It performs no signing, so copying
+submission admission rules there would save no key use and could drift from the
+service.
 
 ### 8.3 Remaining server-side errors
 
@@ -620,6 +645,8 @@ intermediate state may delete, skip, or defer the BatchPayment vectors.
 - Assert direct `json.Marshal(BatchPaymentFeeEstimateRequest)` produces the same
   body as `GetBatchPaymentEstimateFee`, including lowercase keys and quoted
   decimal amounts.
+- Assert encodable but admission-invalid estimate inputs reach the server, while
+  negative and wider-than-U256 amounts fail locally before HTTP.
 - Decode `{ "fee": "...", "plan": null }` successfully.
 - Decode BatchPayment transaction data without `max_fee`.
 - Assert BatchPayment under a legacy-configured client returns the v2-only
@@ -748,6 +775,8 @@ The re-baseline is complete when:
 10. `DeriveBatchPaymentOperationsHash` matches L1-generated expected hashes,
     with nil amounts explicitly equivalent to U256 zero.
 11. Fee-estimate request and response contract tests match the L1 endpoint.
+    Encodable requests are server-authoritative; only impossible U256 wire
+    values fail locally.
 12. Transaction reads decode the new payload and memo without obsolete fields.
 13. Legacy-mode BatchPayment returns its v2-only error before the generic memo
     error, BatchPayment/CreateMultisig both fail before HTTP I/O, and the

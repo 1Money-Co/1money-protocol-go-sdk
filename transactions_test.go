@@ -890,8 +890,8 @@ func TestGetBatchPaymentEstimateFee(t *testing.T) {
 	}
 }
 
-// TestGetBatchPaymentEstimateFeeRejectsOutOfRangeAmount checks the same U256
-// bounds the submit path applies, before any HTTP request.
+// TestGetBatchPaymentEstimateFeeRejectsOutOfRangeAmount checks the wire's U256
+// bounds before any HTTP request. Admission-validity checks are server-owned.
 func TestGetBatchPaymentEstimateFeeRejectsOutOfRangeAmount(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -901,16 +901,73 @@ func TestGetBatchPaymentEstimateFeeRejectsOutOfRangeAmount(t *testing.T) {
 	defer server.Close()
 
 	c := NewClientWithCustomUrl(server.URL)
-	_, err := c.GetBatchPaymentEstimateFee(context.Background(), BatchPaymentFeeEstimateRequest{
-		From:       common.HexToAddress("0x3333333333333333333333333333333333333333"),
-		Token:      common.HexToAddress("0x1111111111111111111111111111111111111111"),
-		Operations: []PaymentOperation{{Recipient: repeatAddr(0x22), Amount: big.NewInt(-1)}},
-	})
-	if err == nil {
-		t.Fatal("negative amount was accepted; want an error")
+	tooWide := new(big.Int).Lsh(big.NewInt(1), 256)
+	for _, amount := range []*big.Int{big.NewInt(-1), tooWide} {
+		_, err := c.GetBatchPaymentEstimateFee(context.Background(), BatchPaymentFeeEstimateRequest{
+			From:       common.HexToAddress("0x3333333333333333333333333333333333333333"),
+			Token:      common.HexToAddress("0x1111111111111111111111111111111111111111"),
+			Operations: []PaymentOperation{{Recipient: repeatAddr(0x22), Amount: amount}},
+		})
+		if err == nil {
+			t.Fatalf("amount %s was accepted; want an error", amount)
+		}
 	}
 	if requests != 0 {
 		t.Errorf("issued %d HTTP requests, want 0", requests)
+	}
+}
+
+func TestGetBatchPaymentEstimateFeeDelegatesAdmissionToServer(t *testing.T) {
+	maxU256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
+	cases := []struct {
+		name       string
+		operations []PaymentOperation
+	}{
+		{name: "empty operations"},
+		{
+			name:       "zero recipient",
+			operations: []PaymentOperation{{Recipient: common.Address{}, Amount: big.NewInt(1)}},
+		},
+		{
+			name:       "zero amount",
+			operations: []PaymentOperation{{Recipient: repeatAddr(0x22), Amount: big.NewInt(0)}},
+		},
+		{
+			name: "total overflow",
+			operations: []PaymentOperation{
+				{Recipient: repeatAddr(0x22), Amount: maxU256},
+				{Recipient: repeatAddr(0x23), Amount: big.NewInt(1)},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			requests := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requests++
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"fee":"1","plan":null}`))
+			}))
+			defer server.Close()
+
+			client := NewClientWithCustomUrl(server.URL)
+			result, err := client.GetBatchPaymentEstimateFee(context.Background(), BatchPaymentFeeEstimateRequest{
+				From:       repeatAddr(0x33),
+				Token:      repeatAddr(0x11),
+				Operations: tc.operations,
+			})
+			if err != nil {
+				t.Fatalf("GetBatchPaymentEstimateFee: %v", err)
+			}
+			if result.Fee != "1" {
+				t.Errorf("fee = %q, want 1", result.Fee)
+			}
+			if requests != 1 {
+				t.Errorf("issued %d HTTP requests, want 1", requests)
+			}
+		})
 	}
 }
 

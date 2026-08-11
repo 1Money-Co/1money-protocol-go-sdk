@@ -35,10 +35,13 @@ becomes invalid, but some calls that used to fail at the node now fail locally.
   hash of `Operations`. For **every** operation: the memo's protocol limits
   (`type` ≤ 128 B, `format` ≤ 64 B, `data` ≤ 256 B, object ≤ 512 B, URL-safe
   characters in `type`/`format`, no control codepoints in `data`).
-  `GetBatchPaymentEstimateFee` applies the same static operation rules, matching
-  the node's estimate endpoint. Governance-dependent rules — batch payments
-  enabled, the operations-per-batch limit, the encoded-size limit, and fee-asset
-  matching — remain server-side, since the SDK cannot know governance state.
+  The submission path applies these checks in the node's order: scan every
+  recipient and amount, compare an optional operations hash, then fold the total.
+  `GetBatchPaymentEstimateFee` does not duplicate admission policy: it validates
+  only that amounts have a U256 wire representation, then delegates all estimate
+  semantics to the server. Governance-dependent rules — batch payments enabled,
+  the operations-per-batch limit, the encoded-size limit, and fee-asset matching
+  — remain server-side, since the SDK cannot know governance state.
   `DeriveBatchPaymentOperationsHash` is deliberately unaffected: it mirrors the
   node's *pure* hash domain and still accepts an empty list and zero amounts.
 

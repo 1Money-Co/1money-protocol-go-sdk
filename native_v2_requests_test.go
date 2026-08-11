@@ -1,6 +1,9 @@
 package onemoney
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestPathsForOp locks pathsForOp's v1/v2-capability signal for every
 // canonical operation type. submitPayload's v2-only guard
@@ -25,7 +28,11 @@ func TestPathsForOp(t *testing.T) {
 	}
 
 	for _, op := range allOps {
-		v1, v2 := pathsForOp(op)
+		v1, v2, err := pathsForOp(op)
+		if err != nil {
+			t.Errorf("op %d: pathsForOp returned an error: %v", op, err)
+			continue
+		}
 		if v2 == "" {
 			t.Errorf("op %d: v2 path is empty, want non-empty", op)
 		}
@@ -34,5 +41,12 @@ func TestPathsForOp(t *testing.T) {
 		if gotV1Empty != wantV1Empty {
 			t.Errorf("op %d: v1 path empty = %v (v1=%q), want empty = %v", op, gotV1Empty, v1, wantV1Empty)
 		}
+	}
+}
+
+func TestPathsForOpRejectsUnmappedOperation(t *testing.T) {
+	v1, v2, err := pathsForOp(nativeOperationType(999))
+	if err == nil || !strings.Contains(err.Error(), "no domain-separated v2 endpoint configured") {
+		t.Fatalf("paths = (%q, %q), err = %v; want unmapped-v2 error", v1, v2, err)
 	}
 }

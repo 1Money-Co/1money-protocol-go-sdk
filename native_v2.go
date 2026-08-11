@@ -202,9 +202,9 @@ func boolToUint(b bool) uint64 {
 // hexLower renders bytes as a lowercase 0x-prefixed hex string.
 func hexLower(b []byte) string { return "0x" + common.Bytes2Hex(b) }
 
-// label returns a human-readable operation name for error messages. Only the
-// v2-only operations need one today, because they are the only operations that
-// can reach the capability error in submitPayload.
+// label returns a human-readable operation name for endpoint and capability
+// errors. Known v2-only operations have stable labels; an unmapped future value
+// falls back to its numeric operation id.
 func (op nativeOperationType) label() string {
 	switch op {
 	case opBatchPayment:

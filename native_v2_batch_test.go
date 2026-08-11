@@ -401,7 +401,28 @@ func TestPrepareRejectsInadmissibleBatchPayment(t *testing.T) {
 				{Recipient: repeatAddr(0x0c), Amount: maxU256},
 				{Recipient: repeatAddr(0x0d), Amount: big.NewInt(1)},
 			}),
-			"total amount overflows U256",
+			"total amount overflow",
+		},
+		{
+			"recipient validation precedes total overflow",
+			base([]PaymentOperation{
+				{Recipient: repeatAddr(0x0c), Amount: maxU256},
+				{Recipient: repeatAddr(0x0d), Amount: big.NewInt(1)},
+				{Recipient: common.Address{}, Amount: big.NewInt(1)},
+			}),
+			"operation 2 has an invalid recipient",
+		},
+		{
+			"operations_hash validation precedes total overflow",
+			func() BatchPaymentPayload {
+				p := base([]PaymentOperation{
+					{Recipient: repeatAddr(0x0c), Amount: maxU256},
+					{Recipient: repeatAddr(0x0d), Amount: big.NewInt(1)},
+				})
+				p.OperationsHash = &wrongHash
+				return p
+			}(),
+			"operations_hash mismatch",
 		},
 		{
 			"non-canonical operations_hash",
@@ -475,7 +496,7 @@ func TestDeriveBatchPaymentOperationsHashStaysPermissive(t *testing.T) {
 		t.Errorf("zero recipient and zero amount must hash, not error: %v", err)
 	}
 	// And the gate rejects that same input, which is the point of the split.
-	if err := validateBatchOperationsStatic(zero); err == nil {
+	if err := validateBatchOperationItems(zero); err == nil {
 		t.Error("the admission gate must reject what the pure helper accepts here")
 	}
 }
