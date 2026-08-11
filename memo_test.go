@@ -29,7 +29,16 @@ func TestMemoValidationMirrorsNodeRules(t *testing.T) {
 		{"data at the cap", Memo{Data: strings.Repeat("a", memoDataMaxBytes)}},
 		{"url-safe punctuation in type", Memo{Type: "a-b.c_d~e:f/g?h#i[j]k@l!m$n&o'p(q)r*s+t,u;v=w%20"}},
 		{"data accepts arbitrary text", Memo{Data: "space and 中文 and emoji-free punctuation: ;,."}},
-		{"data accepts multibyte at the byte cap", Memo{Data: strings.Repeat("界", memoDataMaxBytes/3)}},
+		// 84 * 3 + 4 = 256 bytes exactly, so the cap is a byte cap, not a rune cap.
+		{"data at the byte cap with multibyte", Memo{Data: strings.Repeat("界", 84) + "abcd"}},
+		// U+FFFD is an ordinary character. Ranging over a Go string yields
+		// utf8.RuneError for it as well as for genuinely invalid bytes, so a
+		// per-rune validity test would wrongly reject it; the node accepts it.
+		{"data accepts the replacement character", Memo{Data: "invoice \ufffd 0001"}},
+		// U+00A0 sits immediately after the C1 control block and must be accepted;
+		// U+009F, one codepoint below, must not (see the invalid table).
+		{"data accepts U+00A0 just past the C1 block", Memo{Data: "a\u00a0b"}},
+		{"data accepts DEL-adjacent U+007E", Memo{Data: "a~b"}},
 	}
 	for _, tc := range valid {
 		tc := tc
@@ -49,6 +58,7 @@ func TestMemoValidationMirrorsNodeRules(t *testing.T) {
 		{"format over cap", Memo{Format: strings.Repeat("a", memoFormatMaxBytes+1)}, "memo.format exceeds"},
 		{"data over cap", Memo{Data: strings.Repeat("a", memoDataMaxBytes+1)}, "memo.data exceeds"},
 		{"data over cap by multibyte", Memo{Data: strings.Repeat("界", memoDataMaxBytes/3+1)}, "memo.data exceeds"},
+		{"data one byte over the cap with multibyte", Memo{Data: strings.Repeat("界", 84) + "abcde"}, "memo.data exceeds"},
 		{"space in type", Memo{Type: "purpose SALA"}, "memo.type contains an invalid character"},
 		{"multibyte in type", Memo{Type: "purpose/工资"}, "memo.type contains an invalid character"},
 		{"space in format", Memo{Format: "text plain"}, "memo.format contains an invalid character"},
@@ -56,6 +66,21 @@ func TestMemoValidationMirrorsNodeRules(t *testing.T) {
 		{"nul in data", Memo{Data: "invoice\x00001"}, "memo.data contains a control character"},
 		{"newline in data", Memo{Data: "line1\nline2"}, "memo.data contains a control character"},
 		{"tab in data", Memo{Data: "a\tb"}, "memo.data contains a control character"},
+		// The Cc category has two ranges. Pin both ends of each so a future switch
+		// to a different control-character predicate cannot silently narrow it.
+		{"C0 upper bound U+001F in data", Memo{Data: "a\u001fb"}, "memo.data contains a control character"},
+		{"DEL U+007F in data", Memo{Data: "a\u007fb"}, "memo.data contains a control character"},
+		{"C1 lower bound U+0080 in data", Memo{Data: "a\u0080b"}, "memo.data contains a control character"},
+		{"NEL U+0085 in data", Memo{Data: "a\u0085b"}, "memo.data contains a control character"},
+		{"C1 upper bound U+009F in data", Memo{Data: "a\u009fb"}, "memo.data contains a control character"},
+		// Invalid UTF-8 has no counterpart in Memo::validate() -- a Rust String
+		// cannot hold it -- but the node's JSON decoder rejects it before validate()
+		// runs, so the SDK rejects it too, as its own rule with its own message.
+		{"invalid utf-8 in data", Memo{Data: string([]byte{'a', 0xff, 0xfe, 'b'})}, "memo.data is not valid UTF-8"},
+		// type/format need no separate UTF-8 rule: invalid bytes decode to U+FFFD,
+		// which is not URL-safe, so the character rule already rejects them.
+		{"invalid utf-8 in type", Memo{Type: string([]byte{'a', 0xff})}, "memo.type contains an invalid character"},
+		{"replacement character in type", Memo{Type: "a\ufffdb"}, "memo.type contains an invalid character"},
 	}
 	for _, tc := range invalid {
 		tc := tc
@@ -102,6 +127,71 @@ func TestPrepareRejectsInvalidMemoForEveryOperation(t *testing.T) {
 			// is not rejecting everything.
 			if _, err := PrepareTransaction(payload, WithMemo(Memo{Type: "purpose/SALA"})); err != nil {
 				t.Fatalf("a legal memo should prepare: %v", err)
+			}
+		})
+	}
+}
+
+// TestMemoValidationCheckOrderMatchesNode pins the order in which rules fire.
+// Memo::validate() checks type (length, then characters), then format the same
+// way, then data (length, then control codepoints), then the total size. Nothing
+// else in the suite would notice if that order changed, and a caller matching on
+// the message would see a different error for the same memo.
+func TestMemoValidationCheckOrderMatchesNode(t *testing.T) {
+	overLongType := strings.Repeat("a", memoTypeMaxBytes+1)
+	overLongFormat := strings.Repeat("a", memoFormatMaxBytes+1)
+
+	cases := []struct {
+		name string
+		memo Memo
+		want string
+	}{
+		{
+			"type precedes format",
+			Memo{Type: overLongType, Format: "bad format"},
+			"memo.type exceeds",
+		},
+		{
+			"type precedes data",
+			Memo{Type: overLongType, Data: "line1\nline2"},
+			"memo.type exceeds",
+		},
+		{
+			"format precedes data",
+			Memo{Format: overLongFormat, Data: "line1\nline2"},
+			"memo.format exceeds",
+		},
+		{
+			"length precedes characters within type",
+			Memo{Type: overLongType + " with a space"},
+			"memo.type exceeds",
+		},
+		{
+			"length precedes characters within format",
+			Memo{Format: overLongFormat + " with a space"},
+			"memo.format exceeds",
+		},
+		{
+			"length precedes control check within data",
+			Memo{Data: strings.Repeat("a", memoDataMaxBytes+1) + "\n"},
+			"memo.data exceeds",
+		},
+		{
+			"utf-8 validity precedes the control check within data",
+			Memo{Data: string([]byte{0xff, '\n'})},
+			"memo.data is not valid UTF-8",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.memo.validate()
+			if err == nil {
+				t.Fatalf("memo was accepted; want %q", tc.want)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("err = %q, want it to contain %q (check order changed)", err, tc.want)
 			}
 		})
 	}

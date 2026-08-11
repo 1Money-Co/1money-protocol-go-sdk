@@ -92,16 +92,28 @@ func (m Memo) validate() error {
 		if len(m.Data) > memoDataMaxBytes {
 			return fmt.Errorf("memo.data exceeds %d bytes (got %d)", memoDataMaxBytes, len(m.Data))
 		}
-		// memo.data accepts arbitrary UTF-8 text; only control codepoints are
-		// rejected. Go strings may hold invalid UTF-8, which decodes to
-		// utf8.RuneError -- not a control character, and the node's String
-		// cannot represent it, so reject it explicitly.
+		// SDK-only rule, with no counterpart in Memo::validate(): the node's
+		// memo.data is a Rust String and is therefore UTF-8 by construction, so
+		// its validator has nothing to check. A Go string can hold invalid UTF-8,
+		// which the node's JSON deserializer rejects before validate() ever runs.
+		// Checking it here fails earlier without ever accepting something the node
+		// would reject.
+		//
+		// This must be a whole-string check, not a per-rune one: ranging over a
+		// string yields utf8.RuneError both for genuinely invalid bytes and for a
+		// legitimate U+FFFD, so a per-rune test would reject the replacement
+		// character -- which the node accepts as ordinary text.
+		if !utf8.ValidString(m.Data) {
+			return fmt.Errorf("memo.data is not valid UTF-8")
+		}
+		// memo.data otherwise accepts arbitrary text; only control codepoints are
+		// rejected. unicode.IsControl covers Unicode Cc (U+0000-U+001F and
+		// U+007F-U+009F), exactly matching Rust's char::is_control(). The explicit
+		// NUL test is redundant with it and is kept only to mirror the node's
+		// `c == '\0' || c.is_control()`.
 		for _, ch := range m.Data {
 			if ch == 0 || unicode.IsControl(ch) {
 				return fmt.Errorf("memo.data contains a control character")
-			}
-			if ch == utf8.RuneError {
-				return fmt.Errorf("memo.data is not valid UTF-8")
 			}
 		}
 	}
