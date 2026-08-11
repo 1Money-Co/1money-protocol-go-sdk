@@ -91,8 +91,9 @@ for the migration guide, including how the v2 signing hash is built and why, and
 
 ## v1.3.0: BatchPayment re-baselined (breaking)
 
-**This release breaks `BatchPayment` only.** `BatchPaymentPayload` is
-re-baselined onto the current L1 canonical transaction format:
+**The canonical-format and public-API breaking changes in this release are
+limited to `BatchPayment`.** `BatchPaymentPayload` is re-baselined onto the
+current L1 canonical transaction format:
 
 - `MaxFee` is removed from both the signed payload (`BatchPaymentPayload`) and
   the read-side decoded type (`BatchPaymentData`). Code that sets or reads
@@ -105,8 +106,10 @@ re-baselined onto the current L1 canonical transaction format:
   offline/HSM flow is stale; a stored transaction hash used as a
   reconciliation key will not match.
 
-Every other operation's signing, encoding, and submission behavior is
-unaffected. See
+Every other operation keeps the same signing bytes, wire format, and successful
+submission behavior. Separately, all v2 operations now validate the node's
+static memo rules before signing, so a memo the node would reject is returned as
+a local error instead of being signed and sent first. See
 [MIGRATION.md](./MIGRATION.md#batchpayment-2026-08-10-re-baseline) for the
 caller-facing migration steps and [CHANGELOG.md](./CHANGELOG.md) for the full
 detail.
