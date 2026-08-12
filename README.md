@@ -89,6 +89,76 @@ types, etc.) still work but are deprecated. See [MIGRATION.md](./MIGRATION.md)
 for the migration guide, including how the v2 signing hash is built and why, and
 [CHANGELOG.md](./CHANGELOG.md) for the full change list.
 
+## v1.3.0: BatchPayment re-baselined (breaking)
+
+**The canonical-format and public-API breaking changes in this release are
+limited to `BatchPayment`.** `BatchPaymentPayload` is re-baselined onto the
+current L1 canonical transaction format:
+
+- `MaxFee` is removed from both the signed payload (`BatchPaymentPayload`) and
+  the read-side decoded type (`BatchPaymentData`). Code that sets or reads
+  `MaxFee` on either type no longer compiles.
+- The payload now always signs as `WithMemo<BatchPaymentPayload>`, matching
+  every other v2 operation.
+- **Signing hashes and transaction hashes produced by earlier SDK versions are
+  no longer valid for `BatchPayment`.** Rebuild and re-sign any
+  prepared-but-unsubmitted batch; a cached `SigningHash()` from an
+  offline/HSM flow is stale; a stored transaction hash used as a
+  reconciliation key will not match.
+
+Every other operation keeps the same signing bytes, wire format, and successful
+submission behavior. Separately, all v2 operations now validate the node's
+static memo rules before signing, so a memo the node would reject is returned as
+a local error instead of being signed and sent first. See
+[MIGRATION.md](./MIGRATION.md#batchpayment-2026-08-10-re-baseline) for the
+caller-facing migration steps and [CHANGELOG.md](./CHANGELOG.md) for the full
+detail.
+
+`Transactions().BatchPayment` pays many recipients of one token in a single
+transaction. It is v2-only: a client configured with `WithLegacyV1` returns an
+error before signing or any network call, so there is no legacy fallback.
+
+```go
+payload := onemoney.BatchPaymentPayload{
+    ChainID:   chainID,
+    Nonce:     nonce,
+    Token:     tokenAddress,
+    CreatedAt: createdAt,
+    Operations: []onemoney.PaymentOperation{
+        {Recipient: recipientOne, Amount: amountOne},
+        {Recipient: recipientTwo, Amount: amountTwo},
+    },
+}
+
+resp, _ := client.Transactions().BatchPayment(ctx, payload, signer)
+```
+
+Attach a memo the same way as any other v2 operation, with
+`onemoney.WithMemo(memo)`; omitting it signs the canonical empty memo.
+`OperationsHash` is optional — populate it with
+`DeriveBatchPaymentOperationsHash` if your system needs to publish the
+operation set independently of whatever signs the transaction:
+
+```go
+hash, _ := onemoney.DeriveBatchPaymentOperationsHash(payload.Operations)
+payload.OperationsHash = &hash
+```
+
+Get a non-binding, point-in-time fee quote for an unsigned batch before
+submitting — it does not guarantee admission:
+
+```go
+estimate, _ := client.GetBatchPaymentEstimateFee(ctx, onemoney.BatchPaymentFeeEstimateRequest{
+    From:       fromAddress,
+    Token:      tokenAddress,
+    Operations: payload.Operations,
+})
+```
+
+The SDK rejects only amounts that cannot be encoded as U256 on this unsigned
+path. The estimate service is authoritative for empty batches, recipient and
+amount admission, aggregate overflow, and any future pricing semantics.
+
 ## Example
 
 ### TestNetwork

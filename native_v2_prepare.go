@@ -36,19 +36,18 @@ func validateU256(name string, value *big.Int) error {
 	return nil
 }
 
-func validatePayloadU256(payload any) error {
+// validatePayloadEncodable checks only that a payload's numeric fields can be
+// canonically encoded: every non-nil U256 is non-negative and fits in 256 bits.
+// It says nothing about whether the node would accept the transaction --
+// see validatePayloadAdmissible for that. Encoding is well-defined for payloads
+// the node rejects, and the golden-vector fixtures deliberately pin some of
+// those encodings.
+func validatePayloadEncodable(payload any) error {
 	switch p := payload.(type) {
 	case PaymentPayload:
 		return validateU256("payment.value", p.Value)
 	case BatchPaymentPayload:
-		if err := validateU256("batch.max_fee", p.MaxFee); err != nil {
-			return err
-		}
-		for index, operation := range p.Operations {
-			if err := validateU256(fmt.Sprintf("batch.operations[%d].amount", index), operation.Amount); err != nil {
-				return err
-			}
-		}
+		return validateBatchOperationAmounts(p.Operations)
 	case TokenMintPayload:
 		return validateU256("mint.value", p.Value)
 	case TokenBurnPayload:
@@ -79,58 +78,56 @@ func validatePayloadU256(payload any) error {
 //   - bodyFields:  the flattened JSON request-body fields (e.g. U256 amounts as
 //     decimal strings, addresses as 0x-hex); memo and authorization are added
 //     later, at Authorize time.
-//   - memoCapable: whether the operation carries a memo (false only for
-//     BatchPayment).
 //   - err:         non-nil for an unsupported payload type, or an ambiguous
 //     TokenManageListPayload with no WithManageListKind.
-func resolvePayloadOp(payload any, cfg submitConfig) (op nativeOperationType, payloadList []interface{}, bodyFields map[string]interface{}, memoCapable bool, err error) {
-	if err := validatePayloadU256(payload); err != nil {
-		return 0, nil, nil, false, err
+func resolvePayloadOp(payload any, cfg submitConfig) (op nativeOperationType, payloadList []interface{}, bodyFields map[string]interface{}, err error) {
+	if err := validatePayloadEncodable(payload); err != nil {
+		return 0, nil, nil, err
 	}
 	switch p := payload.(type) {
 	case PaymentPayload:
-		return opPayment, p.rlpList(), p.wireFields(), true, nil
+		return opPayment, p.rlpList(), p.wireFields(), nil
 	case BatchPaymentPayload:
-		return opBatchPayment, p.rlpList(), p.wireFields(), false, nil
+		return opBatchPayment, p.rlpList(), p.wireFields(), nil
 	case TokenIssuePayload:
-		return opTokenIssue, p.rlpList(), p.wireFields(), true, nil
+		return opTokenIssue, p.rlpList(), p.wireFields(), nil
 	case TokenMintPayload:
-		return opTokenMint, p.rlpList(), p.wireFields(), true, nil
+		return opTokenMint, p.rlpList(), p.wireFields(), nil
 	case TokenBurnPayload:
-		return opTokenBurn, p.rlpList(), p.wireFields(), true, nil
+		return opTokenBurn, p.rlpList(), p.wireFields(), nil
 	case TokenBridgeAndMintPayload:
-		return opTokenBridgeAndMint, p.rlpList(), p.wireFields(), true, nil
+		return opTokenBridgeAndMint, p.rlpList(), p.wireFields(), nil
 	case TokenBurnAndBridgePayload:
-		return opTokenBurnAndBridge, p.rlpList(), p.wireFields(), true, nil
+		return opTokenBurnAndBridge, p.rlpList(), p.wireFields(), nil
 	case TokenAuthorityPayload:
-		return opTokenAuthority, p.rlpList(), p.wireFields(), true, nil
+		return opTokenAuthority, p.rlpList(), p.wireFields(), nil
 	case TokenClawbackPayload:
-		return opTokenClawback, p.rlpList(), p.wireFields(), true, nil
+		return opTokenClawback, p.rlpList(), p.wireFields(), nil
 	case PauseTokenPayload:
-		return opTokenPause, p.rlpList(), p.wireFields(), true, nil
+		return opTokenPause, p.rlpList(), p.wireFields(), nil
 	case UpdateMetadataPayload:
-		return opTokenMetadata, p.rlpList(), p.wireFields(), true, nil
+		return opTokenMetadata, p.rlpList(), p.wireFields(), nil
 	case CreateMultiSigPayload:
 		if err := validateMultisigConfig(p.Signers, p.Threshold); err != nil {
-			return 0, nil, nil, false, err
+			return 0, nil, nil, err
 		}
-		return opCreateMultiSig, p.rlpList(), p.wireFields(), true, nil
+		return opCreateMultiSig, p.rlpList(), p.wireFields(), nil
 	case TokenManageListPayload:
 		if cfg.listKind == nil {
-			return 0, nil, nil, false, fmt.Errorf("TokenManageListPayload is ambiguous: pass WithManageListKind(ManageListBlacklist or ManageListWhitelist)")
+			return 0, nil, nil, fmt.Errorf("TokenManageListPayload is ambiguous: pass WithManageListKind(ManageListBlacklist or ManageListWhitelist)")
 		}
 		// The operation type is part of the signing domain, so an unknown kind
 		// must error rather than silently map to blacklist.
 		switch *cfg.listKind {
 		case ManageListBlacklist:
-			return opTokenBlacklist, p.rlpList(), p.wireFields(), true, nil
+			return opTokenBlacklist, p.rlpList(), p.wireFields(), nil
 		case ManageListWhitelist:
-			return opTokenWhitelist, p.rlpList(), p.wireFields(), true, nil
+			return opTokenWhitelist, p.rlpList(), p.wireFields(), nil
 		default:
-			return 0, nil, nil, false, fmt.Errorf("invalid ManageListKind %d", *cfg.listKind)
+			return 0, nil, nil, fmt.Errorf("invalid ManageListKind %d", *cfg.listKind)
 		}
 	default:
-		return 0, nil, nil, false, fmt.Errorf("unsupported payload type %T", payload)
+		return 0, nil, nil, fmt.Errorf("unsupported payload type %T", payload)
 	}
 }
 
@@ -147,7 +144,6 @@ type PreparedTransaction struct {
 	signingHash []byte
 	fields      map[string]interface{}
 	memo        Memo
-	memoCapable bool
 	pathV2      string
 }
 
@@ -162,18 +158,66 @@ func PrepareTransaction(payload any, opts ...SubmitOption) (*PreparedTransaction
 // prepareFromPayload resolves a payload to its operation and builds the
 // PreparedTransaction. It is the single payload -> prepared path, shared by the
 // public PrepareTransaction (offline) and the namespace submit path, so both run
-// on exactly one pipeline.
+// on exactly one pipeline. Every canonical native-v2 operation carries a memo,
+// so there is no memo-capability guard here.
+// The three gates run in the order the node reaches the same conclusions, so a
+// caller that keys on the error to decide what to fix is pointed at the same
+// field the node would point at:
+//
+//  1. Encoding validity and operation resolution. On the node this is request
+//     deserialization, inside the JSON extractor — a value with no U256 wire form
+//     (negative, wider than 256 bits) fails there, before the verifier runs at
+//     all.
+//  2. Memo. The verifier validates the memo for every origin
+//     (om-verifier/src/transaction_verifier.rs) before any operation-specific
+//     rule.
+//  3. Operation-specific static admission rules, which the verifier reaches last.
+//
+// Swapping 1 and 2 would report a bad memo for a payload whose amount cannot be
+// deserialized at all, which is not what the node does.
 func prepareFromPayload(payload any, cfg submitConfig) (*PreparedTransaction, error) {
 	op, err := opFromPayload(payload, cfg)
 	if err != nil {
 		return nil, err
 	}
-	// A memo on an operation that cannot carry one (batch payment) is rejected
-	// rather than silently dropped, so audit data is never lost without notice.
-	// This lives in the shared path so both PrepareTransaction (offline) and the
-	// namespace submit path enforce it identically.
-	if cfg.memoSet && !op.memoCapable {
-		return nil, fmt.Errorf("memo is not supported for this operation (batch payments carry no memo)")
+	if err := cfg.memo.validate(); err != nil {
+		return nil, err
+	}
+	if err := validatePayloadAdmissible(payload); err != nil {
+		return nil, err
+	}
+	return newPrepared(op, cfg.memo)
+}
+
+// validatePayloadAdmissible applies the node's static, governance-independent
+// admission rules. It is the gate that separates "this encodes correctly" from
+// "the node can accept this", and it runs before signing so a caller never
+// spends a signing operation -- or an HSM round trip -- on a transaction that is
+// certain to be rejected.
+//
+// Only BatchPayment carries such rules today. The node's remaining BatchPayment
+// checks are governance-dependent (batch payments enabled, the
+// operations-per-batch limit, the encoded-size limit, fee-asset matching) and
+// stay with the server: the SDK would have to guess at governance state.
+func validatePayloadAdmissible(payload any) error {
+	if batch, ok := payload.(BatchPaymentPayload); ok {
+		return validateBatchPaymentSubmission(batch)
+	}
+	return nil
+}
+
+// prepareCanonical builds a PreparedTransaction for a payload's canonical
+// encoding, WITHOUT the admission gate.
+//
+// It exists because canonical encoding is well-defined for payloads the node
+// would reject at admission -- an arbitrary operations_hash, an empty operation
+// list, a zero amount -- and the golden-vector fixtures deliberately pin those
+// encodings. Only fixture-conformance tests should use it. Every production
+// entry point goes through prepareFromPayload, which gates first.
+func prepareCanonical(payload any, cfg submitConfig) (*PreparedTransaction, error) {
+	op, err := opFromPayload(payload, cfg)
+	if err != nil {
+		return nil, err
 	}
 	return newPrepared(op, cfg.memo)
 }
@@ -197,7 +241,6 @@ func newPrepared(op nativeV2Op, memo Memo) (*PreparedTransaction, error) {
 		signingHash: sh,
 		fields:      op.fields,
 		memo:        memo,
-		memoCapable: op.memoCapable,
 		pathV2:      op.pathV2,
 	}, nil
 }
@@ -232,9 +275,7 @@ func (p *PreparedTransaction) Authorize(sig Signature) (*AuthorizedTransaction, 
 	for k, v := range p.fields {
 		body[k] = v
 	}
-	if p.memoCapable {
-		body["memo"] = p.memo
-	}
+	body["memo"] = p.memo
 	body["authorization"] = singleAuthorization(sig)
 	return &AuthorizedTransaction{op: p.op, txHash: txHash, body: body, path: p.pathV2}, nil
 }

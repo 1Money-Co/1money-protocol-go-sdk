@@ -45,7 +45,7 @@ type Hook interface {
 }
 
 const (
-	mainnetEndpoint = "https://api.1money.network"
+	mainnetEndpoint = "https://api.mainnet.1money.network"
 	testnetEndpoint = "https://api.testnet.1money.network"
 	devnetEndpoint  = "https://api.devnet.1money.network"
 	localEndpoint   = "http://127.0.0.1:18555"

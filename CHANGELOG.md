@@ -4,6 +4,77 @@ All notable changes to the 1Money Protocol Go SDK are documented here. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-08-10
+
+BatchPayment is re-baselined onto the current L1 canonical transaction format,
+and the SDK now rejects statically-invalid transactions before signing instead of
+letting the node reject them.
+
+The BatchPayment format change is **breaking and scoped to BatchPayment only**.
+The new pre-signing validation additionally moves the failure point for input
+that was already destined to be rejected: no previously-accepted transaction
+becomes invalid, but some calls that used to fail at the node now fail locally.
+
+### Changed
+
+- **BREAKING — BatchPayment re-baselined to the current L1 canonical format.**
+  `BatchPaymentPayload.MaxFee` and `BatchPaymentData.MaxFee` are removed; the
+  signed payload is now `WithMemo<BatchPaymentPayload>` for both the default
+  empty memo and a caller-supplied one. The canonical RLP field order is now
+  `chain_id, nonce, token, operations, created_at, operations_hash?, batch_id?`.
+  **Signing hashes and transaction hashes produced by earlier SDK versions are
+  no longer valid for BatchPayment.** BatchPayment is v2-only: a client
+  configured with `WithLegacyV1` returns an error before signing and before any
+  network call.
+- **The node's static rules are now enforced before signing.** Previously these
+  inputs were signed, submitted, and rejected by the node; they now fail locally,
+  which saves a round trip and — with an HSM- or KMS-backed `Signer` — a real key
+  use. For BatchPayment: an empty operation list, a zero-address recipient, an
+  amount of zero (including a `nil` `Amount`, which encodes as zero), a total
+  that overflows U256, and an `OperationsHash` that does not match the canonical
+  hash of `Operations`. For **every** operation: the memo's protocol limits
+  (`type` ≤ 128 B, `format` ≤ 64 B, `data` ≤ 256 B, object ≤ 512 B, URL-safe
+  characters in `type`/`format`, no control codepoints in `data`).
+  The submission path applies these checks in the node's order: scan every
+  recipient and amount, compare an optional operations hash, then fold the total.
+  `GetBatchPaymentEstimateFee` does not duplicate admission policy: it validates
+  only that amounts have a U256 wire representation, then delegates all estimate
+  semantics to the server. Governance-dependent rules — batch payments enabled,
+  the operations-per-batch limit, the encoded-size limit, and fee-asset matching
+  — remain server-side, since the SDK cannot know governance state.
+  `DeriveBatchPaymentOperationsHash` is deliberately unaffected: it mirrors the
+  node's *pure* hash domain and still accepts an empty list and zero amounts.
+
+### Added
+
+- **`Client.GetBatchPaymentEstimateFee`** — a non-binding, point-in-time fee
+  quote for an unsigned batch, via `POST
+  /v1/transactions/batch_payment/estimate_fee`. It does not guarantee
+  admission: the node cannot validate encoded size, authorization, nonce,
+  chain id, timestamp, memo, or operations hash from this request.
+- **`BatchPaymentFeeEstimateRequest`** — the unsigned input to the fee-estimate
+  call (`From`, `Token`, `Operations`), with a value-receiver `MarshalJSON` so
+  a direct `json.Marshal` produces the same wire body the client sends.
+- **`BatchPaymentFeeEstimateRequest.UnmarshalJSON`** — so the public wire type can
+  read back its own output. `MarshalJSON` emits quoted decimal amounts, which
+  `*big.Int`'s default decoder rejects, and without this a marshal/unmarshal round
+  trip failed on the SDK's own body. Only the quoted-decimal form is accepted; a
+  failed decode leaves the receiver untouched rather than half-populated. The round
+  trip is identity on the wire, not on the Go value: a nil `Amount` marshals to
+  `"0"` and returns as an explicit zero, which the protocol defines as the same
+  U256.
+- **`DeriveBatchPaymentOperationsHash`** — computes `keccak256(RLP(operations))`,
+  byte-identical to the node's
+  `BatchPaymentPayload::canonical_operations_hash`; the supported way to
+  populate the optional `BatchPaymentPayload.OperationsHash`. A nil `Amount` is
+  treated as U256 zero; negative or wider-than-U256 amounts return an error;
+  operation order is significant.
+- **`Transactions().BatchPayment`** now accepts `WithMemo`, exactly like every
+  other v2 operation.
+
+See [MIGRATION.md](./MIGRATION.md#batchpayment-2026-08-10-re-baseline) for the
+caller-facing migration steps.
+
 ## [1.2.0] - 2026-07-29
 
 This release is the **complete set of changes since `v1.1.0`**. It does two

@@ -426,8 +426,9 @@ func TestClient_WithHTTPClient(t *testing.T) {
 
 func TestNewClient(t *testing.T) {
 	client := NewClient()
-	if client.baseHost != mainnetEndpoint {
-		t.Errorf("NewClient() baseHost = %s; want %s", client.baseHost, mainnetEndpoint)
+	const wantMainnetEndpoint = "https://api.mainnet.1money.network"
+	if client.baseHost != wantMainnetEndpoint {
+		t.Errorf("NewClient() baseHost = %s; want %s", client.baseHost, wantMainnetEndpoint)
 	}
 	if client.httpclient == nil {
 		t.Error("NewClient() httpclient is nil")

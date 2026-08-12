@@ -1196,11 +1196,10 @@ func TestBusinessFlow_BatchPayment(t *testing.T) {
 			{Recipient: suite.Account2.Address, Amount: amount2},
 			{Recipient: recipient3.Address, Amount: amount3},
 		},
-		MaxFee:    big.NewInt(100000000),
 		CreatedAt: uint64(time.Now().Unix()),
 	}
 
-	t.Logf("📦 Batch paying %d recipients from %s", len(payload.Operations), suite.Account1.Address.Hex())
+	t.Logf("Batch paying %d recipients from %s", len(payload.Operations), suite.Account1.Address.Hex())
 	result, err := suite.Client.Transactions().BatchPayment(ctx, payload, suite.Account1.Signer)
 	if err != nil {
 		t.Fatalf("Failed to submit batch payment: %v", err)
@@ -1218,8 +1217,56 @@ func TestBusinessFlow_BatchPayment(t *testing.T) {
 		assert.Len(t, data.Operations, 2, "expected 2 batch operations")
 	}
 
+	// A native-v2 BatchPayment always signs WithMemo<BatchPaymentPayload>, even
+	// when the caller never calls WithMemo (the SDK defaults to EmptyMemo()).
+	// Assert the node round-trips that default as the canonical empty memo
+	// (three empty strings) rather than as an absent/null field. This is a
+	// genuine node-behavior assertion, unlike a signing-hash cross-check here
+	// would be: submitAuthorized (native_v2_requests.go) already enforces
+	// local/server hash equality before BatchPayment can return success, and
+	// go-ethereum signing is deterministic, so re-deriving and comparing that
+	// hash again would only re-prove what a successful submission already
+	// guarantees — and would false-fail for a KMS/HSM signer whose signatures
+	// are not deterministic.
+	if assert.NotNil(t, tx.Memo, "a native-v2 transaction always carries a memo object, even the canonical empty one") {
+		assert.Equal(t, EmptyMemo(), *tx.Memo, "default BatchPayment submission should round-trip the canonical empty memo")
+	}
+
 	assert.Equal(t, amount2.String(), suite.getTokenBalance(suite.Account2.Address, tokenAddr), "recipient2 balance mismatch")
 	assert.Equal(t, amount3.String(), suite.getTokenBalance(recipient3.Address, tokenAddr), "recipient3 balance mismatch")
+
+	batchData, ok := tx.AsBatchPaymentData()
+	if !ok {
+		t.Fatal("transaction did not decode as BatchPaymentData")
+	}
+	if len(batchData.Operations) != len(payload.Operations) {
+		t.Errorf("decoded %d operations, want %d", len(batchData.Operations), len(payload.Operations))
+	}
+	if batchData.CreatedAt != payload.CreatedAt {
+		t.Errorf("decoded created_at %d, want %d", batchData.CreatedAt, payload.CreatedAt)
+	}
+
+	suite.refreshCheckpoint()
+	memoPayload := payload
+	memoPayload.Nonce = suite.getNonce(suite.Account1.Address)
+	memoPayload.CreatedAt = uint64(time.Now().Unix())
+	memo := Memo{Type: "purpose/PAYROLL", Format: "text/plain", Data: "batch-flow-memo"}
+
+	memoResult, err := suite.Client.Transactions().BatchPayment(ctx, memoPayload, suite.Account1.Signer, WithMemo(memo))
+	if err != nil {
+		t.Fatalf("Failed to submit batch payment with memo: %v", err)
+	}
+	memoReceipt := suite.waitForTransaction(memoResult.Hash, 60*time.Second)
+	if !memoReceipt.Success {
+		t.Fatal("Batch payment with memo failed")
+	}
+	memoTx := suite.fetchTransaction(t, memoResult.Hash)
+	if memoTx.Memo == nil {
+		t.Fatal("batch payment response carried no memo")
+	}
+	if *memoTx.Memo != memo {
+		t.Errorf("memo = %+v, want %+v", *memoTx.Memo, memo)
+	}
 
 	t.Log("\n🎉 Batch payment test passed!")
 }

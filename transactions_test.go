@@ -1,8 +1,16 @@
 package onemoney
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -69,7 +77,6 @@ func payloadCases() []payloadTestCase {
 			txType: TransactionTypeBatchPayment,
 			data: `{
                 "token": "0x1111111111111111111111111111111111111111",
-                "max_fee": "5000",
                 "operations": [
                     {"recipient": "0x2222222222222222222222222222222222222222", "amount": "1000"}
                 ],
@@ -85,7 +92,6 @@ func payloadCases() []payloadTestCase {
 				if assert.NotNil(t, payload.Token) {
 					assert.Equal(t, addr("0x1111111111111111111111111111111111111111"), *payload.Token)
 				}
-				assert.Equal(t, "5000", payload.MaxFee)
 				assert.Equal(t, uint64(1747785600), payload.CreatedAt)
 				if assert.Len(t, payload.Operations, 1) {
 					assert.Equal(t, addr("0x2222222222222222222222222222222222222222"), payload.Operations[0].Recipient)
@@ -410,7 +416,7 @@ func TestTransaction_Unmarshal_AllPayloads(t *testing.T) {
 // (token, operations_hash, batch_id) decode to nil rather than failing the whole
 // Transaction unmarshal — the reason those fields are pointers.
 func TestBatchPayment_Unmarshal_NullOptionals(t *testing.T) {
-	raw := `{"transaction_type":"BatchPayment","data":{"token":null,"max_fee":"0","operations":[],"operations_hash":null,"batch_id":null,"created_at":0}}`
+	raw := `{"transaction_type":"BatchPayment","data":{"token":null,"operations":[],"operations_hash":null,"batch_id":null,"created_at":0}}`
 	var tx Transaction
 	if !assert.NoError(t, json.Unmarshal([]byte(raw), &tx)) {
 		return
@@ -779,4 +785,327 @@ func TestFinalizedTransactionResponse_UnmarshalJSON(t *testing.T) {
 		assert.Equal(t, "100", *finalized.Fee)
 	}
 	assert.True(t, finalized.FeeBound)
+}
+
+// TestBatchPaymentFeeEstimateRequestMarshalsAsWireBody pins the public request
+// type as a correct wire type: lowercase keys and quoted decimal amounts. A bare
+// struct marshal would emit "Amount" as an unquoted JSON number.
+func TestBatchPaymentFeeEstimateRequestMarshalsAsWireBody(t *testing.T) {
+	request := BatchPaymentFeeEstimateRequest{
+		From:  common.HexToAddress("0x3333333333333333333333333333333333333333"),
+		Token: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		Operations: []PaymentOperation{
+			{Recipient: common.HexToAddress("0x2222222222222222222222222222222222222222"), Amount: big.NewInt(100)},
+			{Recipient: common.HexToAddress("0x4444444444444444444444444444444444444444"), Amount: nil},
+		},
+	}
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	for _, key := range []string{"from", "token", "operations"} {
+		if _, ok := body[key]; !ok {
+			t.Errorf("missing key %q in %s", key, encoded)
+		}
+	}
+	var operations []struct {
+		Recipient string `json:"recipient"`
+		Amount    string `json:"amount"`
+	}
+	if err := json.Unmarshal(body["operations"], &operations); err != nil {
+		t.Fatalf("operations must decode with quoted decimal amounts: %v (%s)", err, encoded)
+	}
+	if len(operations) != 2 || operations[0].Amount != "100" || operations[1].Amount != "0" {
+		t.Errorf("operations = %+v, want amounts [\"100\", \"0\"] (nil == U256 zero)", operations)
+	}
+}
+
+// TestBatchPaymentFeeEstimateRequestMarshalJSONRejectsInvalidAmount asserts
+// that a direct json.Marshal validates operation amounts exactly like
+// Client.GetBatchPaymentEstimateFee does. Before this fix, MarshalJSON never
+// called validateBatchOperationAmounts, so json.Marshal of a negative amount
+// silently produced `"amount":"-5"` with a nil error while the client method
+// correctly rejected the same input.
+func TestBatchPaymentFeeEstimateRequestMarshalJSONRejectsInvalidAmount(t *testing.T) {
+	request := BatchPaymentFeeEstimateRequest{
+		From:  common.HexToAddress("0x3333333333333333333333333333333333333333"),
+		Token: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		Operations: []PaymentOperation{
+			{Recipient: common.HexToAddress("0x2222222222222222222222222222222222222222"), Amount: big.NewInt(-5)},
+		},
+	}
+	if _, err := json.Marshal(request); err == nil {
+		t.Fatal("json.Marshal of a negative amount succeeded; want an error")
+	}
+}
+
+// TestGetBatchPaymentEstimateFee asserts the endpoint, the exact request body,
+// and that a null plan decodes.
+func TestGetBatchPaymentEstimateFee(t *testing.T) {
+	request := BatchPaymentFeeEstimateRequest{
+		From:  common.HexToAddress("0x3333333333333333333333333333333333333333"),
+		Token: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		Operations: []PaymentOperation{
+			{Recipient: common.HexToAddress("0x2222222222222222222222222222222222222222"), Amount: big.NewInt(100)},
+		},
+	}
+	wantBody, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var gotPath, gotMethod string
+	var gotBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotMethod = r.URL.Path, r.Method
+		gotBody, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"fee":"1500000000","plan":null}`))
+	}))
+	defer server.Close()
+
+	c := NewClientWithCustomUrl(server.URL)
+	result, err := c.GetBatchPaymentEstimateFee(context.Background(), request)
+	if err != nil {
+		t.Fatalf("GetBatchPaymentEstimateFee: %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %s, want POST", gotMethod)
+	}
+	if gotPath != "/v1/transactions/batch_payment/estimate_fee" {
+		t.Errorf("path = %s, want /v1/transactions/batch_payment/estimate_fee", gotPath)
+	}
+	if !jsonEqual(t, gotBody, wantBody) {
+		t.Errorf("request body\n got %s\nwant %s (must match direct json.Marshal)", gotBody, wantBody)
+	}
+	if result.Fee != "1500000000" {
+		t.Errorf("Fee = %q, want 1500000000", result.Fee)
+	}
+	if result.Plan != nil {
+		t.Errorf("Plan = %v, want nil for a null plan", result.Plan)
+	}
+}
+
+// TestGetBatchPaymentEstimateFeeRejectsOutOfRangeAmount checks the wire's U256
+// bounds before any HTTP request. Admission-validity checks are server-owned.
+func TestGetBatchPaymentEstimateFeeRejectsOutOfRangeAmount(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		_, _ = w.Write([]byte(`{"fee":"0"}`))
+	}))
+	defer server.Close()
+
+	c := NewClientWithCustomUrl(server.URL)
+	tooWide := new(big.Int).Lsh(big.NewInt(1), 256)
+	for _, amount := range []*big.Int{big.NewInt(-1), tooWide} {
+		_, err := c.GetBatchPaymentEstimateFee(context.Background(), BatchPaymentFeeEstimateRequest{
+			From:       common.HexToAddress("0x3333333333333333333333333333333333333333"),
+			Token:      common.HexToAddress("0x1111111111111111111111111111111111111111"),
+			Operations: []PaymentOperation{{Recipient: repeatAddr(0x22), Amount: amount}},
+		})
+		if err == nil {
+			t.Fatalf("amount %s was accepted; want an error", amount)
+		}
+	}
+	if requests != 0 {
+		t.Errorf("issued %d HTTP requests, want 0", requests)
+	}
+}
+
+func TestGetBatchPaymentEstimateFeeDelegatesAdmissionToServer(t *testing.T) {
+	maxU256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
+	cases := []struct {
+		name       string
+		operations []PaymentOperation
+	}{
+		{name: "empty operations"},
+		{
+			name:       "zero recipient",
+			operations: []PaymentOperation{{Recipient: common.Address{}, Amount: big.NewInt(1)}},
+		},
+		{
+			name:       "zero amount",
+			operations: []PaymentOperation{{Recipient: repeatAddr(0x22), Amount: big.NewInt(0)}},
+		},
+		{
+			name: "total overflow",
+			operations: []PaymentOperation{
+				{Recipient: repeatAddr(0x22), Amount: maxU256},
+				{Recipient: repeatAddr(0x23), Amount: big.NewInt(1)},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			requests := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requests++
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"fee":"1","plan":null}`))
+			}))
+			defer server.Close()
+
+			client := NewClientWithCustomUrl(server.URL)
+			result, err := client.GetBatchPaymentEstimateFee(context.Background(), BatchPaymentFeeEstimateRequest{
+				From:       repeatAddr(0x33),
+				Token:      repeatAddr(0x11),
+				Operations: tc.operations,
+			})
+			if err != nil {
+				t.Fatalf("GetBatchPaymentEstimateFee: %v", err)
+			}
+			if result.Fee != "1" {
+				t.Errorf("fee = %q, want 1", result.Fee)
+			}
+			if requests != 1 {
+				t.Errorf("issued %d HTTP requests, want 1", requests)
+			}
+		})
+	}
+}
+
+// TestBatchOperationEncodingIsSharedBySubmitAndEstimate pins design §9.4: one
+// operation serializer feeds both requests, so amounts can never drift into two
+// representations.
+func TestBatchOperationEncodingIsSharedBySubmitAndEstimate(t *testing.T) {
+	operations := []PaymentOperation{
+		{Recipient: common.HexToAddress("0x2222222222222222222222222222222222222222"), Amount: big.NewInt(100)},
+		{Recipient: common.HexToAddress("0x4444444444444444444444444444444444444444"), Amount: nil},
+	}
+
+	submitBody := BatchPaymentPayload{
+		ChainID: 1, Nonce: 1, Token: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		Operations: operations, CreatedAt: 1,
+	}.wireFields()
+	submitOperations, err := json.Marshal(submitBody["operations"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	estimate, err := json.Marshal(BatchPaymentFeeEstimateRequest{
+		From:       common.HexToAddress("0x3333333333333333333333333333333333333333"),
+		Token:      common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		Operations: operations,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var estimateBody map[string]json.RawMessage
+	if err := json.Unmarshal(estimate, &estimateBody); err != nil {
+		t.Fatal(err)
+	}
+
+	if !jsonEqual(t, submitOperations, estimateBody["operations"]) {
+		t.Errorf("operations encoding differs\n submit   = %s\n estimate = %s", submitOperations, estimateBody["operations"])
+	}
+	if !strings.Contains(string(submitOperations), `"amount":"100"`) {
+		t.Errorf("submit amounts must be quoted decimal strings, got %s", submitOperations)
+	}
+}
+
+// jsonEqual reports whether two JSON documents are semantically equal.
+func jsonEqual(t *testing.T, a, b []byte) bool {
+	t.Helper()
+	var av, bv interface{}
+	if err := json.Unmarshal(a, &av); err != nil {
+		t.Fatalf("unmarshal a: %v (%s)", err, a)
+	}
+	if err := json.Unmarshal(b, &bv); err != nil {
+		t.Fatalf("unmarshal b: %v (%s)", err, b)
+	}
+	return reflect.DeepEqual(av, bv)
+}
+
+// TestBatchPaymentFeeEstimateRequestRoundTrips pins that the public DTO can read
+// back its own wire output. MarshalJSON emits quoted decimal amounts, which the
+// default *big.Int decoder rejects, so UnmarshalJSON is what makes the type a
+// complete wire type rather than a marshal-only one.
+//
+// The round trip is identity on the WIRE, not on the Go value: a nil Amount
+// marshals to "0" and returns as an explicit zero. The protocol defines those as
+// the same U256, so re-marshalling must produce byte-identical output -- that is
+// the invariant worth asserting.
+func TestBatchPaymentFeeEstimateRequestRoundTrips(t *testing.T) {
+	req := BatchPaymentFeeEstimateRequest{
+		From:  common.HexToAddress("0x3333333333333333333333333333333333333333"),
+		Token: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		Operations: []PaymentOperation{
+			{Recipient: common.HexToAddress("0x2222222222222222222222222222222222222222"), Amount: big.NewInt(100)},
+			{Recipient: common.HexToAddress("0x4444444444444444444444444444444444444444"), Amount: nil},
+			{Recipient: common.HexToAddress("0x5555555555555555555555555555555555555555"), Amount: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))},
+		},
+	}
+
+	first, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var back BatchPaymentFeeEstimateRequest
+	if err := json.Unmarshal(first, &back); err != nil {
+		t.Fatalf("unmarshal of our own output must succeed: %v (body %s)", err, first)
+	}
+	if back.From != req.From || back.Token != req.Token {
+		t.Errorf("addresses did not survive: from=%s token=%s", back.From.Hex(), back.Token.Hex())
+	}
+	if len(back.Operations) != len(req.Operations) {
+		t.Fatalf("decoded %d operations, want %d", len(back.Operations), len(req.Operations))
+	}
+	if back.Operations[1].Amount == nil || back.Operations[1].Amount.Sign() != 0 {
+		t.Errorf("nil amount must return as explicit zero, got %v", back.Operations[1].Amount)
+	}
+
+	second, err := json.Marshal(back)
+	if err != nil {
+		t.Fatalf("re-marshal: %v", err)
+	}
+	if !bytes.Equal(first, second) {
+		t.Errorf("round trip is not wire-identity:\n first  = %s\n second = %s", first, second)
+	}
+}
+
+// TestBatchPaymentFeeEstimateRequestUnmarshalRejects covers the decoder's own
+// rules, including that a rejected document leaves the receiver untouched rather
+// than half-populated -- the reason UnmarshalJSON parses into a temporary.
+func TestBatchPaymentFeeEstimateRequestUnmarshalRejects(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"bare number amount", `{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":100}]}`, "cannot unmarshal"},
+		{"non-decimal amount", `{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":"0x64"}]}`, "not a decimal string"},
+		{"empty amount", `{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":""}]}`, "not a decimal string"},
+		{"negative amount", `{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":"-5"}]}`, "must be non-negative"},
+		{
+			"amount wider than U256",
+			`{"from":"0x1111111111111111111111111111111111111111","token":"0x2222222222222222222222222222222222222222","operations":[{"recipient":"0x3333333333333333333333333333333333333333","amount":"115792089237316195423570985008687907853269984665640564039457584007913129639936"}]}`,
+			"exceeds U256",
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			sentinel := BatchPaymentFeeEstimateRequest{Token: common.HexToAddress("0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead")}
+			got := sentinel
+			err := json.Unmarshal([]byte(tc.body), &got)
+			if err == nil {
+				t.Fatalf("body was accepted; want %q", tc.want)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("err = %q, want it to contain %q", err, tc.want)
+			}
+			// A failed decode must not leave a half-populated receiver.
+			if got.Token != sentinel.Token || got.From != sentinel.From || got.Operations != nil {
+				t.Errorf("receiver was mutated by a failed decode: %+v", got)
+			}
+		})
+	}
 }

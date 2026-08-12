@@ -30,18 +30,16 @@ func singleAuthorization(sig Signature) nativeAuthorization {
 // nativeV2Op carries everything the submit core needs for one operation.
 type nativeV2Op struct {
 	op          nativeOperationType
-	payloadList []interface{}          // canonical RLP field list (Task: native_v2_encoding.go)
-	fields      map[string]interface{} // flattened JSON body fields (native_v2_wire.go)
-	memoCapable bool                   // false only for BatchPayment
+	payloadList []interface{}          // canonical RLP field list (native_v2_encoding.go)
+	fields      map[string]interface{} // flattened JSON body fields (native_v2_encoding.go)
 	pathV1      string
 	pathV2      string
 }
 
+// payloadRLP builds payload_rlp for the canonical native-v2 form. All fourteen
+// operations are WithMemo<Payload>; there is no bare-payload alternative.
 func (op nativeV2Op) payloadRLP(memo Memo) ([]byte, error) {
-	if op.memoCapable {
-		return encodeWithMemo(op.payloadList, memo)
-	}
-	return encodeBare(op.payloadList)
+	return encodeWithMemo(op.payloadList, memo)
 }
 
 // TransactionResponse is the minimal submission response (just the transaction
@@ -121,55 +119,57 @@ func (r *PauseTokenResponse) TxHash() string         { return r.Hash }
 
 // pathsForOp returns the legacy v1 and domain-separated v2 REST paths for an
 // operation. Single source of truth for native write endpoints.
-func pathsForOp(op nativeOperationType) (v1, v2 string) {
+func pathsForOp(op nativeOperationType) (v1, v2 string, err error) {
 	switch op {
 	case opPayment:
-		return "/v1/transactions/payment", "/v2/transactions/payment"
+		return "/v1/transactions/payment", "/v2/transactions/payment", nil
 	case opBatchPayment:
-		return "/v1/transactions/batch_payment", "/v2/transactions/batch_payment"
+		return "", "/v2/transactions/batch_payment", nil // v2-only; the /v1 route is deprecated on L1
 	case opTokenIssue:
-		return "/v1/tokens/issue", "/v2/tokens/issue"
+		return "/v1/tokens/issue", "/v2/tokens/issue", nil
 	case opTokenMint:
-		return "/v1/tokens/mint", "/v2/tokens/mint"
+		return "/v1/tokens/mint", "/v2/tokens/mint", nil
 	case opTokenBurn:
-		return "/v1/tokens/burn", "/v2/tokens/burn"
+		return "/v1/tokens/burn", "/v2/tokens/burn", nil
 	case opTokenBridgeAndMint:
-		return "/v1/tokens/bridge_and_mint", "/v2/tokens/bridge_and_mint"
+		return "/v1/tokens/bridge_and_mint", "/v2/tokens/bridge_and_mint", nil
 	case opTokenBurnAndBridge:
-		return "/v1/tokens/burn_and_bridge", "/v2/tokens/burn_and_bridge"
+		return "/v1/tokens/burn_and_bridge", "/v2/tokens/burn_and_bridge", nil
 	case opTokenAuthority:
-		return "/v1/tokens/grant_authority", "/v2/tokens/grant_authority"
+		return "/v1/tokens/grant_authority", "/v2/tokens/grant_authority", nil
 	case opTokenClawback:
-		return "/v1/tokens/clawback", "/v2/tokens/clawback"
+		return "/v1/tokens/clawback", "/v2/tokens/clawback", nil
 	case opTokenBlacklist:
-		return "/v1/tokens/manage_blacklist", "/v2/tokens/manage_blacklist"
+		return "/v1/tokens/manage_blacklist", "/v2/tokens/manage_blacklist", nil
 	case opTokenWhitelist:
-		return "/v1/tokens/manage_whitelist", "/v2/tokens/manage_whitelist"
+		return "/v1/tokens/manage_whitelist", "/v2/tokens/manage_whitelist", nil
 	case opTokenPause:
-		return "/v1/tokens/pause", "/v2/tokens/pause"
+		return "/v1/tokens/pause", "/v2/tokens/pause", nil
 	case opTokenMetadata:
-		return "/v1/tokens/update_metadata", "/v2/tokens/update_metadata"
+		return "/v1/tokens/update_metadata", "/v2/tokens/update_metadata", nil
 	case opCreateMultiSig:
-		return "", "/v2/accounts/multisig" // v2-only, no legacy form
+		return "", "/v2/accounts/multisig", nil // v2-only, no legacy form
 	default:
-		return "", ""
+		return "", "", fmt.Errorf("%s: no domain-separated v2 endpoint configured", op.label())
 	}
 }
 
 // opFromPayload builds a complete submit operation from a payload value and
-// config, sourcing operation type, RLP list, body fields, memo-capability, and
-// REST paths from the single central mappings.
+// config, sourcing operation type, RLP list, body fields, and REST paths from
+// the single central mappings.
 func opFromPayload(payload any, cfg submitConfig) (nativeV2Op, error) {
-	op, list, fields, memoCapable, err := resolvePayloadOp(payload, cfg)
+	op, list, fields, err := resolvePayloadOp(payload, cfg)
 	if err != nil {
 		return nativeV2Op{}, err
 	}
-	v1, v2 := pathsForOp(op)
+	v1, v2, err := pathsForOp(op)
+	if err != nil {
+		return nativeV2Op{}, err
+	}
 	return nativeV2Op{
 		op:          op,
 		payloadList: list,
 		fields:      fields,
-		memoCapable: memoCapable,
 		pathV1:      v1,
 		pathV2:      v2,
 	}, nil
@@ -185,18 +185,23 @@ func (c *Client) submitPayload(ctx context.Context, payload any, cfg submitConfi
 		return fmt.Errorf("nil signer: pass a Signer (e.g. NewPrivateKeySigner or a KMS/HSM-backed one)")
 	}
 	// Legacy v1 signs the bare payload and does not use a PreparedTransaction.
+	// Resolution runs first so a v2-only operation reports its own capability
+	// error rather than being masked by the generic legacy-memo guard.
 	if c.mode() == SubmissionModeLegacyV1 {
-		if cfg.memoSet {
-			return fmt.Errorf("memo is not supported in legacy v1 submission mode; use the default v2 mode to sign a memo")
-		}
 		op, err := opFromPayload(payload, cfg)
 		if err != nil {
 			return err
 		}
+		if op.pathV1 == "" {
+			return fmt.Errorf("%s requires domain-separated v2 submission mode", op.op.label())
+		}
+		if cfg.memoSet {
+			return fmt.Errorf("memo is not supported in legacy v1 submission mode; use the default v2 mode to sign a memo")
+		}
 		return c.submitLegacyV1(ctx, op, signer, out)
 	}
-	// prepareFromPayload rejects a memo on a memo-incapable operation (e.g. batch
-	// payment), so no separate check is needed here.
+	// Every canonical v2 operation is memo-bearing, so a memo needs no capability
+	// check here — prepareFromPayload folds it into the signed preimage.
 	prepared, err := prepareFromPayload(payload, cfg)
 	if err != nil {
 		return err

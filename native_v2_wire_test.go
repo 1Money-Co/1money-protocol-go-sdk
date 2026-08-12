@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"math/big"
 	"testing"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func authorizeForAlias(t *testing.T, payload any) *AuthorizedTransaction {
@@ -62,11 +60,18 @@ func TestAuthorizedBodyDoesNotAliasPayload(t *testing.T) {
 	})
 
 	t.Run("operations_hash", func(t *testing.T) {
-		h := common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111")
+		operations := []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1)}}
+		// Derive the hash rather than inventing one: the submission gate rejects a
+		// non-canonical operations_hash, and this subtest is about pointer
+		// aliasing in the wire body, not about the hash's value.
+		h, err := DeriveBatchPaymentOperationsHash(operations)
+		if err != nil {
+			t.Fatalf("derive operations hash: %v", err)
+		}
 		payload := BatchPaymentPayload{
 			ChainID: 1, Nonce: 1, Token: repeatAddr(0x01),
-			Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1)}},
-			MaxFee:     big.NewInt(1), CreatedAt: 1, OperationsHash: &h,
+			Operations: operations,
+			CreatedAt:  1, OperationsHash: &h,
 		}
 		authorized := authorizeForAlias(t, payload)
 		before, _ := json.Marshal(authorized.body)

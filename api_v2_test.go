@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -37,7 +38,7 @@ func batchPaymentFixture() BatchPaymentPayload {
 	return BatchPaymentPayload{
 		ChainID: 1, Nonce: 1, Token: repeatAddr(0x01),
 		Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1)}},
-		MaxFee:     big.NewInt(1), CreatedAt: 1,
+		CreatedAt:  1,
 	}
 }
 
@@ -46,7 +47,6 @@ func paymentOp(p PaymentPayload) nativeV2Op {
 		op:          opPayment,
 		payloadList: p.rlpList(),
 		fields:      p.wireFields(),
-		memoCapable: true,
 		pathV1:      "/v1/transactions/payment",
 		pathV2:      "/v2/transactions/payment",
 	}
@@ -207,13 +207,25 @@ func TestLegacyModeRejectsMemo(t *testing.T) {
 	}
 }
 
-// TestBatchPaymentRejectsMemo asserts that an explicit memo is rejected (not
-// silently dropped) for batch payments, which carry no memo.
-func TestBatchPaymentRejectsMemo(t *testing.T) {
-	c := NewClient()
-	_, err := c.Transactions().BatchPayment(context.Background(), batchPaymentFixture(), testSigner(t), WithMemo(Memo{Type: "purpose/SALA"}))
-	if err == nil {
-		t.Fatal("expected memo-not-supported error for batch payment, got nil")
+// TestBatchPaymentSubmitsMemo asserts the batch v2 body always carries the
+// three-field memo object, which the L1 BatchPaymentRequestV2 requires.
+func TestBatchPaymentSubmitsMemo(t *testing.T) {
+	memo := Memo{Type: "purpose/PAYROLL", Format: "text/plain", Data: "may-2026"}
+	var gotMemo json.RawMessage
+	var gotPath string
+	hc := fakeHTTPClient(nil, func(path string, body map[string]json.RawMessage) interface{} {
+		gotPath, gotMemo = path, body["memo"]
+		return map[string]string{"hash": v2HashFromBody(body, opBatchPayment, batchPaymentFixture().rlpList(), memo)}
+	})
+	c := NewClientWithCustomUrl("http://sdk.test", WithHTTPClient(hc))
+	if _, err := c.Transactions().BatchPayment(context.Background(), batchPaymentFixture(), testSigner(t), WithMemo(memo)); err != nil {
+		t.Fatalf("batch payment with memo should succeed: %v", err)
+	}
+	if gotPath != "/v2/transactions/batch_payment" {
+		t.Errorf("path = %q, want /v2/transactions/batch_payment", gotPath)
+	}
+	if string(gotMemo) != `{"type":"purpose/PAYROLL","format":"text/plain","data":"may-2026"}` {
+		t.Errorf("memo = %s, want the full three-field object", gotMemo)
 	}
 }
 
@@ -397,5 +409,118 @@ func TestSubmitHashMismatchFailsClosed(t *testing.T) {
 	c := NewClientWithCustomUrl("http://sdk.test", WithHTTPClient(hc))
 	if _, err := c.Submit(context.Background(), authorized); err == nil {
 		t.Fatal("expected hash-mismatch error from Submit, got nil")
+	}
+}
+
+// TestLegacyModeRejectsV2OnlyOperations pins the generic capability check: an
+// operation with no v1 path fails before signing and before any HTTP request,
+// with a stable v2-only error. BatchPayment has no namespace-level guard, so
+// this is its only protection. CreateMultisig already has a namespace-level
+// guard (accounts.go:97-99) that fires first with a more specific message; the
+// generic check still covers it as defense-in-depth for callers that reach the
+// unexported submit core directly.
+func TestLegacyModeRejectsV2OnlyOperations(t *testing.T) {
+	newLegacyClient := func(t *testing.T, requests *int) *Client {
+		t.Helper()
+		hc := fakeHTTPClient(nil, func(_ string, _ map[string]json.RawMessage) interface{} {
+			*requests++
+			return map[string]string{"hash": "0x00"}
+		})
+		return NewClientWithCustomUrl("http://sdk.test", WithHTTPClient(hc), WithLegacyV1())
+	}
+
+	t.Run("batch payment default memo", func(t *testing.T) {
+		requests := 0
+		c := newLegacyClient(t, &requests)
+		_, err := c.Transactions().BatchPayment(context.Background(), batchPaymentFixture(), testSigner(t))
+		if err == nil || !strings.Contains(err.Error(), "batch payment requires domain-separated v2 submission mode") {
+			t.Fatalf("err = %v, want the batch payment v2-only error", err)
+		}
+		if requests != 0 {
+			t.Errorf("issued %d HTTP requests, want 0", requests)
+		}
+	})
+
+	t.Run("batch payment explicit memo", func(t *testing.T) {
+		requests := 0
+		c := newLegacyClient(t, &requests)
+		_, err := c.Transactions().BatchPayment(context.Background(), batchPaymentFixture(), testSigner(t), WithMemo(Memo{Type: "purpose/SALA"}))
+		if err == nil || !strings.Contains(err.Error(), "batch payment requires domain-separated v2 submission mode") {
+			t.Fatalf("err = %v, want the v2-only error, not the generic legacy-memo error", err)
+		}
+		if requests != 0 {
+			t.Errorf("issued %d HTTP requests, want 0", requests)
+		}
+	})
+
+	// CreateMultisig already has its own namespace-level v2-only guard at
+	// accounts.go:97-99 with a more specific message, and it returns before
+	// reaching submitPayload. That guard stays — this subtest pins its behavior
+	// rather than replacing it.
+	t.Run("create multisig namespace guard", func(t *testing.T) {
+		requests := 0
+		c := newLegacyClient(t, &requests)
+		payload := CreateMultiSigPayload{
+			ChainID: 1, Nonce: 1,
+			Signers:   []MultiSigSigner{{PublicKey: validPubkey(t, 2), Weight: 1}},
+			Threshold: 1,
+		}
+		_, err := c.Accounts().CreateMultisig(context.Background(), payload, testSigner(t))
+		if err == nil || !strings.Contains(err.Error(), "has no legacy v1 endpoint") {
+			t.Fatalf("err = %v, want the existing multisig v2-only error", err)
+		}
+		if requests != 0 {
+			t.Errorf("issued %d HTTP requests, want 0", requests)
+		}
+	})
+
+	// The generic capability check is what protects a v2-only operation that has
+	// no namespace-level guard. Exercise it through the unexported submit core,
+	// which is the only path that reaches it for CreateMultisig.
+	t.Run("create multisig generic capability check", func(t *testing.T) {
+		requests := 0
+		c := newLegacyClient(t, &requests)
+		payload := CreateMultiSigPayload{
+			ChainID: 1, Nonce: 1,
+			Signers:   []MultiSigSigner{{PublicKey: validPubkey(t, 2), Weight: 1}},
+			Threshold: 1,
+		}
+		out := new(CreateMultisigResponse)
+		err := c.submitPayload(context.Background(), payload, resolveSubmit(nil), testSigner(t), out)
+		if err == nil || !strings.Contains(err.Error(), "create multisig requires domain-separated v2 submission mode") {
+			t.Fatalf("err = %v, want the generic v2-only capability error", err)
+		}
+		if requests != 0 {
+			t.Errorf("issued %d HTTP requests, want 0", requests)
+		}
+	})
+}
+
+// TestLegacyModeResolvesOperationBeforeMemoGuard documents the intentional
+// error-precedence change from moving operation resolution ahead of the legacy
+// memo guard: an ambiguous v1-capable operation now reports the more specific
+// resolution error rather than the generic legacy-memo error.
+//
+// This goes through the unexported submitPayload rather than a namespace method
+// because Tokens().ManageBlacklist / ManageWhitelist always inject cfg.listKind
+// (tokens.go:196-199, 206-209), so an ambiguous TokenManageListPayload is
+// unreachable through the public namespace API.
+func TestLegacyModeResolvesOperationBeforeMemoGuard(t *testing.T) {
+	requests := 0
+	hc := fakeHTTPClient(nil, func(_ string, _ map[string]json.RawMessage) interface{} {
+		requests++
+		return map[string]string{"hash": "0x00"}
+	})
+	c := NewClientWithCustomUrl("http://sdk.test", WithHTTPClient(hc), WithLegacyV1())
+	payload := TokenManageListPayload{ChainID: 1, Nonce: 1, Action: ManageListActionAdd, Address: repeatAddr(0x06), Token: repeatAddr(0x01)}
+	// No listKind, plus an explicit memo: resolution must fail first.
+	cfg := resolveSubmit([]SubmitOption{WithMemo(Memo{Type: "purpose/SALA"})})
+	out := new(SetTokenManageListResponse)
+	err := c.submitPayload(context.Background(), payload, cfg, testSigner(t), out)
+	if err == nil || !strings.Contains(err.Error(), "ambiguous") {
+		t.Fatalf("err = %v, want the ambiguous-operation error before the legacy-memo error", err)
+	}
+	if requests != 0 {
+		t.Errorf("issued %d HTTP requests, want 0", requests)
 	}
 }

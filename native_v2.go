@@ -41,16 +41,10 @@ func memoList(m Memo) []interface{} {
 	return []interface{}{[]byte(m.Type), []byte(m.Format), []byte(m.Data)}
 }
 
-// encodeWithMemo builds payload_rlp = rlp([ payloadList, memoList ]) for a
-// memo-capable operation.
+// encodeWithMemo builds payload_rlp = rlp([ payloadList, memoList ]), the
+// canonical form for every native-v2 operation.
 func encodeWithMemo(payloadList []interface{}, m Memo) ([]byte, error) {
 	return rlp.EncodeToBytes([]interface{}{payloadList, memoList(m)})
-}
-
-// encodeBare builds payload_rlp = rlp(payloadList) for an operation with no
-// memo wrapper (BatchPayment).
-func encodeBare(payloadList []interface{}) ([]byte, error) {
-	return rlp.EncodeToBytes(payloadList)
 }
 
 // singleDescriptor is the SingleSecp256k1 authorization descriptor: [0].
@@ -207,3 +201,17 @@ func boolToUint(b bool) uint64 {
 
 // hexLower renders bytes as a lowercase 0x-prefixed hex string.
 func hexLower(b []byte) string { return "0x" + common.Bytes2Hex(b) }
+
+// label returns a human-readable operation name for endpoint and capability
+// errors. Known v2-only operations have stable labels; an unmapped future value
+// falls back to its numeric operation id.
+func (op nativeOperationType) label() string {
+	switch op {
+	case opBatchPayment:
+		return "batch payment"
+	case opCreateMultiSig:
+		return "create multisig"
+	default:
+		return fmt.Sprintf("native operation %d", uint16(op))
+	}
+}

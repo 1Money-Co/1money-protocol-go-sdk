@@ -112,7 +112,7 @@ func TestNativeV2PayloadEncoders(t *testing.T) {
 	cases := []struct {
 		name string
 		list []interface{}
-		memo *Memo // nil => bare (no WithMemo wrapper), e.g. BatchPayment
+		memo *Memo // always set: every canonical operation is WithMemo<Payload>
 	}{
 		{"Payment_single", PaymentPayload{ChainID: fixtureChainID, Nonce: 1, Recipient: repeatAddr(0x02), Value: big.NewInt(1_000_000_000_000_000_000), Token: repeatAddr(0x01)}.rlpList(), &populatedMemo},
 		{"TokenIssue_single", TokenIssuePayload{ChainID: fixtureChainID, Nonce: 2, Symbol: "TEST", Name: "Test Token", Decimals: 8, MasterAuthority: repeatAddr(0x03), IsPrivate: false, ClawbackEnabled: true}.rlpList(), &emptyMemo},
@@ -127,7 +127,7 @@ func TestNativeV2PayloadEncoders(t *testing.T) {
 		{"TokenBridgeAndMint_single", TokenBridgeAndMintPayload{ChainID: fixtureChainID, Nonce: 11, Recipient: repeatAddr(0x0a), Value: big.NewInt(1_000_000_000), Token: repeatAddr(0x01), SourceChainID: 1, SourceTxHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", BridgeMetadata: ""}.rlpList(), &emptyMemo},
 		{"TokenBurnAndBridge_single", TokenBurnAndBridgePayload{ChainID: fixtureChainID, Nonce: 12, Sender: repeatAddr(0x0b), Value: big.NewInt(500_000_000), Token: repeatAddr(0x01), DestinationChainID: 1, DestinationAddress: "0x1234567890abcdef1234567890abcdef12345678", EscrowFee: big.NewInt(1_000_000), BridgeMetadata: "", BridgeParam: HexBytes{}}.rlpList(), &emptyMemo},
 		{"CreateMultiSig_single", CreateMultiSigPayload{ChainID: fixtureChainID, Nonce: 13, Signers: []MultiSigSigner{{PublicKey: pk1, Weight: 1}, {PublicKey: pk2, Weight: 1}}, Threshold: 2}.rlpList(), &emptyMemo},
-		{"BatchPayment_single", BatchPaymentPayload{ChainID: fixtureChainID, Nonce: 14, Token: repeatAddr(0x01), Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1000)}, {Recipient: repeatAddr(0x0d), Amount: big.NewInt(2000)}}, MaxFee: big.NewInt(5000), CreatedAt: 1_747_785_600}.rlpList(), nil},
+		{"BatchPayment_single", BatchPaymentPayload{ChainID: fixtureChainID, Nonce: 14, Token: repeatAddr(0x01), Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1000)}, {Recipient: repeatAddr(0x0d), Amount: big.NewInt(2000)}}, CreatedAt: 1_747_785_600}.rlpList(), &emptyMemo},
 		{"payment_memo_empty", PaymentPayload{ChainID: fixtureChainID, Nonce: 1, Recipient: repeatAddr(0x02), Value: big.NewInt(1_000_000_000_000_000_000), Token: repeatAddr(0x01)}.rlpList(), &emptyMemo},
 		{"payment_memo_populated", PaymentPayload{ChainID: fixtureChainID, Nonce: 1, Recipient: repeatAddr(0x02), Value: big.NewInt(1_000_000_000_000_000_000), Token: repeatAddr(0x01)}.rlpList(), &populatedMemo},
 	}
@@ -139,13 +139,7 @@ func TestNativeV2PayloadEncoders(t *testing.T) {
 			if !ok {
 				t.Fatalf("no golden vector named %q", tc.name)
 			}
-			var got []byte
-			var err error
-			if tc.memo == nil {
-				got, err = encodeBare(tc.list)
-			} else {
-				got, err = encodeWithMemo(tc.list, *tc.memo)
-			}
+			got, err := encodeWithMemo(tc.list, *tc.memo)
 			if err != nil {
 				t.Fatalf("encode: %v", err)
 			}

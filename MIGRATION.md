@@ -60,9 +60,72 @@ Notes:
 
 - `GrantAuthority`/`RevokeAuthority` and `Pause`/`Unpause` set the payload
   `Action` for you — you no longer set it by hand.
-- Attach a signed memo with `onemoney.WithMemo(memo)`. Batch payments and the
-  legacy path carry no memo, so passing `WithMemo` there returns an error rather
-  than dropping it silently.
+- Attach a signed memo with `onemoney.WithMemo(memo)`. BatchPayment is
+  memo-bearing like every other v2 operation. Only the legacy v1 path carries
+  no memo, so passing `WithMemo` there returns an error rather than dropping it
+  silently.
+
+## BatchPayment (2026-08-10 re-baseline)
+
+BatchPayment was re-baselined onto the current L1 canonical format. Signing
+hashes and transaction hashes produced by earlier SDK versions are no longer
+valid for BatchPayment; every other operation is unaffected. Concretely:
+
+- Discard any batch you prepared but did not yet submit under an earlier SDK
+  version, and rebuild + re-sign it with the current one — its old signing
+  hash will not match what the node now expects.
+- If an offline/HSM flow cached a `PreparedTransaction.SigningHash()` for a
+  batch, that cached digest is stale; re-run `PrepareTransaction` and re-sign
+  rather than reusing it.
+- If you store a `BatchPayment` transaction hash as a reconciliation key
+  (e.g. matching submitted batches against node records), a hash computed by
+  an earlier SDK version will not match the node's hash for the same logical
+  batch.
+
+1. Remove `MaxFee` from every `BatchPaymentPayload` literal — the field no
+   longer exists.
+2. **Read-type migration:** remove any use of `BatchPaymentData.MaxFee`
+   (reached via `tx.AsBatchPaymentData().MaxFee`) — the read DTO field is also
+   removed. This is a separate compile break from step 1 and is easy to miss
+   because it does not touch payload-construction code.
+3. Keep calling `Transactions().BatchPayment`; the method shape is unchanged.
+4. Pass `WithMemo(m)` to attach a memo. Omitting it signs the canonical empty
+   memo, exactly as with every other v2 operation.
+5. Do not configure the client with `WithLegacyV1` for BatchPayment; it is
+   v2-only and returns an error before signing.
+6. Call `GetBatchPaymentEstimateFee` for a non-binding fee quote. The SDK checks
+   only U256 wire encodability on this unsigned path; the estimate service owns
+   admission and pricing semantics.
+7. Call `DeriveBatchPaymentOperationsHash` before setting the optional
+   `OperationsHash` field. If you set it and then edit `Operations`, re-derive:
+   `PrepareTransaction` now rejects a stale hash instead of letting the node do
+   it.
+8. **Expect some failures to move earlier.** These inputs were previously signed
+   and submitted, then rejected by the node; they now fail locally in
+   `PrepareTransaction` (or in the namespace submit method) before signing:
+
+   | Input | Now rejected because |
+   |---|---|
+   | `Operations` empty | the node requires a non-empty list |
+   | a recipient equal to the zero address | the node rejects it per operation |
+   | an amount of `0`, or a `nil` `Amount` | the node requires a strictly positive amount, and `nil` encodes as zero |
+   | amounts summing past `2^256-1` | the node's total-amount overflow guard |
+   | `OperationsHash` not matching `Operations` | the node re-derives and compares it |
+   | a memo over `type` 128 B / `format` 64 B / `data` 256 B, non-URL-safe characters in `type`/`format`, or control codepoints in `data` | protocol memo limits, enforced for **all** operations, not just batch |
+
+   No transaction the node used to accept becomes invalid. If your code relied
+   on receiving an HTTP error for one of these, it now receives a local error
+   instead — and never spends a signing operation on it, which matters for an
+   HSM- or KMS-backed `Signer`.
+
+   Governance-dependent rejections are unchanged and still come from the server:
+   batch payments disabled, the operations-per-batch limit, the encoded-size
+   limit, and fee-asset mismatch.
+
+   `DeriveBatchPaymentOperationsHash` is deliberately exempt — it mirrors the
+   node's pure hash function, so it still accepts an empty operation list and
+   zero amounts. Use it to compute a hash; use `PrepareTransaction` to find out
+   whether the batch is submittable.
 
 ## Offline / KMS / HSM signing
 
@@ -129,11 +192,11 @@ Each element:
   a multisig-authorized operation is `[1, account]`. (The current public API
   produces single-signature submissions.)
 - **`payload_rlp`** — the canonical business payload, embedded as one opaque RLP
-  byte-string. For a memo-capable operation it is `rlp([ payload_fields, memo ])`
-  where `memo` is the 3-element list `[type, format, data]` (three empty strings
-  when there is no memo). For batch payment (which carries no memo) it is just
-  `rlp(payload_fields)`. Field order per operation is frozen and validated
-  byte-for-byte against the L1 golden vectors.
+  byte-string. It is `rlp([ payload_fields, memo ])` for every v2 operation,
+  including BatchPayment, where `memo` is the 3-element list
+  `[type, format, data]` (three empty strings when there is no memo). Field
+  order per operation is frozen and validated byte-for-byte against the L1
+  golden vectors.
 
 After signing, the public **transaction hash** appends the proof and re-hashes:
 
