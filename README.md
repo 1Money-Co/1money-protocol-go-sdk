@@ -48,6 +48,8 @@ Submit methods live under `Transactions()`, `Tokens()`, and `Accounts()` and
 share the shape `(ctx, payload, signer, ...SubmitOption)`. The payload carries
 `chain_id` and `nonce` (fetch them via `GetChainId` and `GetAccountNonce`).
 Attach a memo with `onemoney.WithMemo(memo)`.
+See [`examples/v2_operations`](./examples/v2_operations) for compile-checked
+`WithMemo` and default-`EmptyMemo` examples for every public v2 submit method.
 
 ### Custom signers (KMS / HSM / MPC)
 
