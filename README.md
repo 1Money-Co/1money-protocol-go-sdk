@@ -165,22 +165,10 @@ amount admission, aggregate overflow, and any future pricing semantics.
 
 A node answers every REST error with an
 [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem body. `*APIError`
-keeps `StatusCode`, `ErrorCode` and `Message` as before, and embeds a `Problem`
-with these members:
-
-| Member | Meaning |
-|---|---|
-| `Type` | The problem type URI, or `about:blank`. Compare the whole string. |
-| `Title` | A short summary of the type. For humans. |
-| `Instance` | The server request ID, `urn:uuid:<id>`. Quote it when you report a problem. |
-| `Action` | What to do next: `ActionFixRequest`, `ActionRetryLater`, `ActionInProgress`, `ActionCheckStatus` or `ActionUseOtherNode`. New values can appear; `Action.IsKnown()` tells. |
-| `RawAction`, `HasAction()` | The `action` member as sent, of any JSON type. |
-| `Members` | The typed members of the type, such as `tx_hash` or `retry_after_secs`. Read them with `Member`, `TxHash()` or `RetryAfterSecs()`. |
-| `Body` (on `APIError`) | The raw response body. |
-
-A body from an older node has no problem members: the fields are empty. A
-missing member, an unknown type or action, or a member of an unexpected JSON
-type never makes the decode fail. The [client guide](https://github.com/1Money-Co/l1client/blob/main/docs/api/error-handling.md)
+keeps `StatusCode`, `ErrorCode` and `Message`, and embeds a
+[`Problem`](./problem.go) with the problem type, the client action and the typed
+members. A body from an older node has no problem members, so the fields stay
+empty. The [client guide](https://github.com/1Money-Co/l1client/blob/main/docs/api/error-handling.md)
 lists every type, its action and its members.
 
 Rules:
@@ -193,21 +181,7 @@ Rules:
   always safe: the node treats the same hash as the same transaction, so it
   cannot execute twice. A new signature for the same intent can execute twice.
 
-```go
-var apiErr *onemoney.APIError
-if errors.As(err, &apiErr) {
-	switch {
-	case apiErr.Action == onemoney.ActionInProgress:
-		// The node holds the transaction. Resend the same signed bytes later.
-	case apiErr.Action == onemoney.ActionFixRequest,
-		apiErr.Action == onemoney.ActionRetryLater,
-		apiErr.Action == onemoney.ActionUseOtherNode:
-		// The node did not admit this request.
-	default:
-		// check_status, unknown or empty: look up the transaction first.
-	}
-}
-```
+See [`ExampleParseProblem`](./example_problem_test.go).
 
 ## Example
 
