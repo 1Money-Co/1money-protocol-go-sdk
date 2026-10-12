@@ -4,6 +4,25 @@ All notable changes to the 1Money Protocol Go SDK are documented here. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Problem details on `APIError`** ([#26](https://github.com/1Money-Co/1money-protocol-go-sdk/issues/26)).
+  `APIError` and `ErrorResponse` embed a new `Problem` with the RFC 9457
+  members of a node's error body: `Type`, `Title`, `Instance`, `Action` (a
+  `ProblemAction`, with `IsKnown()`), `RawAction` and `HasAction()`, and the
+  typed `Members` with the accessors `Member`, `HasMember`, `TxHash`,
+  `HasTxHash` and `RetryAfterSecs`. `APIError.Body` keeps the raw body.
+  `ParseProblem` parses a body on its own, for example in a `PostRequest` hook.
+- A missing member, an unknown type or action, or a member of an unexpected
+  JSON type never makes the decode fail.
+- README: decide on `Type` and `Action`, not on `Message`. On a submission,
+  treat an empty or unknown `Action` as `check_status`.
+
+`StatusCode`, `ErrorCode`, `Message`, the `Error()` text and the rule that any
+status other than 200 is an error do not change.
+
 ## [1.3.0] - 2026-08-10
 
 BatchPayment is re-baselined onto the current L1 canonical transaction format,
