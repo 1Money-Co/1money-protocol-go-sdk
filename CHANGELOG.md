@@ -13,12 +13,13 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   members of a node's error body: `Type`, `Title`, `Instance`, `Action` (a
   `ProblemAction`, with `IsKnown()`), `RawAction` and `HasAction()`, and the
   typed `Members` with the accessors `Member`, `HasMember`, `TxHash`,
-  `HasTxHash` and `RetryAfterSecs`. `APIError.Body` keeps the raw body.
+  `HasTxHash` and `RetryAfterSecs`. `IsKnownType` checks `Type` against a copy
+  of the node's problem catalog (120 types). `APIError.Body` keeps the raw body.
   `ParseProblem` parses a body on its own, for example in a `PostRequest` hook.
 - A missing member, an unknown type or action, or a member of an unexpected
   JSON type never makes the decode fail.
 - README: decide on `Type` and `Action`, not on `Message`. On a submission,
-  treat an empty or unknown `Action` as `check_status`.
+  treat an unknown `Type`, or an empty or unknown `Action`, as `check_status`.
 
 `StatusCode`, `ErrorCode`, `Message`, the `Error()` text and the rule that any
 status other than 200 is an error do not change.

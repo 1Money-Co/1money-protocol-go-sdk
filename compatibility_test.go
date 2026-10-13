@@ -139,8 +139,10 @@ func TestPublicAPICompatibility(t *testing.T) {
 	//     of a node error body (type, title, instance, action, typed members),
 	//     with ParseProblem and the ProblemAction constants; APIError gained Body
 	//     and ErrorResponse gained a tolerant UnmarshalJSON (issue #26).
+	//   - Problem.IsKnownType and ProblemTypePrefix were added so a caller can
+	//     apply the submission rule to an unknown problem type (issue #26).
 	// It guards against unintentional drift, not intentional changes.
-	const publicAPIHash = "9a1a537c777a6767ceee5267e790e84aa958ac746b726a4ad65eacdec7fa2dcb"
+	const publicAPIHash = "cc24bf60b09ce6cc750ffbe39e1309575ccbedc61c34fcdc014a722d48bb416f"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}

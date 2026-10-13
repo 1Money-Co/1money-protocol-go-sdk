@@ -34,6 +34,44 @@ func TestProblemActionIsKnown(t *testing.T) {
 	}
 }
 
+func TestProblemIsKnownType(t *testing.T) {
+	cases := []struct {
+		typ  string
+		want bool
+	}{
+		{ProblemTypePrefix + "submission_already_in_flight", true},
+		{ProblemTypePrefix + "nonce_too_low", true},
+		{ProblemTypePrefix + "route_not_found", true},
+		{ProblemTypePrefix + "from_the_future", false},
+		{ProblemTypePrefix + "Nonce_Too_Low", false},
+		{ProblemTypePrefix + "nonce_too_low/", false},
+		{ProblemTypePrefix, false},
+		{"https://example.com/problem/nonce_too_low", false},
+		{"nonce_too_low", false},
+		{"about:blank", false},
+		{"", false},
+	}
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, Problem{Type: tc.typ}.IsKnownType(), "type %q", tc.typ)
+	}
+}
+
+func TestKnownProblemTypesMatchPinnedCatalog(t *testing.T) {
+	assert.Len(t, knownProblemTypes, 120, "the pinned l1client catalog has 120 types")
+	for id := range knownProblemTypes {
+		assert.Regexp(t, `^[a-z][a-z0-9_]*$`, id)
+	}
+}
+
+// Regression: a known action on a type that this SDK does not know must not
+// read as "rejected" on a submission.
+func TestUnknownTypeWithKnownActionIsNotKnownType(t *testing.T) {
+	p := ParseProblem([]byte(`{"type":"https://developer.1moneynetwork.com/problem/from_the_future","action":"retry_later"}`))
+
+	assert.True(t, p.Action.IsKnown())
+	assert.False(t, p.IsKnownType())
+}
+
 func TestParseProblem_ProblemBody(t *testing.T) {
 	p := ParseProblem([]byte(inFlightBody))
 

@@ -6,21 +6,33 @@ import (
 	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
 )
 
-// Decide on the action, never on the message. On a submission, an empty or
-// unknown action means check_status.
-func ExampleParseProblem() {
-	body := []byte(`{"type":"https://developer.1moneynetwork.com/problem/submission_already_in_flight",` +
-		`"action":"in_progress","tx_hash":"0xabc","message":"already inflight"}`)
-	p := onemoney.ParseProblem(body)
-
+// submissionOutcome applies the submission rule: decide on the action only for
+// a known type and a known action, never on the message. Anything else means
+// check_status.
+func submissionOutcome(p onemoney.Problem) string {
+	if !p.IsKnownType() {
+		return "unknown: look up the transaction before you sign anything new"
+	}
 	switch p.Action {
 	case onemoney.ActionInProgress:
 		hash, _ := p.TxHash()
-		fmt.Println("locked: resend the same signed transaction", hash)
+		return "locked: resend the same signed transaction " + hash
 	case onemoney.ActionFixRequest, onemoney.ActionRetryLater, onemoney.ActionUseOtherNode:
-		fmt.Println("rejected before admission")
+		return "rejected before admission"
 	default:
-		fmt.Println("unknown: look up the transaction before you sign anything new")
+		return "unknown: look up the transaction before you sign anything new"
 	}
-	// Output: locked: resend the same signed transaction 0xabc
+}
+
+func ExampleProblem_IsKnownType() {
+	inFlight := onemoney.ParseProblem([]byte(`{"type":"https://developer.1moneynetwork.com/problem/submission_already_in_flight",` +
+		`"action":"in_progress","tx_hash":"0xabc","message":"already inflight"}`))
+	fromTheFuture := onemoney.ParseProblem([]byte(`{"type":"https://developer.1moneynetwork.com/problem/from_the_future",` +
+		`"action":"retry_later"}`))
+
+	fmt.Println(submissionOutcome(inFlight))
+	fmt.Println(submissionOutcome(fromTheFuture))
+	// Output:
+	// locked: resend the same signed transaction 0xabc
+	// unknown: look up the transaction before you sign anything new
 }

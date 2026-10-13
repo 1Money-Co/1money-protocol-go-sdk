@@ -174,14 +174,15 @@ lists every type, its action and its members.
 Rules:
 
 - Decide on `Type` and `Action`. Do not decide on `Message` or `Title`.
-- On a transaction submission, treat an empty or unknown `Action` as
+- On a transaction submission, decide on `Action` only when `IsKnownType()` is
+  true. Treat an unknown `Type`, or an empty or unknown `Action`, as
   `ActionCheckStatus`: look up the transaction before you sign anything new for
   the same intent.
 - To resend a transaction, send the **same signed transaction** again. This is
   always safe: the node treats the same hash as the same transaction, so it
   cannot execute twice. A new signature for the same intent can execute twice.
 
-See [`ExampleParseProblem`](./example_problem_test.go).
+See [`ExampleProblem_IsKnownType`](./example_problem_test.go).
 
 ## Example
 
