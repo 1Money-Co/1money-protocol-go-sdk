@@ -161,6 +161,29 @@ The SDK rejects only amounts that cannot be encoded as U256 on this unsigned
 path. The estimate service is authoritative for empty batches, recipient and
 amount admission, aggregate overflow, and any future pricing semantics.
 
+## Error handling: problem details
+
+A node answers every REST error with an
+[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem body. `*APIError`
+keeps `StatusCode`, `ErrorCode` and `Message`, and embeds a
+[`Problem`](./problem.go) with the problem type, the client action and the typed
+members. A body from an older node has no problem members, so the fields stay
+empty. The [client guide](https://github.com/1Money-Co/l1client/blob/main/docs/api/error-handling.md)
+lists every type, its action and its members.
+
+Rules:
+
+- Decide on `Type` and `Action`. Do not decide on `Message` or `Title`.
+- On a transaction submission, decide on `Action` only when `IsKnownType()` is
+  true. Treat an unknown `Type`, or an empty or unknown `Action`, as
+  `ActionCheckStatus`: look up the transaction before you sign anything new for
+  the same intent.
+- To resend a transaction, send the **same signed transaction** again. This is
+  always safe: the node treats the same hash as the same transaction, so it
+  cannot execute twice. A new signature for the same intent can execute twice.
+
+See [`ExampleProblem_IsKnownType`](./example_problem_test.go).
+
 ## Example
 
 ### TestNetwork

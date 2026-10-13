@@ -300,17 +300,39 @@ func (client *Client) PostMethod(ctx context.Context, path string, body interfac
 	return client.handleAPIResponse(ctx, "POST", fullURL, resp, result)
 }
 
-// ErrorResponse represents the error response from the API
+// ErrorResponse represents the error response from the API. The embedded
+// Problem holds the RFC 9457 problem details; see ParseProblem.
 type ErrorResponse struct {
 	ErrorCode string `json:"error_code"`
 	Message   string `json:"message"`
+	Problem
 }
 
-// APIError is a custom error type that includes the error response details
+// UnmarshalJSON decodes error_code and message as before, so a member of the
+// wrong type there is still an error. The problem details are read with
+// ParseProblem and never make the decode fail.
+func (r *ErrorResponse) UnmarshalJSON(data []byte) error {
+	var legacy struct {
+		ErrorCode string `json:"error_code"`
+		Message   string `json:"message"`
+	}
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return err
+	}
+	r.ErrorCode, r.Message = legacy.ErrorCode, legacy.Message
+	r.Problem = ParseProblem(data)
+	return nil
+}
+
+// APIError is a custom error type that includes the error response details.
+// Decide on the embedded Problem's Type and Action, not on Message.
 type APIError struct {
 	StatusCode int
 	ErrorCode  string
 	Message    string
+	Problem
+	// Body is the raw response body. Nil when the body could not be read.
+	Body []byte
 }
 
 // Error implements the error interface
@@ -370,6 +392,8 @@ func (client *Client) handleAPIResponse(ctx context.Context, method string, url 
 			processingErr = &APIError{
 				StatusCode: resp.StatusCode,
 				Message:    fmt.Sprintf("unexpected status code: %d, body: %s", resp.StatusCode, string(bodyBytes)),
+				Problem:    ParseProblem(bodyBytes),
+				Body:       bodyBytes,
 			}
 		} else {
 			if client.logger != nil {
@@ -379,6 +403,8 @@ func (client *Client) handleAPIResponse(ctx context.Context, method string, url 
 				StatusCode: resp.StatusCode,
 				ErrorCode:  errorResp.ErrorCode,
 				Message:    errorResp.Message,
+				Problem:    errorResp.Problem,
+				Body:       bodyBytes,
 			}
 		}
 	}

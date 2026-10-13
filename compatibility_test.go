@@ -135,8 +135,14 @@ func TestPublicAPICompatibility(t *testing.T) {
 	//   - BatchPaymentFeeEstimateRequest gained UnmarshalJSON, so the public wire
 	//     type can read back its own output: the quoted decimal amounts
 	//     MarshalJSON emits are not decodable by *big.Int's default decoder.
+	//   - APIError and ErrorResponse embed Problem, the RFC 9457 problem details
+	//     of a node error body (type, title, instance, action, typed members),
+	//     with ParseProblem and the ProblemAction constants; APIError gained Body
+	//     and ErrorResponse gained a tolerant UnmarshalJSON (issue #26).
+	//   - Problem.IsKnownType and ProblemTypePrefix were added so a caller can
+	//     apply the submission rule to an unknown problem type (issue #26).
 	// It guards against unintentional drift, not intentional changes.
-	const publicAPIHash = "4ae541e6ef2eccfdbb0f063118b0e4959ced1af665b9c3817b1c62a05520e137"
+	const publicAPIHash = "cc24bf60b09ce6cc750ffbe39e1309575ccbedc61c34fcdc014a722d48bb416f"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}
