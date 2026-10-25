@@ -351,8 +351,22 @@ func (client *Client) handleAPIResponse(ctx context.Context, method string, url 
 
 	var processingErr error
 	var bodyBytes []byte
+	var err error
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	// Cap how much of the response body is buffered in
+	// memory. A malicious or compromised node (or any
+	// misconfigured custom URL) could otherwise return an
+	// arbitrarily large body and exhaust the host
+	// process's memory. The cap matches the node's own
+	// problem catalog, which defines
+	// response_too_large/batch_response_too_large, so
+	// responses beyond this bound are protocol-abnormal.
+	const maxResponseBytes = 16 << 20 // 16 MiB
+	bodyBytes, err = io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err == nil && len(bodyBytes) > maxResponseBytes {
+		err = fmt.Errorf("response body exceeds %d bytes", maxResponseBytes)
+		bodyBytes = bodyBytes[:maxResponseBytes]
+	}
 	if err != nil {
 		if client.logger != nil {
 			client.logger.Errorf("Failed to read response body from %s %s: %v", method, url, err)
