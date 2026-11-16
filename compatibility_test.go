@@ -147,7 +147,7 @@ func TestPublicAPICompatibility(t *testing.T) {
 	//     authority-class AuthorizedTransaction, the state and fate reads, the
 	//     receipt outcome and the refusals (issue #31). Additive only.
 	// It guards against unintentional drift, not intentional changes.
-	const publicAPIHash = "94fcd34fe688e285be4f800ace6076ed20a2ae3639163e572faa5653a13ef773"
+	const publicAPIHash = "cdcb25efddc0d3abb244831a9c84762cd5df7b7b3fdc18f814f68c41d3aca990"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}

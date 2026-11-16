@@ -2,6 +2,7 @@ package onemoney
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math/big"
 	"net/http"
@@ -278,5 +279,69 @@ func TestLatestReferenceCheckpointAndMemo(t *testing.T) {
 	}
 	if got := node.postedRequests()[0].body["memo"].(map[string]any); got["data"] != "7" {
 		t.Fatalf("memo = %v", got)
+	}
+}
+
+// Every transaction that can reach OnSigned has a stored form, so a hook never
+// receives a transaction that it cannot store.
+func TestEveryTransactionHandedToOnSignedIsStorable(t *testing.T) {
+	referenceRetryDelayForTest(t)
+	token := repeatAddr(0x01)
+	account := repeatAddr(0x02)
+	list := TokenManageListPayload{ChainID: 1212101, Nonce: 3, Action: ManageListActionAdd, Address: account, Token: token}
+	operations := []LegacyAuthorityOperation{
+		LegacyMint(TokenMintPayload{ChainID: 1212101, Nonce: 3, Recipient: account, Value: big.NewInt(5), Token: token}),
+		LegacyAuthority(TokenAuthorityPayload{ChainID: 1212101, Nonce: 3, Action: AuthorityActionRevoke, AuthorityType: AuthorityTypeClawback, AuthorityAddress: account, Token: token, Value: big.NewInt(0)}),
+		LegacyBlacklist(list), LegacyWhitelist(list),
+		legacyPause(3),
+		LegacyMetadata(UpdateMetadataPayload{ChainID: 1212101, Nonce: 3, Name: "N", URI: "u", Token: token}),
+	}
+	var handed []SignedTransaction
+	for _, operation := range operations {
+		for _, envelope := range []AuthorityEnvelope{AuthorityEnvelopeLegacy, AuthorityEnvelopeSettled} {
+			node := newMockNode(t)
+			hook := WithOnSigned(func(_ context.Context, signed SignedTransaction) error {
+				handed = append(handed, signed)
+				return nil
+			})
+			if _, err := node.client().Tokens().SendAuthorityOperation(context.Background(), envelope, operation, testSigner(t), hook); err != nil {
+				t.Fatalf("%+v in %s: %v", operation, envelope, err)
+			}
+		}
+	}
+	clawback := TokenClawbackPayload{ChainID: 1212101, Nonce: 3, Token: token, From: account, Recipient: repeatAddr(3), Value: big.NewInt(4)}
+	verifyClawback := clawback
+	verifyClawback.Token = VerifyTokenAddress
+	for _, payload := range []any{clawback, verifyClawback, laneVectorPayload()} {
+		node := newMockNode(t)
+		hook := WithOnSigned(func(_ context.Context, signed SignedTransaction) error {
+			handed = append(handed, signed)
+			return nil
+		})
+		if err := node.client().submitPayload(context.Background(), payload, resolveSubmit([]SubmitOption{hook}), testSigner(t), new(TransactionResponse)); err != nil {
+			t.Fatalf("%T: %v", payload, err)
+		}
+	}
+	if len(handed) != 2*len(operations)+3 {
+		t.Fatalf("handed %d transactions", len(handed))
+	}
+	for _, signed := range handed {
+		stored, err := json.Marshal(signed.Transaction)
+		if err != nil {
+			t.Fatalf("%s: %v", signed.Transaction.path, err)
+		}
+		if _, err := ParseAuthorizedTransaction(stored); err != nil {
+			t.Fatalf("%s: %v", signed.Transaction.path, err)
+		}
+	}
+}
+
+func TestWithOnSignedRefusesATransactionWithoutAStoredForm(t *testing.T) {
+	node := newMockNode(t)
+	called := false
+	hook := WithOnSigned(func(context.Context, SignedTransaction) error { called = true; return nil })
+	_, err := node.client().Transactions().Payment(context.Background(), testPaymentPayload(), testSigner(t), hook)
+	if err == nil || !strings.Contains(err.Error(), "authority-class") || called || len(node.postedRequests()) != 0 {
+		t.Fatalf("err %v, hook called %t, posted %d", err, called, len(node.postedRequests()))
 	}
 }

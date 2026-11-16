@@ -222,6 +222,9 @@ func (c *Client) signAndSubmitV2(ctx context.Context, payload any, cfg submitCon
 	if err != nil {
 		return nil, err
 	}
+	if _, storable := storableBodies[prepared.pathV2]; cfg.onSigned != nil && !storable {
+		return nil, fmt.Errorf("WithOnSigned supports only authority-class transactions, which have a stored form; %s has none", prepared.op.label())
+	}
 	sig, err := signer.SignHash(prepared.SigningHash())
 	if err != nil {
 		return nil, err

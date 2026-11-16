@@ -23,8 +23,11 @@ type SignedTransaction struct {
 type OnSigned func(ctx context.Context, signed SignedTransaction) error
 
 // WithOnSigned hands every transaction that the call signs to onSigned before
-// its send. It needs the domain-separated v2 mode: a legacy v1 request has no
-// AuthorizedTransaction to hand over.
+// its send. It supports only the authority class, whose transactions
+// json.Marshal can store: the settled authority envelope, the lane clawback,
+// the clawback, and the legacy mint, grant and revoke, blacklist, whitelist,
+// pause and metadata update. It needs the domain-separated v2 mode: a legacy
+// v1 request has no AuthorizedTransaction to hand over.
 func WithOnSigned(onSigned OnSigned) SubmitOption {
 	return func(c *submitConfig) { c.onSigned = onSigned }
 }
