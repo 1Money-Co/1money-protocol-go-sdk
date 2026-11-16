@@ -149,6 +149,10 @@ func pathsForOp(op nativeOperationType) (v1, v2 string, err error) {
 		return "/v1/tokens/update_metadata", "/v2/tokens/update_metadata", nil
 	case opCreateMultiSig:
 		return "", "/v2/accounts/multisig", nil // v2-only, no legacy form
+	case opSettledAuthority:
+		return "", "/v2/tokens/authority_operation", nil
+	case opLaneClawback:
+		return "", "/v2/tokens/lane_clawback", nil
 	default:
 		return "", "", fmt.Errorf("%s: no domain-separated v2 endpoint configured", op.label())
 	}

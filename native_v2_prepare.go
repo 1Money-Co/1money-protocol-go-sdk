@@ -63,6 +63,10 @@ func validatePayloadEncodable(payload any) error {
 		return validateU256("authority.value", p.Value)
 	case TokenClawbackPayload:
 		return validateU256("clawback.value", p.Value)
+	case SettledAuthorityPayload:
+		return p.validate()
+	case LaneClawbackPayload:
+		return validateU256("lane_clawback.value", p.Value)
 	}
 	return nil
 }
@@ -107,6 +111,10 @@ func resolvePayloadOp(payload any, cfg submitConfig) (op nativeOperationType, pa
 		return opTokenPause, p.rlpList(), p.wireFields(), nil
 	case UpdateMetadataPayload:
 		return opTokenMetadata, p.rlpList(), p.wireFields(), nil
+	case SettledAuthorityPayload:
+		return opSettledAuthority, p.rlpList(), p.wireFields(), nil
+	case LaneClawbackPayload:
+		return opLaneClawback, p.rlpList(), p.wireFields(), nil
 	case CreateMultiSigPayload:
 		if err := validateMultisigConfig(p.Signers, p.Threshold); err != nil {
 			return 0, nil, nil, err
@@ -195,13 +203,16 @@ func prepareFromPayload(payload any, cfg submitConfig) (*PreparedTransaction, er
 // spends a signing operation -- or an HSM round trip -- on a transaction that is
 // certain to be rejected.
 //
-// Only BatchPayment carries such rules today. The node's remaining BatchPayment
+// A lane clawback of VERIFY is refused for every signer. The node's remaining BatchPayment
 // checks are governance-dependent (batch payments enabled, the
 // operations-per-batch limit, the encoded-size limit, fee-asset matching) and
 // stay with the server: the SDK would have to guess at governance state.
 func validatePayloadAdmissible(payload any) error {
-	if batch, ok := payload.(BatchPaymentPayload); ok {
-		return validateBatchPaymentSubmission(batch)
+	switch p := payload.(type) {
+	case BatchPaymentPayload:
+		return validateBatchPaymentSubmission(p)
+	case LaneClawbackPayload:
+		return refuseLaneClawbackOfVerify(p.Token)
 	}
 	return nil
 }

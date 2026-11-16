@@ -33,6 +33,8 @@ const (
 	opTokenBurnAndBridge nativeOperationType = 12
 	opCreateMultiSig     nativeOperationType = 13
 	opBatchPayment       nativeOperationType = 14
+	opSettledAuthority   nativeOperationType = 17
+	opLaneClawback       nativeOperationType = 18
 )
 
 // memoList encodes a Memo as the always-present 3-element RLP list of UTF-8
@@ -211,6 +213,10 @@ func (op nativeOperationType) label() string {
 		return "batch payment"
 	case opCreateMultiSig:
 		return "create multisig"
+	case opSettledAuthority:
+		return "settled authority operation"
+	case opLaneClawback:
+		return "lane clawback"
 	default:
 		return fmt.Sprintf("native operation %d", uint16(op))
 	}
