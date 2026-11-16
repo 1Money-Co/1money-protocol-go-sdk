@@ -26,8 +26,9 @@ type OnSigned func(ctx context.Context, signed SignedTransaction) error
 // its send. It supports only the authority class, whose transactions
 // json.Marshal can store: the settled authority envelope, the lane clawback,
 // the clawback, and the legacy mint, grant and revoke, blacklist, whitelist,
-// pause and metadata update. It needs the domain-separated v2 mode: a legacy
-// v1 request has no AuthorizedTransaction to hand over.
+// pause and metadata update. Only a legacy envelope sent on /v1 (a client in
+// SubmissionModeLegacyV1) refuses it, because a /v1 request has no
+// AuthorizedTransaction to hand over; the settled envelope always goes to /v2.
 func WithOnSigned(onSigned OnSigned) SubmitOption {
 	return func(c *submitConfig) { c.onSigned = onSigned }
 }

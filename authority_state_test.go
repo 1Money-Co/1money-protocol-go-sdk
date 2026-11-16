@@ -18,8 +18,26 @@ var (
 	stateHash     = common.HexToHash(someHash)
 )
 
-func statusReply(status TransactionStatus) mockReply {
-	return okJSON(fmt.Sprintf(`{"hash":%q,"status":%q}`, someHash, status))
+func statusReply(status TransactionStatus) mockReply { return statusReplyFor(someHash, status) }
+
+func statusReplyFor(hash string, status TransactionStatus) mockReply {
+	return okJSON(fmt.Sprintf(`{"hash":%q,"status":%q}`, hash, status))
+}
+
+const otherHash = "0x2222222222222222222222222222222222222222222222222222222222222222"
+
+// answersForAnotherTransaction are 200 answers that name no transaction or
+// another one: no evidence about the transaction that was asked for.
+func answersForAnotherTransaction() map[string]struct{ receipt, status mockReply } {
+	return map[string]struct{ receipt, status mockReply }{
+		"receipt {}":                   {okJSON(`{}`), notFound},
+		"receipt null":                 {okJSON(`null`), notFound},
+		"receipt of another hash":      {okJSON(`{"success":false,"transaction_hash":"` + otherHash + `"}`), notFound},
+		"status {}":                    {notFound, okJSON(`{}`)},
+		"status null":                  {notFound, okJSON(`null`)},
+		"status of another hash":       {notFound, statusReplyFor(otherHash, TransactionStatusCheckpointed)},
+		"pending status, another hash": {notFound, statusReplyFor(otherHash, TransactionStatusPending)},
+	}
 }
 
 func TestAuthorityOperationStateConcludesOnlyFromPositiveEvidence(t *testing.T) {
@@ -144,6 +162,7 @@ func TestLaneClawbackFate(t *testing.T) {
 	record := signedLaneRecord(t, laneVectorPayload())
 	hash := record.TransactionHash().Hex()
 	holder := record.Payload().Holder
+	statusReply := func(status TransactionStatus) mockReply { return statusReplyFor(hash, status) }
 	cases := []struct {
 		name      string
 		nextNonce uint64
@@ -151,7 +170,7 @@ func TestLaneClawbackFate(t *testing.T) {
 		status    *mockReply
 		want      LaneClawbackFateKind
 	}{
-		{"executed", 8, ptr(okJSON(`{"success":true}`)), nil, LaneClawbackExecuted},
+		{"executed", 8, ptr(okJSON(`{"success":true,"transaction_hash":"0x` + strings.ToUpper(hash[2:]) + `"}`)), nil, LaneClawbackExecuted},
 		{"certified", 8, nil, ptr(statusReply(TransactionStatusFinalized)), LaneClawbackCertified},
 		{"pending", 7, nil, nil, LaneClawbackPending},
 		{"unknown", 8, nil, nil, LaneClawbackUnknown},
@@ -207,5 +226,31 @@ func TestLaneClawbackPayloadUsesTheHoldersNextNonce(t *testing.T) {
 	node.setNonces(newcomer, 0)
 	if _, err := node.client().LaneClawbackPayload(context.Background(), 1212101, repeatAddr(1), newcomer, repeatAddr(3), big.NewInt(1)); err == nil || !strings.Contains(err.Error(), "no lane yet") {
 		t.Fatalf("holder without a lane: %v", err)
+	}
+}
+
+func TestAReadForAnotherTransactionIsNoEvidence(t *testing.T) {
+	record := signedLaneRecord(t, laneVectorPayload())
+	for name, answer := range answersForAnotherTransaction() {
+		t.Run("authority operation, "+name, func(t *testing.T) {
+			node := newMockNode(t)
+			node.setNonces(signerAccount, 5)
+			node.setReceipt(someHash, answer.receipt)
+			node.setTxStatus(someHash, answer.status)
+			state, err := node.client().AuthorityOperationState(context.Background(), signerAccount, 5, stateHash)
+			if err == nil || !strings.Contains(err.Error(), "not for this transaction") {
+				t.Fatalf("state = %+v, err = %v; want a read error", state, err)
+			}
+		})
+		t.Run("lane clawback, "+name, func(t *testing.T) {
+			node := newMockNode(t)
+			node.setNonces(record.Payload().Holder, 7)
+			node.setReceipt(record.TransactionHash().Hex(), answer.receipt)
+			node.setTxStatus(record.TransactionHash().Hex(), answer.status)
+			fate, err := node.client().LaneClawbackFate(context.Background(), record)
+			if err == nil || !strings.Contains(err.Error(), "not for this transaction") {
+				t.Fatalf("fate = %+v, err = %v; want a read error", fate, err)
+			}
+		})
 	}
 }

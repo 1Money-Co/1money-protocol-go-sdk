@@ -1,6 +1,7 @@
 package onemoney
 
 import (
+	"context"
 	"encoding/json"
 	"math/big"
 	"strings"
@@ -289,5 +290,12 @@ func TestSettledPayloadValidation(t *testing.T) {
 		if _, err := PrepareTransaction(tc.payload); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%#v: err = %v, want it to name %q", tc.payload, err, tc.want)
 		}
+	}
+}
+
+func TestPrepareTransactionRefusesWithOnSigned(t *testing.T) {
+	hook := WithOnSigned(func(context.Context, SignedTransaction) error { return nil })
+	if _, err := PrepareTransaction(laneVectorPayload(), hook); err == nil || !strings.Contains(err.Error(), "WithOnSigned") {
+		t.Fatalf("err = %v, want a refusal of the hook", err)
 	}
 }

@@ -36,12 +36,12 @@ const (
 	// LegacyNotReported: the status has no envelope_mode member, or a null one
 	// (a node of the release before).
 	LegacyNotReported LegacyModeReason = "not_reported"
-	// LegacyStatusAnswered: GET /api/status answered a non-200 status. It is an
+	// LegacyStatusAnswered: GET /api/status answered a non-2xx status. It is an
 	// operational endpoint, so a gateway may not expose it; then the by-mode
 	// calls send the legacy envelope, and a node of the release refuses it as
 	// retired. Name the envelope explicitly in that case.
 	LegacyStatusAnswered LegacyModeReason = "status_answered"
-	// LegacyNoAnswer: GET /api/status got no answer.
+	// LegacyNoAnswer: GET /api/status got no answer, or its body could not be read.
 	LegacyNoAnswer LegacyModeReason = "no_answer"
 	// LegacyUndecodable: the status body is not a JSON object.
 	LegacyUndecodable LegacyModeReason = "undecodable"
@@ -140,6 +140,13 @@ func (c *Client) GetEnvelopeMode(ctx context.Context) (EnvelopeMode, error) {
 	var apiErr *APIError
 	var syntaxErr *json.SyntaxError
 	switch {
+	case errors.As(err, &apiErr) && isSuccessStatus(apiErr.StatusCode):
+		// A 2xx other than 200, or a 200 whose body could not be read: the
+		// node answered with success, so its body decides, as for a 200.
+		if apiErr.Body == nil {
+			return EnvelopeMode{Kind: EnvelopeModeLegacy, LegacyReason: LegacyNoAnswer, Detail: apiErr.Message}, nil
+		}
+		return envelopeModeFromStatus(apiErr.Body), nil
 	case errors.As(err, &apiErr):
 		return EnvelopeMode{Kind: EnvelopeModeLegacy, LegacyReason: LegacyStatusAnswered, HTTPStatus: apiErr.StatusCode}, nil
 	case errors.As(err, &syntaxErr):
@@ -174,6 +181,8 @@ func envelopeModeFromStatus(body json.RawMessage) EnvelopeMode {
 	}
 	return EnvelopeMode{Kind: EnvelopeModeUnrecognized, Reported: string(reported)}
 }
+
+func isSuccessStatus(status int) bool { return status >= 200 && status < 300 }
 
 const (
 	endpointStatus     = "/api/status"

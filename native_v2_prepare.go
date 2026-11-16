@@ -158,9 +158,15 @@ type PreparedTransaction struct {
 // PrepareTransaction builds an unsigned single-signature v2 transaction for a
 // supported payload value (PaymentPayload, TokenMintPayload, …). Pass WithMemo
 // to attach a memo; pass WithManageListKind for a TokenManageListPayload. It
-// returns an error for an unsupported or ambiguous payload.
+// returns an error for an unsupported or ambiguous payload, and for
+// WithOnSigned: preparing sends nothing, so the caller stores the
+// AuthorizedTransaction itself.
 func PrepareTransaction(payload any, opts ...SubmitOption) (*PreparedTransaction, error) {
-	return prepareFromPayload(payload, resolveSubmit(opts))
+	cfg := resolveSubmit(opts)
+	if cfg.onSigned != nil {
+		return nil, fmt.Errorf("PrepareTransaction does not take WithOnSigned: it signs and sends nothing; store the AuthorizedTransaction from Authorize before you Submit it")
+	}
+	return prepareFromPayload(payload, cfg)
 }
 
 // prepareFromPayload resolves a payload to its operation and builds the

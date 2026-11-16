@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -101,8 +102,15 @@ func (c *Client) readEvidence(ctx context.Context, account common.Address, nonce
 		return evidence{}, fmt.Errorf("nonce read of %s: %w", account.Hex(), err)
 	}
 	receipt, err := c.GetTransactionReceipt(ctx, txHash.Hex())
-	if found, err := foundOrNone(receipt, err, "receipt read", txHash); err != nil || found != nil {
-		return evidence{receipt: found}, err
+	foundReceipt, err := foundOrNone(receipt, err, "receipt read", txHash)
+	if err != nil {
+		return evidence{}, err
+	}
+	if foundReceipt != nil {
+		if err := namesHash(foundReceipt.TransactionHash, "receipt read", txHash); err != nil {
+			return evidence{}, err
+		}
+		return evidence{receipt: foundReceipt}, nil
 	}
 	statusResponse, err := c.GetTransactionStatus(ctx, txHash.Hex())
 	found, err := foundOrNone(statusResponse, err, "status lookup", txHash)
@@ -111,6 +119,9 @@ func (c *Client) readEvidence(ctx context.Context, account common.Address, nonce
 	}
 	var status *TransactionStatus
 	if found != nil {
+		if err := namesHash(found.Hash, "status lookup", txHash); err != nil {
+			return evidence{}, err
+		}
 		if !found.Status.IsKnown() {
 			return evidence{}, fmt.Errorf("the status lookup of %s answered %q, which this SDK does not know", txHash.Hex(), found.Status)
 		}
@@ -136,6 +147,15 @@ func foundOrNone[T any](result *T, err error, what string, txHash common.Hash) (
 		return nil, nil
 	}
 	return nil, fmt.Errorf("the %s of %s did not answer: %w", what, txHash.Hex(), err)
+}
+
+// namesHash refuses a read that answered 200 for another transaction, or with
+// a body that names none (such as {} or null): it is no evidence about txHash.
+func namesHash(answered, what string, txHash common.Hash) error {
+	if !strings.EqualFold(answered, txHash.Hex()) {
+		return fmt.Errorf("the %s of %s answered for %q, not for this transaction", what, txHash.Hex(), answered)
+	}
+	return nil
 }
 
 // LaneClawbackRecord is a signed lane clawback: its payload, memo and hash

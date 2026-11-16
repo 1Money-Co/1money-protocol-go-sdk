@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -24,6 +25,9 @@ func TestGetEnvelopeModeReadsOnlyAReportedModeAsNonLegacy(t *testing.T) {
 		{"settled", okJSON(`{"envelope_mode":"settled"}`), EnvelopeModeSettled, ""},
 		{"unknown", okJSON(`{"envelope_mode":"turbo"}`), EnvelopeModeUnrecognized, ""},
 		{"not a string", okJSON(`{"envelope_mode":7}`), EnvelopeModeUnrecognized, ""},
+		{"no content", mockReply{status: http.StatusNoContent}, EnvelopeModeLegacy, LegacyUndecodable},
+		{"another 2xx reports settled", mockReply{status: http.StatusAccepted, body: `{"envelope_mode":"settled"}`}, EnvelopeModeSettled, ""},
+		{"another 2xx without a mode", mockReply{status: http.StatusAccepted, body: `{}`}, EnvelopeModeLegacy, LegacyNotReported},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -111,5 +115,18 @@ func TestNativeWriteStatusCarriesTheEnvelopeMode(t *testing.T) {
 	status, err := node.client().GetNativeWriteStatus(context.Background())
 	if err != nil || status.EnvelopeMode == nil || *status.EnvelopeMode != "upgrade_gap" {
 		t.Fatalf("status = %+v, err = %v", status, err)
+	}
+}
+
+func TestGetEnvelopeModeWithABodyThatCannotBeReadReadsAsNoAnswer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"envelope`))
+	}))
+	defer server.Close()
+	mode, err := NewClientWithCustomUrl(server.URL).GetEnvelopeMode(context.Background())
+	if err != nil || mode.Kind != EnvelopeModeLegacy || mode.LegacyReason != LegacyNoAnswer {
+		t.Fatalf("mode = %+v, err = %v", mode, err)
 	}
 }
