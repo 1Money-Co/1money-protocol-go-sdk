@@ -16,15 +16,17 @@ func TestPathsForOp(t *testing.T) {
 		opPayment, opTokenIssue, opTokenMint, opTokenAuthority, opTokenBlacklist,
 		opTokenWhitelist, opTokenPause, opTokenBurn, opTokenClawback,
 		opTokenMetadata, opTokenBridgeAndMint, opTokenBurnAndBridge,
-		opCreateMultiSig, opBatchPayment,
+		opCreateMultiSig, opBatchPayment, opSettledAuthority, opLaneClawback,
 	}
-	if len(allOps) != 14 {
-		t.Fatalf("test table lists %d ops, want all 14 canonical operation types", len(allOps))
+	if len(allOps) != 16 {
+		t.Fatalf("test table lists %d ops, want all 16 operation types that this SDK sends", len(allOps))
 	}
 
 	v2Only := map[nativeOperationType]bool{
-		opBatchPayment:   true,
-		opCreateMultiSig: true,
+		opBatchPayment:     true,
+		opCreateMultiSig:   true,
+		opSettledAuthority: true,
+		opLaneClawback:     true,
 	}
 
 	for _, op := range allOps {

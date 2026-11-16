@@ -37,8 +37,8 @@ type nativeV2Op struct {
 	pathV2      string
 }
 
-// payloadRLP builds payload_rlp for the canonical native-v2 form. All fourteen
-// operations are WithMemo<Payload>; there is no bare-payload alternative.
+// payloadRLP builds payload_rlp for the canonical native-v2 form. Every canonical
+// operation is WithMemo<Payload>; there is no bare-payload alternative.
 func (op nativeV2Op) payloadRLP(memo Memo) ([]byte, error) {
 	return encodeWithMemo(op.payloadList, memo)
 }

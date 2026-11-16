@@ -222,6 +222,39 @@ A custom `Signer` must sign the digest **as given** — no extra hashing, no
 a high-S or 27/28 signature fails fast with a clear error. The built-in
 `NewPrivateKeySigner` already produces conforming signatures.
 
+## Token authority operations after activation
+
+Once a network activates the l1client token authority model, its nodes refuse
+the legacy envelopes of the authority operations (`Tokens().Mint`,
+`GrantAuthority`, `RevokeAuthority`, `ManageBlacklist`, `ManageWhitelist`,
+`Pause`, `Unpause`, `UpdateMetadata`, and `Clawback` of an ordinary account)
+with the problem type `legacy_envelope_retired`. Move these calls to
+`Tokens().AuthorityOperationByMode`, which keeps your legacy payload:
+
+```go
+// Before: the legacy envelope only.
+resp, err := client.Tokens().Pause(ctx, payload, signer)
+
+// After: the envelope of the node's mode, at the same nonce.
+submission, err := client.Tokens().AuthorityOperationByMode(
+    ctx, onemoney.LegacyPause(payload), signer,
+    onemoney.WithOnSigned(store), // optional: store before each send
+)
+```
+
+- The settled envelope is always sent on `/v2`, also from a client built with
+  `WithLegacyV1()`. `WithOnSigned` needs the default v2 mode, because a `/v1`
+  request has no `AuthorizedTransaction` to hand over.
+- A settled operation's result arrives at its checkpoint: read it with
+  `Client.AuthorityOperationState`, and the receipt with `ReceiptOutcomeOf`.
+- `Tokens().Clawback` stays the legacy clawback. Keep it for VERIFY (by its
+  master) and for a Reserved Payment hold. For an ordinary account after
+  activation, sign a lane clawback (`Client.LaneClawbackPayload`), store it, then
+  send it with `Client.Submit`.
+
+The [README](./README.md#token-authority-model-settled-envelope-and-lane-clawback)
+gives the client rules.
+
 ## Staying on legacy v1
 
 To keep submitting on the `/v1` path during the migration window, opt in

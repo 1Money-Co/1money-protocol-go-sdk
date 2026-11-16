@@ -141,8 +141,13 @@ func TestPublicAPICompatibility(t *testing.T) {
 	//     and ErrorResponse gained a tolerant UnmarshalJSON (issue #26).
 	//   - Problem.IsKnownType and ProblemTypePrefix were added so a caller can
 	//     apply the submission rule to an unknown problem type (issue #26).
+	//   - The token authority model was added: the settled authority envelope
+	//     and the lane clawback (native operations 17 and 18), the envelope-mode
+	//     switch point, the by-mode send, WithOnSigned, the stored form of an
+	//     authority-class AuthorizedTransaction, the state and fate reads, the
+	//     receipt outcome and the refusals (issue #31). Additive only.
 	// It guards against unintentional drift, not intentional changes.
-	const publicAPIHash = "cc24bf60b09ce6cc750ffbe39e1309575ccbedc61c34fcdc014a722d48bb416f"
+	const publicAPIHash = "94fcd34fe688e285be4f800ace6076ed20a2ae3639163e572faa5653a13ef773"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}

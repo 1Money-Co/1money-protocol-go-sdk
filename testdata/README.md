@@ -6,7 +6,7 @@ there is no regeneration step at release time.
 
 | File | What it pins |
 |---|---|
-| `native-v2-signing-vectors.json` | The canonical native-v2 envelope for all fourteen operations: `payload_rlp`, `unsigned_transaction_rlp`, `signing_hash`, `signed_transaction_rlp`, `transaction_hash`. 28 base vectors + 8 supplemental. |
+| `native-v2-signing-vectors.json` | The canonical native-v2 envelope for operations 1 to 18: `payload_rlp`, `unsigned_transaction_rlp`, `signing_hash`, `signed_transaction_rlp`, `transaction_hash`. 36 base vectors + 14 supplemental, copied from l1client `4e8acd8b6` `docs/specs/fixtures/native-v2-signing-vectors.json`. |
 | `prepare-authorize-hash-vectors.json` | Extended per-operation coverage for canonical encoding and the public `PrepareTransaction` -> `Authorize` pipeline: structured payloads, submit options, authorization proofs, and expected `signing_hash` / `transaction_hash`. 213 vectors, 43 of them BatchPayment, which additionally carry `expected.operations_hash`. |
 | `multisig-address-vectors.json` | Multisig account address derivation. |
 
@@ -83,5 +83,5 @@ stop pulling its weight:
   admission-valid vectors through the exported public entry point.
 - `TestEncodingOnlyVectorsAreRejectedByPublicPrepare` requires the 22 explicit
   encoding-only vectors to fail public preparation with their expected reason.
-- `TestNativeV2Conformance` pins the canonical envelope for all fourteen
-  operations against `native-v2-signing-vectors.json`.
+- `TestNativeV2Conformance` pins the canonical envelope for operations 1 to
+  18 against `native-v2-signing-vectors.json`.

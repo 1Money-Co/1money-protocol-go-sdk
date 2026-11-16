@@ -4,6 +4,46 @@ All notable changes to the 1Money Protocol Go SDK are documented here. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Support for the l1client token authority model
+([#31](https://github.com/1Money-Co/1money-protocol-go-sdk/issues/31)). The
+change only adds to the API.
+
+### Added
+
+- Native operations 17 (`SettledAuthorityPayload` with the `Settled*`
+  operations) and 18 (`LaneClawbackPayload`), on `/v2/tokens/authority_operation`
+  and `/v2/tokens/lane_clawback`. `PrepareTransaction` refuses a lane clawback
+  of VERIFY (`VerifyTokenAddress`, `IsVerifyToken`).
+- The client switch point: `Client.GetEnvelopeMode`, `EnvelopeMode`,
+  `ErrUpgradeGap`, `UnrecognizedEnvelopeModeError`, `ClawbackStaysLegacy`, and
+  `NativeWriteStatusResponse.EnvelopeMode`.
+- `TokensAPI.AuthorityOperationByMode`, `SendAuthorityOperation` and
+  `SettledPayload`, with `LegacyAuthorityOperation` and its constructors, and
+  `Client.LatestReferenceCheckpoint`. A retired legacy envelope is signed again
+  as the settled envelope at the same nonce; a reference that is not ready gets
+  one retry.
+- `WithOnSigned` hands each signed transaction to the caller before its send.
+  `AuthorizedTransaction` marshals to JSON for the authority class, and
+  `ParseAuthorizedTransaction` loads it with its hash checked.
+- Reads that conclude only from positive evidence:
+  `Client.AuthorityOperationState`, `Client.LaneClawbackFate`,
+  `LaneClawbackRecord`, `Client.LaneClawbackPayload`, and
+  `Client.GetTransactionStatus` (`GET /v1/transactions/status/by_hash`).
+- Receipts: `ExecutionEvent.Target` and `Reason`, `Warnings`,
+  `ReceiptOutcomeOf`, `SoftFailReason` (nine reasons, an unknown one kept as
+  sent), and `ReceiptWarningNoOpRevoke`.
+- `AuthorityRefusalOf` reads the five refusals of the model. The problem
+  catalog is synced to l1client `4e8acd8b6` (130 types).
+- The transaction view decodes `TokenAuthorityOperation` and
+  `TokenLaneClawback`, and `Transaction.Lane`.
+
+### Changed
+
+- The signing vectors are re-vendored from l1client `4e8acd8b6`: 50 vectors,
+  operations 1 to 18.
+
 ## [1.4.0] - 2026-10-14
 
 API errors now expose the RFC 9457 problem details of the node error body, so a

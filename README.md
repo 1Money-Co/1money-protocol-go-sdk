@@ -161,6 +161,82 @@ The SDK rejects only amounts that cannot be encoded as U256 on this unsigned
 path. The estimate service is authoritative for empty batches, recipient and
 amount admission, aggregate overflow, and any future pricing semantics.
 
+## Token authority model: settled envelope and lane clawback
+
+The next l1client release changes how token authority operations reach the
+chain ([l1client#675](https://github.com/1Money-Co/l1client/issues/675)). After
+a node activates the model, it refuses the legacy envelopes of mint, grant and
+revoke, blacklist, whitelist, pause and unpause, metadata update, and the
+clawback of an ordinary account. It takes two new envelopes instead:
+
+- **Settled authority envelope** (native operation 17,
+  [`SettledAuthorityPayload`](./settled_authority.go)): signed at the signer's
+  nonce with a reference checkpoint; its checkpoint decides it.
+- **Lane clawback** (native operation 18,
+  [`LaneClawbackPayload`](./settled_authority.go)): takes the holder's next
+  nonce (`FromNonce`) and no nonce of its signer; it executes at certification.
+
+Two clawbacks stay legacy in every mode: the clawback of a Reserved Payment
+hold, and the clawback of VERIFY by its master. VERIFY has no lane clawback.
+
+### Send by envelope mode
+
+[`Client.GetEnvelopeMode`](./envelope_mode.go) reads `envelope_mode` from
+`GET /api/status`. Only a reported mode leaves the legacy envelopes:
+
+| Node reports | The SDK sends |
+|---|---|
+| no mode (older node, hidden or failed status) | the legacy envelope |
+| `upgrade_gap` | nothing: `ErrUpgradeGap`, retry later |
+| `settled` | the settled envelope |
+| a value this SDK does not know | nothing: `*UnrecognizedEnvelopeModeError` |
+
+[`TokensAPI.AuthorityOperationByMode`](./authority_send.go) takes the legacy
+payload that you build today (`LegacyMint`, `LegacyAuthority`,
+`LegacyBlacklist`, `LegacyWhitelist`, `LegacyPause`, `LegacyMetadata`) and
+sends it in the envelope of the node's mode. `SendAuthorityOperation` does the
+same with an envelope that you name. Both sign again only after a refusal that
+had no effect, at the same nonce:
+
+- `legacy_envelope_retired`: the SDK reads the mode again and, once the node
+  reports `settled`, signs the settled envelope. It never resends the legacy form.
+- `reference_checkpoint_not_committed` or `token_not_at_reference_checkpoint`:
+  one more signature with a fresh reference after a short wait.
+
+Pass `WithOnSigned` to store each signed transaction before its send.
+`AuthorityRefusalOf` reads the five refusals of the model, with their members.
+
+If a gateway hides `GET /api/status`, the by-mode call sends the legacy
+envelope and a node of the release refuses it as retired. Name the envelope:
+`SendAuthorityOperation(ctx, onemoney.AuthorityEnvelopeSettled, ...)`.
+
+### Read the outcome from positive evidence only
+
+[`Client.AuthorityOperationState`](./authority_state.go) and
+`Client.LaneClawbackFate` decide only on a receipt or on a counter-signed status
+by hash (`certified_pending_checkpoint`, `checkpointed`, `finalized`). "Nonce
+passed, no receipt" without such a status is **unknown**, never failed: a node
+bootstrapped from a snapshot, or one that pruned receipts, gives that answer for
+a transaction that executed. A settled operation or a lane clawback can stay
+pending for up to three epoch transitions before the nodes evict it.
+
+[`ReceiptOutcomeOf`](./authority_reads.go) reads a receipt as success, no-op,
+soft fail (with its `SoftFailReason`) or failed. Show a no-op revoke
+(`outcome.NoOpRevoke`) to the user as a warning: the named account held no
+role, so another key can still hold it.
+
+### Lane clawback
+
+Build it with `Client.LaneClawbackPayload` (the holder's next nonce, the latest
+committed checkpoint), sign it with `PrepareTransaction` and `Authorize`, and
+**store it before you send it**: `NewLaneClawbackRecord` and `json.Marshal`
+store it, and `ParseLaneClawbackRecord` loads it with its hash checked. A
+clawback whose slot another transaction took cannot be told apart, by absence,
+from one that executed. After any error, read the stored record's
+`LaneClawbackFate`; never sign a new clawback because a send failed.
+
+See [`examples/v2_operations/authority_test.go`](./examples/v2_operations/authority_test.go).
+
 ## Error handling: problem details
 
 A node answers every REST error with an
