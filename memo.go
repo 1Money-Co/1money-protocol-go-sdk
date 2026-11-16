@@ -140,6 +140,9 @@ type submitConfig struct {
 	// replaces names the no-effect transaction that the next signature
 	// supersedes; set by the token authority send paths only.
 	replaces *common.Hash
+	// verifySigner checks the Signer's address against the signature; set by
+	// the clawback router only.
+	verifySigner bool
 }
 
 // SubmitOption customizes a single submit call (e.g. attaching a memo).

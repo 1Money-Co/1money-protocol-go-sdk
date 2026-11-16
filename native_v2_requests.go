@@ -214,8 +214,8 @@ func (c *Client) submitPayload(ctx context.Context, payload any, cfg submitConfi
 
 // signAndSubmitV2 signs payload as a domain-separated v2 transaction, hands it
 // to cfg.onSigned, and sends it only once that returns nil. It returns the
-// transaction's hash whenever a transaction was signed, also with a send error.
-func (c *Client) signAndSubmitV2(ctx context.Context, payload any, cfg submitConfig, signer Signer, out txHasher) (*common.Hash, error) {
+// signed transaction whenever one was signed, also with a send error.
+func (c *Client) signAndSubmitV2(ctx context.Context, payload any, cfg submitConfig, signer Signer, out txHasher) (*AuthorizedTransaction, error) {
 	// Every canonical v2 operation is memo-bearing, so a memo needs no capability
 	// check here — prepareFromPayload folds it into the signed preimage.
 	prepared, err := prepareFromPayload(payload, cfg)
@@ -229,15 +229,46 @@ func (c *Client) signAndSubmitV2(ctx context.Context, payload any, cfg submitCon
 	if err != nil {
 		return nil, err
 	}
+	if cfg.verifySigner {
+		if err := verifySignerAddress(prepared.SigningHash(), sig, signer.Address()); err != nil {
+			return nil, err
+		}
+	}
 	authorized, err := prepared.Authorize(sig)
 	if err != nil {
 		return nil, err
 	}
-	hash := common.BytesToHash(authorized.txHash)
 	if cfg.onSigned != nil {
 		if err := cfg.onSigned(ctx, SignedTransaction{Transaction: authorized, Replaces: cfg.replaces}); err != nil {
+			hash := common.BytesToHash(authorized.txHash)
 			return nil, fmt.Errorf("the store of signed transaction %s failed, so it was not sent: %w", hash.Hex(), err)
 		}
 	}
-	return &hash, c.submitAuthorized(ctx, authorized, out)
+	return authorized, c.submitAuthorized(ctx, authorized, out)
+}
+
+// verifySignerAddress checks that the signature recovers to the address that
+// the Signer reports. A clawback guards a second debit with that address's
+// nonce, so a Signer whose Address belongs to another key must fail before
+// anything is stored or sent.
+func verifySignerAddress(signingHash []byte, sig Signature, want common.Address) error {
+	r, s, v, err := sigComponents(sig)
+	if err != nil {
+		return err
+	}
+	if v > 1 {
+		return fmt.Errorf("invalid signature v: %d; must be 0 or 1", v)
+	}
+	raw := make([]byte, 65)
+	r.FillBytes(raw[:32])
+	s.FillBytes(raw[32:64])
+	raw[64] = byte(v)
+	pub, err := crypto.SigToPub(signingHash, raw)
+	if err != nil {
+		return fmt.Errorf("recover the signer: %w", err)
+	}
+	if got := crypto.PubkeyToAddress(*pub); got != want {
+		return fmt.Errorf("the Signer reports address %s but signs with the key of %s: nothing was stored or sent", want.Hex(), got.Hex())
+	}
+	return nil
 }

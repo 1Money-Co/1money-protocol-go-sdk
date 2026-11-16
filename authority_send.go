@@ -299,12 +299,12 @@ func (a TokensAPI) SendAuthorityOperation(ctx context.Context, envelope Authorit
 	legacyCfg := cfg
 	legacyCfg.listKind = operation.listKind
 	out := new(TransactionResponse)
-	var legacyHash *common.Hash
+	var legacy *AuthorizedTransaction
 	var err error
 	if a.c.mode() == SubmissionModeLegacyV1 {
 		err = a.c.submitPayload(ctx, operation.payload, legacyCfg, signer, out)
 	} else {
-		legacyHash, err = a.c.signAndSubmitV2(ctx, operation.payload, legacyCfg, signer, out)
+		legacy, err = a.c.signAndSubmitV2(ctx, operation.payload, legacyCfg, signer, out)
 	}
 	if err == nil {
 		return &AuthorityOperationSubmission{Envelope: AuthorityEnvelopeLegacy, TransactionHash: common.HexToHash(out.Hash)}, nil
@@ -315,7 +315,7 @@ func (a TokensAPI) SendAuthorityOperation(ctx context.Context, envelope Authorit
 	if err := a.c.settledAfterRetirement(ctx, err); err != nil {
 		return nil, err
 	}
-	cfg.replaces = legacyHash
+	cfg.replaces = legacy.hash()
 	return a.sendSettled(ctx, operation, cfg, signer)
 }
 
@@ -338,7 +338,7 @@ func (c *Client) settledAfterRetirement(ctx context.Context, refusal error) erro
 }
 
 func (a TokensAPI) sendSettled(ctx context.Context, operation LegacyAuthorityOperation, cfg submitConfig, signer Signer) (*AuthorityOperationSubmission, error) {
-	hash, err := retryOnceOnReferenceNotReady(ctx, &cfg, func(cfg submitConfig) (*common.Hash, error) {
+	sent, err := retryOnceOnReferenceNotReady(ctx, cfg, func(cfg submitConfig) (*AuthorizedTransaction, error) {
 		payload, err := a.SettledPayload(ctx, operation)
 		if err != nil {
 			return nil, err
@@ -348,7 +348,7 @@ func (a TokensAPI) sendSettled(ctx context.Context, operation LegacyAuthorityOpe
 	if err != nil {
 		return nil, err
 	}
-	return &AuthorityOperationSubmission{Envelope: AuthorityEnvelopeSettled, TransactionHash: *hash}, nil
+	return &AuthorityOperationSubmission{Envelope: AuthorityEnvelopeSettled, TransactionHash: *sent.hash()}, nil
 }
 
 // retryOnceOnReferenceNotReady runs attempt once more, after a short wait,
@@ -357,10 +357,10 @@ func (a TokensAPI) sendSettled(ctx context.Context, operation LegacyAuthorityOpe
 // reference again; the second attempt names the first in cfg.replaces. A
 // second refusal is returned: a token missing at the reference is not evidence
 // that it does not exist.
-func retryOnceOnReferenceNotReady(ctx context.Context, cfg *submitConfig, attempt func(submitConfig) (*common.Hash, error)) (*common.Hash, error) {
-	hash, err := attempt(*cfg)
+func retryOnceOnReferenceNotReady(ctx context.Context, cfg submitConfig, attempt func(submitConfig) (*AuthorizedTransaction, error)) (*AuthorizedTransaction, error) {
+	refused, err := attempt(cfg)
 	if !isRefusal(err, RefusalReferenceCheckpointNotCommitted, RefusalTokenNotAtReferenceCheckpoint) {
-		return hash, err
+		return refused, err
 	}
 	timer := time.NewTimer(referenceRetryDelay)
 	defer timer.Stop()
@@ -369,7 +369,16 @@ func retryOnceOnReferenceNotReady(ctx context.Context, cfg *submitConfig, attemp
 		return nil, ctx.Err()
 	case <-timer.C:
 	}
-	retry := *cfg
-	retry.replaces = hash
+	retry := cfg
+	retry.replaces = refused.hash()
 	return attempt(retry)
+}
+
+// hash is the transaction's hash, or nil for no transaction.
+func (a *AuthorizedTransaction) hash() *common.Hash {
+	if a == nil {
+		return nil
+	}
+	hash := common.BytesToHash(a.txHash)
+	return &hash
 }

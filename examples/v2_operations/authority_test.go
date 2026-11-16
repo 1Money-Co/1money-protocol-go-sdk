@@ -8,6 +8,7 @@ import (
 	"os"
 
 	onemoney "github.com/1Money-Co/1money-protocol-go-sdk"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // storeSigned writes each signed transaction before the SDK sends it, so that
@@ -98,3 +99,55 @@ func Example_laneClawback_storeBeforeSend() {
 	}
 	fmt.Println(fate.Kind)
 }
+
+func Example_clawbackByMode() {
+	e := newExampleEnvironment()
+
+	// One call per intent: after any error, load the last stored transaction
+	// and read its outcome; never call ClawbackByMode again for this intent.
+	submission, err := e.client.Tokens().ClawbackByMode(
+		e.ctx, e.clawbackPayload(), onemoney.ClawbackFromAccount, e.signer, storeSigned,
+	)
+	if err != nil {
+		panic(err)
+	}
+	if submission.Lane != nil {
+		fate, err := e.client.LaneClawbackFate(e.ctx, submission.Lane)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(fate.Kind)
+	}
+}
+
+func Example_laneClawbackReissue() {
+	e := newExampleEnvironment()
+
+	stored, err := os.ReadFile(requiredEnvironment("DEAD_CLAWBACK_FILE"))
+	if err != nil {
+		panic(err)
+	}
+	dead, err := onemoney.ParseLaneClawbackRecord(stored)
+	if err != nil {
+		panic(err)
+	}
+	// Only after a node with the full history shows no receipt and no status
+	// by hash for dead, and the holder's nonce past its slot.
+	reissue, err := e.client.PrepareLaneClawbackReissue(e.ctx, dead, e.signer, onemoney.FullHistoryChecked)
+	if err != nil {
+		panic(err)
+	}
+	if reissue.Kind != onemoney.ReissuePrepared {
+		fmt.Println("not issued again:", reissue.Kind, reissue.Fate.Kind)
+		return
+	}
+	replacement := reissue.Replacement.Transaction()
+	if err := storeSigned(e.ctx, onemoney.SignedTransaction{Transaction: replacement, Replaces: ptrHash(dead.TransactionHash())}); err != nil {
+		panic(err)
+	}
+	if _, err := e.client.Submit(e.ctx, replacement); err != nil {
+		fmt.Println("send failed; read the replacement's fate")
+	}
+}
+
+func ptrHash(hash common.Hash) *common.Hash { return &hash }
