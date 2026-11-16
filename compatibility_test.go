@@ -146,8 +146,10 @@ func TestPublicAPICompatibility(t *testing.T) {
 	//     switch point, the by-mode send, WithOnSigned, the stored form of an
 	//     authority-class AuthorizedTransaction, the state and fate reads, the
 	//     receipt outcome and the refusals (issue #31). Additive only.
+	//   - The clawback router with a required onSigned, and the explicit lane
+	//     clawback re-issue (issue #31). Additive only.
 	// It guards against unintentional drift, not intentional changes.
-	const publicAPIHash = "9549a494468106dc1cd39270afe947f1733c68ee4ee98b123c34ec8b87909cc9"
+	const publicAPIHash = "940afb549297fb022f99afb247e45c16050554fc59417598c9b708d2d0586963"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}

@@ -247,10 +247,16 @@ submission, err := client.Tokens().AuthorityOperationByMode(
   request has no `AuthorizedTransaction` to hand over.
 - A settled operation's result arrives at its checkpoint: read it with
   `Client.AuthorityOperationState`, and the receipt with `ReceiptOutcomeOf`.
-- `Tokens().Clawback` stays the legacy clawback. Keep it for VERIFY (by its
-  master) and for a Reserved Payment hold. For an ordinary account after
-  activation, sign a lane clawback (`Client.LaneClawbackPayload`), store it, then
-  send it with `Client.Submit`.
+- `Tokens().Clawback` stays the legacy clawback. Move clawbacks to
+  `Tokens().ClawbackByMode(ctx, data, source, signer, onSigned)`: it keeps the
+  legacy clawback for VERIFY (by its master) and for a Reserved Payment hold, and
+  issues the lane clawback of an ordinary account after activation. `onSigned`
+  is required, and the contract is one call per intent: after any error, read the
+  stored transaction's outcome instead of calling again.
+- The clawback router (`ClawbackByMode`, `SendClawback`, `IssueLaneClawback`)
+  refuses a client in `WithLegacyV1()` mode before signing: a `/v1` clawback has
+  no `AuthorizedTransaction` to hand to `onSigned`, and every network that runs
+  the token authority model serves the domain-separated v2 writes.
 
 The [README](./README.md#token-authority-model-settled-envelope-and-lane-clawback)
 gives the client rules.

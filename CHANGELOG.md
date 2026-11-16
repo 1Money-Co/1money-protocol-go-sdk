@@ -38,6 +38,14 @@ change only adds to the API.
   catalog is synced to l1client `4e8acd8b6` (130 types).
 - The transaction view decodes `TokenAuthorityOperation` and
   `TokenLaneClawback`, and `Transaction.Lane`.
+- The clawback router: `TokensAPI.ClawbackByMode`, `SendClawback` and
+  `IssueLaneClawback`, with a required `onSigned` that receives every signed
+  clawback before its send, `ClawbackSubmission`, and
+  `ClawbackIntentNonceUsedError`. One call per intent. They refuse legacy v1
+  mode before signing, and check the Signer's address against its signature.
+- `Client.PrepareLaneClawbackReissue` with `FullHistoryChecked`: the explicit
+  issuer action that signs the replacement of a lane clawback whose slot another
+  transaction took, without sending it.
 
 ### Changed
 

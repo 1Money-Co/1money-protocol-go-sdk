@@ -225,15 +225,44 @@ soft fail (with its `SoftFailReason`) or failed. Show a no-op revoke
 (`outcome.NoOpRevoke`) to the user as a warning: the named account held no
 role, so another key can still hold it.
 
-### Lane clawback
+### Clawback
 
-Build it with `Client.LaneClawbackPayload` (the holder's next nonce, the latest
-committed checkpoint), sign it with `PrepareTransaction` and `Authorize`, and
-**store it before you send it**: `NewLaneClawbackRecord` and `json.Marshal`
-store it, and `ParseLaneClawbackRecord` loads it with its hash checked. A
-clawback whose slot another transaction took cannot be told apart, by absence,
-from one that executed. After any error, read the stored record's
-`LaneClawbackFate`; never sign a new clawback because a send failed.
+[`TokensAPI.ClawbackByMode`](./clawback_router.go) takes the legacy
+`TokenClawbackPayload` and a **required** `onSigned` hook:
+
+- VERIFY (by its master) and a Reserved Payment hold (`ClawbackFromHold`) stay
+  the legacy clawback, with no mode read.
+- In the settled mode, or after a retired legacy clawback once the node reports
+  `settled`, the clawback of an ordinary account becomes the lane clawback at
+  the holder's next nonce. It is signed only while the signer's nonce has not
+  passed the intent's nonce (`*ClawbackIntentNonceUsedError`).
+- Every signed clawback, legacy and lane, goes to `onSigned` before its send.
+  An error from `onSigned` sends nothing.
+
+**Call it once per intent.** The SDK keeps no record of earlier calls, and a
+lane clawback never advances the signer's nonce, so a second call for the same
+intent can sign a second lane clawback that debits the holder twice. After any
+error, read the outcome of the last transaction stored
+(`ParseLaneClawbackRecord` and `Client.LaneClawbackFate`, or
+`Client.AuthorityOperationState` for a legacy clawback) and do not call again.
+
+`SendClawback` does the same with an envelope that you name, and
+`IssueLaneClawback` issues the lane clawback directly. All three refuse a client
+in legacy v1 mode before signing: a `/v1` clawback has no
+`AuthorizedTransaction` to store.
+
+A clawback whose slot another transaction took cannot be told apart, by absence,
+from one that executed. Issue it again only through
+[`Client.PrepareLaneClawbackReissue`](./clawback_router.go), after a check on a
+node with the full history (`FullHistoryChecked`). It refuses, with nothing
+signed, when the reads show the clawback executed, certified, its slot not
+passed, or known to a node. Otherwise it signs the replacement on the holder's
+next slot and sends nothing: store it, send it with `Client.Submit`, and never
+send the old one again.
+
+For an offline signer, build the lane clawback with `Client.LaneClawbackPayload`,
+sign it with `PrepareTransaction` and `Authorize`, and store it
+(`NewLaneClawbackRecord`, `json.Marshal`) before `Client.Submit`.
 
 See [`examples/v2_operations/authority_test.go`](./examples/v2_operations/authority_test.go).
 
