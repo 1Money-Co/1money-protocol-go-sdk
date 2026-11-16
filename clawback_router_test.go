@@ -355,8 +355,46 @@ func TestPrepareLaneClawbackReissue(t *testing.T) {
 
 	t.Run("needs the full-history statement", func(t *testing.T) {
 		node := newMockNode(t)
-		if _, err := node.client().PrepareLaneClawbackReissue(context.Background(), dead, testSigner(t), false); err == nil || len(node.eventLog()) != 0 {
+		if _, err := node.client().PrepareLaneClawbackReissue(context.Background(), dead, testSigner(t), FullHistoryCheck{}); err == nil || len(node.eventLog()) != 0 {
 			t.Fatalf("err %v, events %v", err, node.eventLog())
+		}
+	})
+}
+
+// failOnSecondStore stores the first signed transaction and fails on the second.
+func failOnSecondStore(storeFailed error) OnSigned {
+	calls := 0
+	return func(context.Context, SignedTransaction) error {
+		calls++
+		if calls == 2 {
+			return storeFailed
+		}
+		return nil
+	}
+}
+
+func TestAStoreThatFailsOnTheSecondSignatureSendsNothingMore(t *testing.T) {
+	referenceRetryDelayForTest(t)
+	storeFailed := errors.New("disk full")
+
+	t.Run("the lane clawback after a retired legacy clawback", func(t *testing.T) {
+		node := clawbackNode(t)
+		node.queuePost(clawbackRoute, retired())
+		_, err := node.client().Tokens().SendClawback(context.Background(), AuthorityEnvelopeLegacy, clawbackIntent(3), ClawbackFromAccount, testSigner(t), failOnSecondStore(storeFailed))
+		posted := node.postedRequests()
+		if !errors.Is(err, storeFailed) || len(posted) != 1 || posted[0].path != clawbackRoute {
+			t.Fatalf("err %v, posted %+v", err, posted)
+		}
+	})
+
+	t.Run("the retry lane clawback after a refused reference", func(t *testing.T) {
+		node := clawbackNode(t)
+		node.setCheckpoints(1200, 1201)
+		node.queuePost(laneClawbackRoute, problemReply(http.StatusUnprocessableEntity, "token_not_at_reference_checkpoint", "retry_later", map[string]any{"mint_address": repeatAddr(1).Hex(), "checkpoint_id": 1200}))
+		_, err := node.client().Tokens().IssueLaneClawback(context.Background(), clawbackIntent(3), testSigner(t), failOnSecondStore(storeFailed))
+		posted := node.postedRequests()
+		if !errors.Is(err, storeFailed) || len(posted) != 1 || posted[0].path != laneClawbackRoute {
+			t.Fatalf("err %v, posted %+v", err, posted)
 		}
 	})
 }

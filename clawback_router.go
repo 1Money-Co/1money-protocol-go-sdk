@@ -196,13 +196,15 @@ func (a TokensAPI) issueLaneClawback(ctx context.Context, clawback TokenClawback
 }
 
 // FullHistoryCheck is the issuer's statement for PrepareLaneClawbackReissue.
-type FullHistoryCheck bool
+// It is a struct, so that neither a literal true nor a boolean variable makes
+// the statement: only FullHistoryChecked does. Its zero value refuses.
+type FullHistoryCheck struct{ checked bool }
 
 // FullHistoryChecked states that a node with the full history (not
 // bootstrapped from a snapshot taken after the dead clawback's reference
 // checkpoint, and keeping receipts that far back) shows no receipt and no
 // status by hash for the dead clawback, and the holder's nonce past its slot.
-const FullHistoryChecked FullHistoryCheck = true
+var FullHistoryChecked = FullHistoryCheck{checked: true}
 
 // LaneClawbackReissueKind is the answer of PrepareLaneClawbackReissue.
 type LaneClawbackReissueKind string
@@ -244,7 +246,7 @@ type LaneClawbackReissue struct {
 // Errors: checked is not FullHistoryChecked, before any read; a read that did
 // not answer; as Client.LaneClawbackPayload; a signing failure.
 func (c *Client) PrepareLaneClawbackReissue(ctx context.Context, dead *LaneClawbackRecord, signer Signer, checked FullHistoryCheck) (*LaneClawbackReissue, error) {
-	if checked != FullHistoryChecked {
+	if !checked.checked {
 		return nil, fmt.Errorf("a lane clawback is issued again only after a check on a node with the full history: pass FullHistoryChecked once you made it")
 	}
 	if dead == nil || signer == nil {

@@ -149,7 +149,7 @@ func TestPublicAPICompatibility(t *testing.T) {
 	//   - The clawback router with a required onSigned, and the explicit lane
 	//     clawback re-issue (issue #31). Additive only.
 	// It guards against unintentional drift, not intentional changes.
-	const publicAPIHash = "940afb549297fb022f99afb247e45c16050554fc59417598c9b708d2d0586963"
+	const publicAPIHash = "d8842fe17a3fb077f267f9f1e374ba7808fe2a2ebae997c9c03b70a661a4cff5"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}
