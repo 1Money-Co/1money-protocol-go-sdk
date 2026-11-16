@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -202,21 +203,38 @@ func (c *Client) submitPayload(ctx context.Context, payload any, cfg submitConfi
 		if cfg.memoSet {
 			return fmt.Errorf("memo is not supported in legacy v1 submission mode; use the default v2 mode to sign a memo")
 		}
+		if cfg.onSigned != nil {
+			return fmt.Errorf("WithOnSigned is not supported in legacy v1 submission mode: a /v1 request has no AuthorizedTransaction to hand over")
+		}
 		return c.submitLegacyV1(ctx, op, signer, out)
 	}
+	_, err := c.signAndSubmitV2(ctx, payload, cfg, signer, out)
+	return err
+}
+
+// signAndSubmitV2 signs payload as a domain-separated v2 transaction, hands it
+// to cfg.onSigned, and sends it only once that returns nil. It returns the
+// transaction's hash whenever a transaction was signed, also with a send error.
+func (c *Client) signAndSubmitV2(ctx context.Context, payload any, cfg submitConfig, signer Signer, out txHasher) (*common.Hash, error) {
 	// Every canonical v2 operation is memo-bearing, so a memo needs no capability
 	// check here — prepareFromPayload folds it into the signed preimage.
 	prepared, err := prepareFromPayload(payload, cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sig, err := signer.SignHash(prepared.SigningHash())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	authorized, err := prepared.Authorize(sig)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return c.submitAuthorized(ctx, authorized, out)
+	hash := common.BytesToHash(authorized.txHash)
+	if cfg.onSigned != nil {
+		if err := cfg.onSigned(ctx, SignedTransaction{Transaction: authorized, Replaces: cfg.replaces}); err != nil {
+			return nil, fmt.Errorf("the store of signed transaction %s failed, so it was not sent: %w", hash.Hex(), err)
+		}
+	}
+	return &hash, c.submitAuthorized(ctx, authorized, out)
 }

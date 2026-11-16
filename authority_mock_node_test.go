@@ -163,7 +163,9 @@ func (n *mockNode) acceptPost(r *http.Request) mockReply {
 	var body map[string]any
 	_ = json.Unmarshal(raw, &body)
 	request := postedRequest{path: r.URL.Path, body: body}
-	if authorized, err := authorizedFromBody(r.URL.Path, raw); err == nil {
+	if strings.HasPrefix(r.URL.Path, "/v1/") {
+		request.hash = "0x" + strings.Repeat("ab", 32)
+	} else if authorized, err := authorizedFromBody(r.URL.Path, raw); err == nil {
 		request.hash = hexLower(authorized.txHash)
 	} else {
 		n.t.Errorf("mock node: %s body does not rebuild: %v", r.URL.Path, err)
@@ -215,6 +217,13 @@ func (n *mockNode) setTxStatus(hash string, reply mockReply) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.statuses[strings.ToLower(hash)] = reply
+}
+
+// referenceRetryDelayForTest removes the wait before the reference retry.
+func referenceRetryDelayForTest(t *testing.T) {
+	saved := referenceRetryDelay
+	referenceRetryDelay = 0
+	t.Cleanup(func() { referenceRetryDelay = saved })
 }
 
 func (n *mockNode) countEvents(event string) int {

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // Memo is the optional signed memo attached to a domain-separated v2
@@ -134,6 +136,10 @@ type submitConfig struct {
 	// so must reject an explicit memo rather than silently drop it.
 	memoSet  bool
 	listKind *ManageListKind
+	onSigned OnSigned
+	// replaces names the no-effect transaction that the next signature
+	// supersedes; set by the token authority send paths only.
+	replaces *common.Hash
 }
 
 // SubmitOption customizes a single submit call (e.g. attaching a memo).
