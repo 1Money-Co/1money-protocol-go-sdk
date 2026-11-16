@@ -134,8 +134,11 @@ func (o SettledList) rlpFields() []interface{} {
 func (o SettledUpdateMetadata) rlpFields() []interface{} {
 	return []interface{}{[]byte(o.Name), []byte(o.URI), metadataPairsRLP(o.AdditionalMetadata)}
 }
-func (o SettledGrantRole) rlpFields() []interface{}  { return []interface{}{[]byte(o.Role), o.Account} }
+
+func (o SettledGrantRole) rlpFields() []interface{} { return []interface{}{[]byte(o.Role), o.Account} }
+
 func (o SettledRevokeRole) rlpFields() []interface{} { return []interface{}{[]byte(o.Role), o.Account} }
+
 func (o SettledSetMinterAllowance) rlpFields() []interface{} {
 	return []interface{}{o.Minter, bigOrZero(o.Allowance)}
 }

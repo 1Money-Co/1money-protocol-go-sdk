@@ -225,13 +225,3 @@ func referenceRetryDelayForTest(t *testing.T) {
 	referenceRetryDelay = 0
 	t.Cleanup(func() { referenceRetryDelay = saved })
 }
-
-func (n *mockNode) countEvents(event string) int {
-	count := 0
-	for _, e := range n.eventLog() {
-		if e == event {
-			count++
-		}
-	}
-	return count
-}

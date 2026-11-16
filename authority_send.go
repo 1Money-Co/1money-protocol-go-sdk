@@ -45,7 +45,9 @@ type LegacyAuthorityOperation struct {
 	listKind *ManageListKind
 }
 
-func LegacyMint(p TokenMintPayload) LegacyAuthorityOperation { return LegacyAuthorityOperation{payload: p} }
+func LegacyMint(p TokenMintPayload) LegacyAuthorityOperation {
+	return LegacyAuthorityOperation{payload: p}
+}
 
 // LegacyAuthority is a grant or a revoke, as p.Action says.
 func LegacyAuthority(p TokenAuthorityPayload) LegacyAuthorityOperation {
@@ -63,7 +65,9 @@ func LegacyWhitelist(p TokenManageListPayload) LegacyAuthorityOperation {
 }
 
 // LegacyPause is a pause or an unpause, as p.Action says.
-func LegacyPause(p PauseTokenPayload) LegacyAuthorityOperation { return LegacyAuthorityOperation{payload: p} }
+func LegacyPause(p PauseTokenPayload) LegacyAuthorityOperation {
+	return LegacyAuthorityOperation{payload: p}
+}
 
 func LegacyMetadata(p UpdateMetadataPayload) LegacyAuthorityOperation {
 	return LegacyAuthorityOperation{payload: p}

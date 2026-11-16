@@ -99,7 +99,9 @@ func TestSettledAndLaneClawbackPayloadsMatchGoldenVectors(t *testing.T) {
 func everySettledOperation() []SettledAuthorityOperation {
 	account := repeatAddr(0x02)
 	ops := []SettledAuthorityOperation{
-		SettledPause{}, SettledUnpause{}, SettledRevokeMasterMintBurn{},
+		SettledPause{},
+		SettledUnpause{},
+		SettledRevokeMasterMintBurn{},
 		SettledRevokeMinter{Minter: account},
 		SettledRotateMasterMintBurn{Account: account},
 		SettledSetMinterAllowance{Minter: account, Allowance: oneToken()},

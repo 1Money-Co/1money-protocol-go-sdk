@@ -174,7 +174,7 @@ func TestARetiredLegacyEnvelopeIsSignedAgainAsSettledAtTheSameNonce(t *testing.T
 }
 
 func TestARetiredLegacyEnvelopeIsReturnedUnlessTheNodeReportsSettled(t *testing.T) {
-	for _, status := range []mockReply{okJSON(`{}`), mockReply{status: http.StatusNotFound, body: `{}`}} {
+	for _, status := range []mockReply{okJSON(`{}`), {status: http.StatusNotFound, body: `{}`}} {
 		node := newMockNode(t)
 		node.setStatus(status)
 		node.queuePost(pauseRoute, retired())
