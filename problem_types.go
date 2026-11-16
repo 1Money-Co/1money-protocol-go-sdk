@@ -6,7 +6,7 @@ import "strings"
 const ProblemTypePrefix = "https://developer.1moneynetwork.com/problem/"
 
 // knownProblemTypes is the node's problem catalog, copied from
-// https://github.com/1Money-Co/l1client/blob/10bd37160966312039c4d1b23686ceb39dec15d0/docs/api/problem-types.md
+// https://github.com/1Money-Co/l1client/blob/4e8acd8b6/docs/api/problem-types.md
 // A type that the node adds later is unknown here, which is the safe side: the
 // submission rule treats it as check_status.
 var knownProblemTypes = map[string]struct{}{
@@ -130,6 +130,16 @@ var knownProblemTypes = map[string]struct{}{
 	"request_too_large":                      {},
 	"response_too_large":                     {},
 	"batch_response_too_large":               {},
+	"withdrawal_rate_limited":                {},
+	"withdrawal_exceeds_allowance":           {},
+	"token_not_at_reference_checkpoint":      {},
+	"signer_account_not_committed":           {},
+	"settled_envelope_not_active":            {},
+	"reference_checkpoint_too_old":           {},
+	"reference_checkpoint_not_committed":     {},
+	"legacy_envelope_retired":                {},
+	"lane_order_pending":                     {},
+	"governance_proposal_conflict":           {},
 }
 
 // IsKnownType reports whether Type is in this SDK's copy of the node's problem

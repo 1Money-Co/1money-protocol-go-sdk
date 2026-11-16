@@ -57,7 +57,7 @@ func TestProblemIsKnownType(t *testing.T) {
 }
 
 func TestKnownProblemTypesMatchPinnedCatalog(t *testing.T) {
-	assert.Len(t, knownProblemTypes, 120, "the pinned l1client catalog has 120 types")
+	assert.Len(t, knownProblemTypes, 130, "the pinned l1client catalog (4e8acd8b6) has 130 types")
 	for id := range knownProblemTypes {
 		assert.Regexp(t, `^[a-z][a-z0-9_]*$`, id)
 	}

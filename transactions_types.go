@@ -11,25 +11,27 @@ import (
 type TransactionType string
 
 const (
-	TransactionTypeTokenCreate           TransactionType = "TokenCreate"
-	TransactionTypeTokenTransfer         TransactionType = "TokenTransfer"
-	TransactionTypeBatchPayment          TransactionType = "BatchPayment"
-	TransactionTypeTokenClawback         TransactionType = "TokenClawback"
-	TransactionTypeTokenGrantAuthority   TransactionType = "TokenGrantAuthority"
-	TransactionTypeTokenRevokeAuthority  TransactionType = "TokenRevokeAuthority"
-	TransactionTypeTokenBlacklistAccount TransactionType = "TokenBlacklistAccount"
-	TransactionTypeTokenWhitelistAccount TransactionType = "TokenWhitelistAccount"
-	TransactionTypeTokenMint             TransactionType = "TokenMint"
-	TransactionTypeTokenBridgeAndMint    TransactionType = "TokenBridgeAndMint"
-	TransactionTypeTokenBurn             TransactionType = "TokenBurn"
-	TransactionTypeTokenBurnAndBridge    TransactionType = "TokenBurnAndBridge"
-	TransactionTypeTokenCloseAccount     TransactionType = "TokenCloseAccount"
-	TransactionTypeTokenPause            TransactionType = "TokenPause"
-	TransactionTypeTokenUnpause          TransactionType = "TokenUnpause"
-	TransactionTypeTokenUpdateMetadata   TransactionType = "TokenUpdateMetadata"
-	TransactionTypeCreateMultiSig        TransactionType = "CreateMultiSig"
-	TransactionTypeEmpty                 TransactionType = "Empty"
-	TransactionTypeRaw                   TransactionType = "Raw"
+	TransactionTypeTokenCreate             TransactionType = "TokenCreate"
+	TransactionTypeTokenTransfer           TransactionType = "TokenTransfer"
+	TransactionTypeBatchPayment            TransactionType = "BatchPayment"
+	TransactionTypeTokenClawback           TransactionType = "TokenClawback"
+	TransactionTypeTokenGrantAuthority     TransactionType = "TokenGrantAuthority"
+	TransactionTypeTokenRevokeAuthority    TransactionType = "TokenRevokeAuthority"
+	TransactionTypeTokenBlacklistAccount   TransactionType = "TokenBlacklistAccount"
+	TransactionTypeTokenWhitelistAccount   TransactionType = "TokenWhitelistAccount"
+	TransactionTypeTokenMint               TransactionType = "TokenMint"
+	TransactionTypeTokenBridgeAndMint      TransactionType = "TokenBridgeAndMint"
+	TransactionTypeTokenBurn               TransactionType = "TokenBurn"
+	TransactionTypeTokenBurnAndBridge      TransactionType = "TokenBurnAndBridge"
+	TransactionTypeTokenCloseAccount       TransactionType = "TokenCloseAccount"
+	TransactionTypeTokenPause              TransactionType = "TokenPause"
+	TransactionTypeTokenUnpause            TransactionType = "TokenUnpause"
+	TransactionTypeTokenUpdateMetadata     TransactionType = "TokenUpdateMetadata"
+	TransactionTypeCreateMultiSig          TransactionType = "CreateMultiSig"
+	TransactionTypeTokenAuthorityOperation TransactionType = "TokenAuthorityOperation"
+	TransactionTypeTokenLaneClawback       TransactionType = "TokenLaneClawback"
+	TransactionTypeEmpty                   TransactionType = "Empty"
+	TransactionTypeRaw                     TransactionType = "Raw"
 )
 
 // TransactionPayload marks a struct as a valid transaction payload returned by the API.
@@ -70,6 +72,10 @@ type Transaction struct {
 	MultiSignature *MultiSigSignature `json:"-"`
 	// Memo is the optional signed memo (domain-separated v2). nil when absent.
 	Memo *Memo `json:"memo,omitempty"`
+	// Lane is the account whose nonce the transaction takes, when it is not
+	// From: the holder of a lane clawback, whose Nonce is then the holder's.
+	// nil for every other transaction.
+	Lane *common.Address `json:"lane,omitempty"`
 	// SignatureScheme reports how the transaction was signed (legacy_native,
 	// domain_separated, ethereum, eip712). Empty when the node omits it.
 	SignatureScheme SignatureScheme `json:"signature_scheme,omitempty"`
@@ -125,6 +131,8 @@ type TransactionReceiptResponse struct {
 	BatchInfo *BatchReceiptInfo `json:"batch_info,omitempty"`
 	// ExecutionEvents lists per-operation events (e.g. batch payment); empty when absent.
 	ExecutionEvents []ExecutionEvent `json:"execution_events,omitempty"`
+	// Warnings is absent from a receipt without warnings. See ReceiptWarningNoOpRevoke.
+	Warnings []ReceiptWarning `json:"warnings,omitempty"`
 }
 
 // SuccessInfo carries the execution detail of a successful transaction.
@@ -161,7 +169,9 @@ type BatchFailureInfo struct {
 
 // ExecutionEvent is one execution event emitted during transaction processing.
 // It is internally tagged by EventType (BatchStarted, PaymentExecuted,
-// BatchCompleted); only the fields relevant to EventType are populated.
+// BatchCompleted, NoOp, SoftFail, and types that the node adds later); only
+// the fields relevant to EventType are populated. Read the outcome of a
+// settled authority operation with ReceiptOutcomeOf.
 type ExecutionEvent struct {
 	EventType       string          `json:"event_type"`
 	BatchID         *string         `json:"batch_id,omitempty"`
@@ -171,6 +181,10 @@ type ExecutionEvent struct {
 	OperationIndex  *uint64         `json:"operation_index,omitempty"`
 	Recipient       *common.Address `json:"recipient,omitempty"`
 	Amount          *string         `json:"amount,omitempty"`
+	// Target is the account of a NoOp event; nil for an operation that names none.
+	Target *common.Address `json:"target,omitempty"`
+	// Reason is the reason of a SoftFail event, as sent.
+	Reason *string `json:"reason,omitempty"`
 }
 
 type FinalizedTransactionResponse struct {

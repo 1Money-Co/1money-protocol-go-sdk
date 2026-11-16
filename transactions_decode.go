@@ -36,25 +36,27 @@ func newTransactionPayload(tt TransactionType) (TransactionPayload, bool) {
 }
 
 var defaultTransactionPayloadConstructors = map[TransactionType]func() TransactionPayload{
-	TransactionTypeTokenCreate:           func() TransactionPayload { return &TokenCreateData{} },
-	TransactionTypeTokenTransfer:         func() TransactionPayload { return &TokenTransferData{} },
-	TransactionTypeBatchPayment:          func() TransactionPayload { return &BatchPaymentData{} },
-	TransactionTypeTokenClawback:         func() TransactionPayload { return &TokenClawbackData{} },
-	TransactionTypeTokenGrantAuthority:   func() TransactionPayload { return &TokenGrantAuthorityData{} },
-	TransactionTypeTokenRevokeAuthority:  func() TransactionPayload { return &TokenRevokeAuthorityData{} },
-	TransactionTypeTokenBlacklistAccount: func() TransactionPayload { return &TokenBlacklistAccountData{} },
-	TransactionTypeTokenWhitelistAccount: func() TransactionPayload { return &TokenWhitelistAccountData{} },
-	TransactionTypeTokenMint:             func() TransactionPayload { return &TokenMintData{} },
-	TransactionTypeTokenBridgeAndMint:    func() TransactionPayload { return &TokenBridgeAndMintData{} },
-	TransactionTypeTokenBurn:             func() TransactionPayload { return &TokenBurnData{} },
-	TransactionTypeTokenBurnAndBridge:    func() TransactionPayload { return &TokenBurnAndBridgeData{} },
-	TransactionTypeTokenCloseAccount:     func() TransactionPayload { return &TokenCloseAccountData{} },
-	TransactionTypeTokenPause:            func() TransactionPayload { return &TokenPauseData{} },
-	TransactionTypeTokenUnpause:          func() TransactionPayload { return &TokenUnpauseData{} },
-	TransactionTypeTokenUpdateMetadata:   func() TransactionPayload { return &TokenUpdateMetadataData{} },
-	TransactionTypeCreateMultiSig:        func() TransactionPayload { return &CreateMultiSigData{} },
-	TransactionTypeEmpty:                 func() TransactionPayload { return &EmptyData{} },
-	TransactionTypeRaw:                   func() TransactionPayload { return &RawTransactionData{} },
+	TransactionTypeTokenCreate:             func() TransactionPayload { return &TokenCreateData{} },
+	TransactionTypeTokenTransfer:           func() TransactionPayload { return &TokenTransferData{} },
+	TransactionTypeBatchPayment:            func() TransactionPayload { return &BatchPaymentData{} },
+	TransactionTypeTokenClawback:           func() TransactionPayload { return &TokenClawbackData{} },
+	TransactionTypeTokenGrantAuthority:     func() TransactionPayload { return &TokenGrantAuthorityData{} },
+	TransactionTypeTokenRevokeAuthority:    func() TransactionPayload { return &TokenRevokeAuthorityData{} },
+	TransactionTypeTokenBlacklistAccount:   func() TransactionPayload { return &TokenBlacklistAccountData{} },
+	TransactionTypeTokenWhitelistAccount:   func() TransactionPayload { return &TokenWhitelistAccountData{} },
+	TransactionTypeTokenMint:               func() TransactionPayload { return &TokenMintData{} },
+	TransactionTypeTokenBridgeAndMint:      func() TransactionPayload { return &TokenBridgeAndMintData{} },
+	TransactionTypeTokenBurn:               func() TransactionPayload { return &TokenBurnData{} },
+	TransactionTypeTokenBurnAndBridge:      func() TransactionPayload { return &TokenBurnAndBridgeData{} },
+	TransactionTypeTokenCloseAccount:       func() TransactionPayload { return &TokenCloseAccountData{} },
+	TransactionTypeTokenPause:              func() TransactionPayload { return &TokenPauseData{} },
+	TransactionTypeTokenUnpause:            func() TransactionPayload { return &TokenUnpauseData{} },
+	TransactionTypeTokenUpdateMetadata:     func() TransactionPayload { return &TokenUpdateMetadataData{} },
+	TransactionTypeCreateMultiSig:          func() TransactionPayload { return &CreateMultiSigData{} },
+	TransactionTypeTokenAuthorityOperation: func() TransactionPayload { return &TokenAuthorityOperationData{} },
+	TransactionTypeTokenLaneClawback:       func() TransactionPayload { return &TokenLaneClawbackData{} },
+	TransactionTypeEmpty:                   func() TransactionPayload { return &EmptyData{} },
+	TransactionTypeRaw:                     func() TransactionPayload { return &RawTransactionData{} },
 }
 
 func init() {
@@ -247,6 +249,14 @@ func (t *Transaction) AsTokenUpdateMetadataData() (*TokenUpdateMetadataData, boo
 	return asPayload[*TokenUpdateMetadataData](t, TransactionTypeTokenUpdateMetadata)
 }
 
+func (t *Transaction) AsTokenAuthorityOperationData() (*TokenAuthorityOperationData, bool) {
+	return asPayload[*TokenAuthorityOperationData](t, TransactionTypeTokenAuthorityOperation)
+}
+
+func (t *Transaction) AsTokenLaneClawbackData() (*TokenLaneClawbackData, bool) {
+	return asPayload[*TokenLaneClawbackData](t, TransactionTypeTokenLaneClawback)
+}
+
 func (t *Transaction) AsEmptyData() (*EmptyData, bool) {
 	return asPayload[*EmptyData](t, TransactionTypeEmpty)
 }
@@ -256,22 +266,24 @@ func (t *Transaction) AsRawTransactionData() (*RawTransactionData, bool) {
 }
 
 // isTransactionPayload markers keep the payload interface closed to known types.
-func (*TokenCreateData) isTransactionPayload()           {}
-func (*EmptyData) isTransactionPayload()                 {}
-func (*TokenTransferData) isTransactionPayload()         {}
-func (*BatchPaymentData) isTransactionPayload()          {}
-func (*TokenClawbackData) isTransactionPayload()         {}
-func (*CreateMultiSigData) isTransactionPayload()        {}
-func (*TokenGrantAuthorityData) isTransactionPayload()   {}
-func (*TokenRevokeAuthorityData) isTransactionPayload()  {}
-func (*TokenBlacklistAccountData) isTransactionPayload() {}
-func (*TokenWhitelistAccountData) isTransactionPayload() {}
-func (*TokenMintData) isTransactionPayload()             {}
-func (*TokenBridgeAndMintData) isTransactionPayload()    {}
-func (*TokenBurnData) isTransactionPayload()             {}
-func (*TokenBurnAndBridgeData) isTransactionPayload()    {}
-func (*TokenCloseAccountData) isTransactionPayload()     {}
-func (*TokenPauseData) isTransactionPayload()            {}
-func (*TokenUnpauseData) isTransactionPayload()          {}
-func (*TokenUpdateMetadataData) isTransactionPayload()   {}
-func (*RawTransactionData) isTransactionPayload()        {}
+func (*TokenCreateData) isTransactionPayload()             {}
+func (*EmptyData) isTransactionPayload()                   {}
+func (*TokenTransferData) isTransactionPayload()           {}
+func (*BatchPaymentData) isTransactionPayload()            {}
+func (*TokenClawbackData) isTransactionPayload()           {}
+func (*CreateMultiSigData) isTransactionPayload()          {}
+func (*TokenGrantAuthorityData) isTransactionPayload()     {}
+func (*TokenRevokeAuthorityData) isTransactionPayload()    {}
+func (*TokenBlacklistAccountData) isTransactionPayload()   {}
+func (*TokenWhitelistAccountData) isTransactionPayload()   {}
+func (*TokenMintData) isTransactionPayload()               {}
+func (*TokenBridgeAndMintData) isTransactionPayload()      {}
+func (*TokenBurnData) isTransactionPayload()               {}
+func (*TokenBurnAndBridgeData) isTransactionPayload()      {}
+func (*TokenCloseAccountData) isTransactionPayload()       {}
+func (*TokenPauseData) isTransactionPayload()              {}
+func (*TokenUnpauseData) isTransactionPayload()            {}
+func (*TokenUpdateMetadataData) isTransactionPayload()     {}
+func (*RawTransactionData) isTransactionPayload()          {}
+func (*TokenAuthorityOperationData) isTransactionPayload() {}
+func (*TokenLaneClawbackData) isTransactionPayload()       {}
