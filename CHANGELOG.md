@@ -4,53 +4,72 @@ All notable changes to the 1Money Protocol Go SDK are documented here. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.5.0] - 2026-11-16
 
 Support for the l1client token authority model
-([#31](https://github.com/1Money-Co/1money-protocol-go-sdk/issues/31)). The
-change only adds to the API.
+([#31](https://github.com/1Money-Co/1money-protocol-go-sdk/issues/31)): the
+settled authority envelope (native operation 17) and the lane clawback (native
+operation 18), with the client rules of l1client `4e8acd8b6`. The change only
+adds to the API.
 
 ### Added
 
-- Native operations 17 (`SettledAuthorityPayload` with the `Settled*`
-  operations) and 18 (`LaneClawbackPayload`), on `/v2/tokens/authority_operation`
-  and `/v2/tokens/lane_clawback`. `PrepareTransaction` refuses a lane clawback
-  of VERIFY (`VerifyTokenAddress`, `IsVerifyToken`).
-- The client switch point: `Client.GetEnvelopeMode`, `EnvelopeMode`,
-  `ErrUpgradeGap`, `UnrecognizedEnvelopeModeError`, `ClawbackStaysLegacy`, and
-  `NativeWriteStatusResponse.EnvelopeMode`.
-- `TokensAPI.AuthorityOperationByMode`, `SendAuthorityOperation` and
-  `SettledPayload`, with `LegacyAuthorityOperation` and its constructors, and
-  `Client.LatestReferenceCheckpoint`. A retired legacy envelope is signed again
-  as the settled envelope at the same nonce; a reference that is not ready gets
-  one retry.
-- `WithOnSigned` hands each signed transaction to the caller before its send.
-  `AuthorizedTransaction` marshals to JSON for the authority class, and
-  `ParseAuthorizedTransaction` loads it with its hash checked.
-- Reads that conclude only from positive evidence:
-  `Client.AuthorityOperationState`, `Client.LaneClawbackFate`,
-  `LaneClawbackRecord`, `Client.LaneClawbackPayload`, and
-  `Client.GetTransactionStatus` (`GET /v1/transactions/status/by_hash`).
-- Receipts: `ExecutionEvent.Target` and `Reason`, `Warnings`,
-  `ReceiptOutcomeOf`, `SoftFailReason` (nine reasons, an unknown one kept as
+- **Encoding**: `SettledAuthorityPayload` with the `Settled*` operations, and
+  `LaneClawbackPayload`, on `/v2/tokens/authority_operation` and
+  `/v2/tokens/lane_clawback`. `PrepareTransaction` refuses a lane clawback of
+  VERIFY (`VerifyTokenAddress`, `IsVerifyToken`).
+- **Switch point**: `Client.GetEnvelopeMode`, `EnvelopeMode`, `ErrUpgradeGap`,
+  `UnrecognizedEnvelopeModeError`, `ClawbackStaysLegacy`, and
+  `NativeWriteStatusResponse.EnvelopeMode`. Only a reported mode leaves the
+  legacy envelopes.
+- **Send by mode**: `TokensAPI.AuthorityOperationByMode`,
+  `SendAuthorityOperation` and `SettledPayload`, with `LegacyAuthorityOperation`
+  and its constructors, and `Client.LatestReferenceCheckpoint`. A retired
+  legacy envelope is signed again as the settled envelope at the same nonce, and
+  a reference that is not ready gets one retry.
+- **Refusals**: `AuthorityRefusalOf` reads the five refusals of the model. The
+  problem catalog is synced to l1client `4e8acd8b6` (130 types).
+- **Store before send**: `WithOnSigned` hands each signed transaction to the
+  caller before its send. `AuthorizedTransaction` marshals to JSON for the
+  authority class, and `ParseAuthorizedTransaction` loads it with its hash
+  checked.
+- **State reads from positive evidence only**: `Client.AuthorityOperationState`,
+  `Client.LaneClawbackFate` and `Client.GetTransactionStatus`
+  (`GET /v1/transactions/status/by_hash`). A receipt or a status that does not
+  name the transaction asked for is a read error.
+- **Receipts**: `ExecutionEvent.Target` and `Reason`, `Warnings`,
+  `ReceiptOutcomeOf`, `SoftFailReason` (nine reasons; an unknown one is kept as
   sent), and `ReceiptWarningNoOpRevoke`.
-- `AuthorityRefusalOf` reads the five refusals of the model. The problem
-  catalog is synced to l1client `4e8acd8b6` (130 types).
-- The transaction view decodes `TokenAuthorityOperation` and
-  `TokenLaneClawback`, and `Transaction.Lane`.
-- The clawback router: `TokensAPI.ClawbackByMode`, `SendClawback` and
+- **Lane clawback records**: `LaneClawbackRecord`, `NewLaneClawbackRecord`,
+  `ParseLaneClawbackRecord` and `Client.LaneClawbackPayload`.
+- **Transaction view**: `TokenAuthorityOperation`, `TokenLaneClawback` and
+  `Transaction.Lane`.
+- **Clawback router**: `TokensAPI.ClawbackByMode`, `SendClawback` and
   `IssueLaneClawback`, with a required `onSigned` that receives every signed
   clawback before its send, `ClawbackSubmission`, and
-  `ClawbackIntentNonceUsedError`. One call per intent. They refuse legacy v1
-  mode before signing, and check the Signer's address against its signature.
-- `Client.PrepareLaneClawbackReissue` with `FullHistoryChecked`: the explicit
-  issuer action that signs the replacement of a lane clawback whose slot another
-  transaction took, without sending it.
+  `ClawbackIntentNonceUsedError`. The contract is one call per intent. The
+  router checks the Signer's address against its signature.
+- **Explicit re-issue**: `Client.PrepareLaneClawbackReissue` with
+  `FullHistoryChecked` (a statement that a literal `true` cannot make). It signs
+  the replacement of a lane clawback whose slot another transaction took, and
+  sends nothing.
 
 ### Changed
 
 - The signing vectors are re-vendored from l1client `4e8acd8b6`: 50 vectors,
   operations 1 to 18.
+
+### Notes
+
+- The settled envelope always goes to `/v2`, also from a client in
+  `SubmissionModeLegacyV1`.
+- `WithOnSigned` takes only the authority class, whose transactions have a
+  stored form, and is refused for a legacy envelope sent on `/v1` and by
+  `PrepareTransaction`.
+- The clawback router refuses `SubmissionModeLegacyV1` before signing: a `/v1`
+  clawback has no `AuthorizedTransaction` to store, and every network that runs
+  the token authority model serves the domain-separated v2 writes.
+  `Tokens().Clawback` is unchanged.
 
 ## [1.4.0] - 2026-10-14
 
