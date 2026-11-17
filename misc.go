@@ -82,12 +82,16 @@ type NativeWriteStatusResponse struct {
 	ActivationSource                  ActivationSource     `json:"activation_source"`
 	DualActivatedAtSecs               *uint64              `json:"dual_activated_at_secs"`
 	NativeDomainSeparatedTransactions FeatureSupportStatus `json:"native_domain_separated_transactions"`
+	// EnvelopeMode is the envelope_mode member as sent: nil on a node of the
+	// release before the token authority model. Read it with
+	// Client.GetEnvelopeMode, which applies the client rules.
+	EnvelopeMode *string `json:"envelope_mode"`
 }
 
 // GetNativeWriteStatus fetches the node's native-write status (GET /api/status).
 func (c *Client) GetNativeWriteStatus(ctx context.Context) (*NativeWriteStatusResponse, error) {
 	result := new(NativeWriteStatusResponse)
-	return result, c.GetMethod(ctx, "/api/status", result)
+	return result, c.GetMethod(ctx, endpointStatus, result)
 }
 
 // -----------------------------------------------------------------------------

@@ -99,9 +99,8 @@ func TestMemoValidationMirrorsNodeRules(t *testing.T) {
 }
 
 // TestPrepareRejectsInvalidMemoForEveryOperation proves the memo gate lives in
-// the one shared prepare path rather than in a single operation's branch. All
-// fourteen canonical operations are memo-bearing after the BatchPayment
-// re-baseline, so a memo rule that only fired for one of them would be a new
+// the one shared prepare path rather than in a single operation's branch. Every
+// canonical operation is memo-bearing after the BatchPayment re-baseline, so a memo rule that only fired for one of them would be a new
 // internal inconsistency.
 func TestPrepareRejectsInvalidMemoForEveryOperation(t *testing.T) {
 	tooLong := Memo{Data: strings.Repeat("a", memoDataMaxBytes+1)}
@@ -118,6 +117,8 @@ func TestPrepareRejectsInvalidMemoForEveryOperation(t *testing.T) {
 			Operations: []PaymentOperation{{Recipient: repeatAddr(0x0c), Amount: big.NewInt(1)}},
 			CreatedAt:  1,
 		},
+		"SettledAuthority": settledVectorPayload(SettledPause{}),
+		"LaneClawback":     laneVectorPayload(),
 	}
 	for name, payload := range payloads {
 		payload := payload

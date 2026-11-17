@@ -12,6 +12,7 @@ const (
 	endpointTransactionsByHashV1        = "/v1/transactions/by_hash"
 	endpointTransactionsReceiptByHashV1 = "/v1/transactions/receipt/by_hash"
 	endpointTransactionsFinalizedV1     = "/v1/transactions/finalized/by_hash"
+	endpointTransactionsStatusByHashV1  = "/v1/transactions/status/by_hash"
 	endpointTransactionsEstimateFeeV1   = "/v1/transactions/estimate_fee"
 	endpointTransactionsPaymentV1       = "/v1/transactions/payment"
 	endpointBatchPaymentEstimateFeeV1   = "/v1/transactions/batch_payment/estimate_fee"

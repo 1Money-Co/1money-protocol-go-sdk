@@ -1,6 +1,10 @@
 package onemoney
 
-import "github.com/ethereum/go-ethereum/common"
+import (
+	"encoding/json"
+
+	"github.com/ethereum/go-ethereum/common"
+)
 
 type TokenCreateData struct {
 	Decimals        uint8          `json:"decimals"`
@@ -46,6 +50,32 @@ type TokenClawbackData struct {
 	Recipient common.Address `json:"recipient"`
 	Value     string         `json:"value"`
 	Token     common.Address `json:"token"`
+}
+
+// TokenAuthorityOperationData is the decoded payload of a
+// "TokenAuthorityOperation" transaction (native operation 17). Operation is
+// in the shape of the request; decode it with SettledOperation.
+type TokenAuthorityOperationData struct {
+	Token               common.Address  `json:"token"`
+	ReferenceCheckpoint uint64          `json:"reference_checkpoint"`
+	Operation           json.RawMessage `json:"operation"`
+}
+
+// SettledOperation decodes Operation. Errors: an unknown operation type or member.
+func (d *TokenAuthorityOperationData) SettledOperation() (SettledAuthorityOperation, error) {
+	return decodeSettledOperation(d.Operation)
+}
+
+// TokenLaneClawbackData is the decoded payload of a "TokenLaneClawback"
+// transaction (native operation 18). The transaction's From is its signer,
+// and its Lane and Nonce name the holder's nonce that it takes.
+type TokenLaneClawbackData struct {
+	Token               common.Address `json:"token"`
+	Holder              common.Address `json:"holder"`
+	FromNonce           uint64         `json:"from_nonce"`
+	ReferenceCheckpoint uint64         `json:"reference_checkpoint"`
+	Recipient           common.Address `json:"recipient"`
+	Value               string         `json:"value"`
 }
 
 type TokenGrantAuthorityData struct {

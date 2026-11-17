@@ -222,6 +222,45 @@ A custom `Signer` must sign the digest **as given** — no extra hashing, no
 a high-S or 27/28 signature fails fast with a clear error. The built-in
 `NewPrivateKeySigner` already produces conforming signatures.
 
+## Token authority operations after activation
+
+Once a network activates the l1client token authority model, its nodes refuse
+the legacy envelopes of the authority operations (`Tokens().Mint`,
+`GrantAuthority`, `RevokeAuthority`, `ManageBlacklist`, `ManageWhitelist`,
+`Pause`, `Unpause`, `UpdateMetadata`, and `Clawback` of an ordinary account)
+with the problem type `legacy_envelope_retired`. Move these calls to
+`Tokens().AuthorityOperationByMode`, which keeps your legacy payload:
+
+```go
+// Before: the legacy envelope only.
+resp, err := client.Tokens().Pause(ctx, payload, signer)
+
+// After: the envelope of the node's mode, at the same nonce.
+submission, err := client.Tokens().AuthorityOperationByMode(
+    ctx, onemoney.LegacyPause(payload), signer,
+    onemoney.WithOnSigned(store), // optional: store before each send
+)
+```
+
+- The settled envelope is always sent on `/v2`, also from a client built with
+  `WithLegacyV1()`. `WithOnSigned` needs the default v2 mode, because a `/v1`
+  request has no `AuthorizedTransaction` to hand over.
+- A settled operation's result arrives at its checkpoint: read it with
+  `Client.AuthorityOperationState`, and the receipt with `ReceiptOutcomeOf`.
+- `Tokens().Clawback` stays the legacy clawback. Move clawbacks to
+  `Tokens().ClawbackByMode(ctx, data, source, signer, onSigned)`: it keeps the
+  legacy clawback for VERIFY (by its master) and for a Reserved Payment hold, and
+  issues the lane clawback of an ordinary account after activation. `onSigned`
+  is required, and the contract is one call per intent: after any error, read the
+  stored transaction's outcome instead of calling again.
+- The clawback router (`ClawbackByMode`, `SendClawback`, `IssueLaneClawback`)
+  refuses a client in `WithLegacyV1()` mode before signing: a `/v1` clawback has
+  no `AuthorizedTransaction` to hand to `onSigned`, and every network that runs
+  the token authority model serves the domain-separated v2 writes.
+
+The [README](./README.md#token-authority-model-settled-envelope-and-lane-clawback)
+gives the client rules.
+
 ## Staying on legacy v1
 
 To keep submitting on the `/v1` path during the migration window, opt in

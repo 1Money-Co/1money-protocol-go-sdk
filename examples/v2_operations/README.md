@@ -55,6 +55,9 @@ correct endpoint, and verify the node's returned transaction hash in one call.
   `BatchPayment` examples.
 - [`tokens_test.go`](./tokens_test.go) contains every token write operation.
 - [`accounts_test.go`](./accounts_test.go) contains `CreateMultisig` examples.
+- [`authority_test.go`](./authority_test.go) sends an authority operation and a
+  clawback by envelope mode, stores each signed transaction before its send,
+  reads their state, and issues a lost lane clawback again.
 
 Each method has separate `withMemo` and `withoutMemo` examples so that neither
 example suggests submitting two transactions with the same nonce.

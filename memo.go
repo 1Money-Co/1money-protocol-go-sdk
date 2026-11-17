@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // Memo is the optional signed memo attached to a domain-separated v2
@@ -127,13 +129,20 @@ func (m Memo) validate() error {
 
 type submitConfig struct {
 	memo Memo
-	// memoSet is true once WithMemo was applied. All fourteen canonical v2
-	// operations are memo-bearing, so this no longer distinguishes memo-capable
+	// memoSet is true once WithMemo was applied. Every canonical v2
+	// operation is memo-bearing, so this no longer distinguishes memo-capable
 	// operations from memo-incapable ones -- that concept is gone. Its one
 	// remaining consumer is legacy-v1 submission, which signs a bare payload and
 	// so must reject an explicit memo rather than silently drop it.
 	memoSet  bool
 	listKind *ManageListKind
+	onSigned OnSigned
+	// replaces names the no-effect transaction that the next signature
+	// supersedes; set by the token authority send paths only.
+	replaces *common.Hash
+	// verifySigner checks the Signer's address against the signature; set by
+	// the clawback router only.
+	verifySigner bool
 }
 
 // SubmitOption customizes a single submit call (e.g. attaching a memo).

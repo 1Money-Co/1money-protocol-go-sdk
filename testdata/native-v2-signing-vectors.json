@@ -713,6 +713,210 @@
       "signing_hash": "0xabc717c970472db933aff88bd2bee41d6e7c3c42dce74b9b3ac70f454e2e5f08",
       "transaction_hash": "0x7558f2b6c9991fc1f8c24efd22dc62a94ba6855e916f9e2c889730bbd1f4bcc2",
       "unsigned_transaction_rlp": "0xf8919c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320ed60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b85af858f85283127ec50e940101010101010101010101010101010101010101f2d8940c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c8203e8d8940d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d8207d084682d1780c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "ReserveGrant_single",
+      "operation_type": 15,
+      "payload_rlp": "0xf865f83d83127ec501940202020202020202020202020202020202020202880de0b6b3a76400009401010101010101010101010101010101010101018468aa6f00e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf8ce9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320fc180b867f865f83d83127ec501940202020202020202020202020202020202020202880de0b6b3a76400009401010101010101010101010101010101010101018468aa6f00e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xaa4b9b31cdf5a652801b09bd6f9aeeccc244f17396e438261e363c71c61504e5",
+      "transaction_hash": "0x695d0942679fca6c1385343df38f8c48fbeb91e0163f1749babb811e52cb7a6a",
+      "unsigned_transaction_rlp": "0xf8899c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320fc180b867f865f83d83127ec501940202020202020202020202020202020202020202880de0b6b3a76400009401010101010101010101010101010101010101018468aa6f00e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "ReserveGrant_multi",
+      "operation_type": 15,
+      "payload_rlp": "0xf865f83d83127ec501940202020202020202020202020202020202020202880de0b6b3a76400009401010101010101010101010101010101010101018468aa6f00e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf9016e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320fd60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b867f865f83d83127ec501940202020202020202020202020202020202020202880de0b6b3a76400009401010101010101010101010101010101010101018468aa6f00e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x7b4f5cbc4bb6b49666d287167718614b376106dea52894a80a4f5b00e79c795f",
+      "transaction_hash": "0xa45ffafd77f3f5648ee59cca7ccd7e5be8866ddf84e547de4fd5d0f57fd4bdc6",
+      "unsigned_transaction_rlp": "0xf89e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e76320fd60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b867f865f83d83127ec501940202020202020202020202020202020202020202880de0b6b3a76400009401010101010101010101010101010101010101018468aa6f00e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "ReserveClaim_single",
+      "operation_type": 16,
+      "payload_rlp": "0xf86df84583127ec501a0abababababababababababababababababababababababababababababababab880de0b6b3a764000094010101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf8d69c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763210c180b86ff86df84583127ec501a0abababababababababababababababababababababababababababababababab880de0b6b3a764000094010101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x7d513873458b45facb6f57ed9b8966d997791aeb8dcb6a1ad984af658668fcff",
+      "transaction_hash": "0x3340946446c1257b783b286e063fcf0d9125332069cf75c137956e3a4e5a7833",
+      "unsigned_transaction_rlp": "0xf8919c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763210c180b86ff86df84583127ec501a0abababababababababababababababababababababababababababababababab880de0b6b3a764000094010101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "ReserveClaim_multi",
+      "operation_type": 16,
+      "payload_rlp": "0xf86df84583127ec501a0abababababababababababababababababababababababababababababababab880de0b6b3a764000094010101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf901769c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763210d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b86ff86df84583127ec501a0abababababababababababababababababababababababababababababababab880de0b6b3a764000094010101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0xfff99a1d5be7564b77899519dc764e1f8ac0770c9758febb03166d7e149ef930",
+      "transaction_hash": "0x77b971db8709480fa20097abd08a29bc18c0f7c76ae3f0f74f015b16aad9b628",
+      "unsigned_transaction_rlp": "0xf8a69c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763210d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b86ff86df84583127ec501a0abababababababababababababababababababababababababababababababab880de0b6b3a764000094010101010101010101010101010101010101010101e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "SettledAuthority_single",
+      "operation_type": 17,
+      "payload_rlp": "0xf86cf84483127ec5019401010101010101010101010101010101010101012ae8894772616e74526f6c6588436c61776261636b940202020202020202020202020202020202020202e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf8d59c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b86ef86cf84483127ec5019401010101010101010101010101010101010101012ae8894772616e74526f6c6588436c61776261636b940202020202020202020202020202020202020202e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x7a4d0d985041f078e13c21f2707f2f592c5e1aadffe934b90e7ce81e6a73351b",
+      "transaction_hash": "0x2c86fe380def9d1b8a74292dc0d12b1a982b06e28058a368cbc2120f5a51e815",
+      "unsigned_transaction_rlp": "0xf8909c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b86ef86cf84483127ec5019401010101010101010101010101010101010101012ae8894772616e74526f6c6588436c61776261636b940202020202020202020202020202020202020202e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "SettledAuthority_multi",
+      "operation_type": 17,
+      "payload_rlp": "0xf86cf84483127ec5019401010101010101010101010101010101010101012ae8894772616e74526f6c6588436c61776261636b940202020202020202020202020202020202020202e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf901759c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b86ef86cf84483127ec5019401010101010101010101010101010101010101012ae8894772616e74526f6c6588436c61776261636b940202020202020202020202020202020202020202e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0xc9c1f7297cd4b94e220e4626ba741fc89ddd5637bab713dcab99a088cb5285f6",
+      "transaction_hash": "0x28f58f727f06d2762c02d7a4c0de0af1f2fd529ed10ad143d4878e34d43881cb",
+      "unsigned_transaction_rlp": "0xf8a59c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b86ef86cf84483127ec5019401010101010101010101010101010101010101012ae8894772616e74526f6c6588436c61776261636b940202020202020202020202020202020202020202e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "LaneClawback_single",
+      "operation_type": 18,
+      "payload_rlp": "0xf876f84e83127ec5940101010101010101010101010101010101010101940202020202020202020202020202020202020202072a940303030303030303030303030303030303030303880de0b6b3a7640000e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf8df9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763212c180b878f876f84e83127ec5940101010101010101010101010101010101010101940202020202020202020202020202020202020202072a940303030303030303030303030303030303030303880de0b6b3a7640000e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x9f780478786d01db3ccf90112c22aa2e5700e04fb2c2086ce5795f5d28671599",
+      "transaction_hash": "0x6de0df5612f5ba30e312454d82b50c17c495b0ad5f3136ae3b85dd31a163a93b",
+      "unsigned_transaction_rlp": "0xf89a9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763212c180b878f876f84e83127ec5940101010101010101010101010101010101010101940202020202020202020202020202020202020202072a940303030303030303030303030303030303030303880de0b6b3a7640000e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
+    },
+    {
+      "authorization_kind": 1,
+      "authorization_proof": {
+        "signatures": [
+          {
+            "signature": {
+              "r": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "s": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "v": 0
+            },
+            "signer_pubkey": "0x021111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "signature": {
+              "r": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              "s": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "v": 1
+            },
+            "signer_pubkey": "0x032222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "type": "multisig_secp256k1"
+      },
+      "multisig_account": "0xa0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "name": "LaneClawback_multi",
+      "operation_type": 18,
+      "payload_rlp": "0xf876f84e83127ec5940101010101010101010101010101010101010101940202020202020202020202020202020202020202072a940303030303030303030303030303030303030303880de0b6b3a7640000e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031",
+      "signed_transaction_rlp": "0xf9017f9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763212d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b878f876f84e83127ec5940101010101010101010101010101010101010101940202020202020202020202020202020202020202072a940303030303030303030303030303030303030303880de0b6b3a7640000e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031f8cef865a1021111111111111111111111111111111111111111111111111111111111111111a0cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccca0dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd80f865a1032222222222222222222222222222222222222222222222222222222222222222a0eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeea0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01",
+      "signing_hash": "0x77b67cc72f66715f0b6d32e8e7ab5759e963ab262e1a3cd66bf04816b3607ccd",
+      "transaction_hash": "0xcc78a706514810a90da524149da800562a386e777af19334fc2e29505343d05d",
+      "unsigned_transaction_rlp": "0xf8af9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763212d60194a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0b878f876f84e83127ec5940101010101010101010101010101010101010101940202020202020202020202020202020202020202072a940303030303030303030303030303030303030303880de0b6b3a7640000e58c707572706f73652f53414c418a746578742f706c61696e8c696e766f6963652d30303031"
     }
   ],
   "protocol": {
@@ -723,20 +927,24 @@
     "domain_tag": "1money.native.transaction.v2",
     "domain_tag_hex": "0x316d6f6e65792e6e61746976652e7472616e73616374696f6e2e7632",
     "operation_types": {
-      "BatchPayment": 14,
-      "CreateMultiSig": 13,
       "Payment": 1,
+      "TokenIssue": 2,
+      "TokenMint": 3,
       "TokenAuthority": 4,
       "TokenBlacklist": 5,
-      "TokenBridgeAndMint": 11,
-      "TokenBurn": 8,
-      "TokenBurnAndBridge": 12,
-      "TokenClawback": 9,
-      "TokenIssue": 2,
-      "TokenMetadata": 10,
-      "TokenMint": 3,
+      "TokenWhitelist": 6,
       "TokenPause": 7,
-      "TokenWhitelist": 6
+      "TokenBurn": 8,
+      "TokenClawback": 9,
+      "TokenMetadata": 10,
+      "TokenBridgeAndMint": 11,
+      "TokenBurnAndBridge": 12,
+      "CreateMultiSig": 13,
+      "BatchPayment": 14,
+      "ReserveGrant": 15,
+      "ReserveClaim": 16,
+      "SettledAuthority": 17,
+      "LaneClawback": 18
     }
   },
   "supplemental_vectors": [
@@ -891,6 +1099,120 @@
       "signing_hash": "0xd4e34ab74d9e206dbd802bff06c21789d2a364b822ff6b42e30737ddf0cfb562",
       "transaction_hash": "0xac6aa7db41abc41de8b0050014c299a0d667ff6a4a6e8a7db00e756ed8dbabeb",
       "unsigned_transaction_rlp": "0xf8499c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763208c180a8e7e283127ec58203e585506175736594c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "settled_authority_pause",
+      "operation_type": 17,
+      "payload_rlp": "0xe7e283127ec5019401010101010101010101010101010101010101012ac6855061757365c3808080",
+      "signed_transaction_rlp": "0xf88e9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180a8e7e283127ec5019401010101010101010101010101010101010101012ac6855061757365c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xb6c6f3fa7e16f07e0ded5df2ac837306dddfc80cc0c75cc0e2bc0ec9fea5413d",
+      "transaction_hash": "0x6ab206f66f75d672289d6f30a096d1c175a3a8f7e1e6f897eda9b178f083a118",
+      "unsigned_transaction_rlp": "0xf8499c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180a8e7e283127ec5019401010101010101010101010101010101010101012ac6855061757365c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "settled_authority_list",
+      "operation_type": 17,
+      "payload_rlp": "0xf84df84783127ec5019401010101010101010101010101010101010101012aeb844c6973748957686974656c6973748652656d6f7665940202020202020202020202020202020202020202c3808080",
+      "signed_transaction_rlp": "0xf8b69c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b84ff84df84783127ec5019401010101010101010101010101010101010101012aeb844c6973748957686974656c6973748652656d6f7665940202020202020202020202020202020202020202c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x4e3506798625b607e59c5abe0e4adcaa8f11af1fe0b180e87431291588c9ea9a",
+      "transaction_hash": "0xe9a9fe43afb33df5f500a90ef6c9e76c49bdcaf096b09329a0c40d1795955bab",
+      "unsigned_transaction_rlp": "0xf8719c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b84ff84df84783127ec5019401010101010101010101010101010101010101012aeb844c6973748957686974656c6973748652656d6f7665940202020202020202020202020202020202020202c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "settled_authority_update_metadata_pairs",
+      "operation_type": 17,
+      "payload_rlp": "0xf871f86b83127ec5019401010101010101010101010101010101010101012af84e8e5570646174654d6574616461746185546f6b656e9e68747470733a2f2f6578616d706c652e636f6d2f746f6b656e2e6a736f6ed9c98776657273696f6e31ce8669737375657286316d6f6e6579c3808080",
+      "signed_transaction_rlp": "0xf8da9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b873f871f86b83127ec5019401010101010101010101010101010101010101012af84e8e5570646174654d6574616461746185546f6b656e9e68747470733a2f2f6578616d706c652e636f6d2f746f6b656e2e6a736f6ed9c98776657273696f6e31ce8669737375657286316d6f6e6579c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x48070f70df698e2da570d1240b4f75c41ee140b039575865156312c85a5432a3",
+      "transaction_hash": "0x4205bbf1d727fba1d59fe36516956c0b2e4c3bc3d86ea126e821bb3e48b56eee",
+      "unsigned_transaction_rlp": "0xf8959c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b873f871f86b83127ec5019401010101010101010101010101010101010101012af84e8e5570646174654d6574616461746185546f6b656e9e68747470733a2f2f6578616d706c652e636f6d2f746f6b656e2e6a736f6ed9c98776657273696f6e31ce8669737375657286316d6f6e6579c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "collision_settled_set_minter_allowance",
+      "operation_type": 17,
+      "payload_rlp": "0xf853f84d83127ec5019401010101010101010101010101010101010101012af1925365744d696e746572416c6c6f77616e6365940202020202020202020202020202020202020202880de0b6b3a7640000c3808080",
+      "signed_transaction_rlp": "0xf8bc9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b855f853f84d83127ec5019401010101010101010101010101010101010101012af1925365744d696e746572416c6c6f77616e6365940202020202020202020202020202020202020202880de0b6b3a7640000c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0x06d3a2fd8ccd21d313cef9710abea988b29cab154b92886d068f39af280a72e7",
+      "transaction_hash": "0xa3a4d55a1de7437e9a8ef1469018b3e5eec1de40e3852d5774c66f7003eb5b18",
+      "unsigned_transaction_rlp": "0xf8779c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b855f853f84d83127ec5019401010101010101010101010101010101010101012af1925365744d696e746572416c6c6f77616e6365940202020202020202020202020202020202020202880de0b6b3a7640000c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "collision_settled_mint",
+      "operation_type": 17,
+      "payload_rlp": "0xf845f83f83127ec5019401010101010101010101010101010101010101012ae3844d696e74940202020202020202020202020202020202020202880de0b6b3a7640000c3808080",
+      "signed_transaction_rlp": "0xf8ae9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b847f845f83f83127ec5019401010101010101010101010101010101010101012ae3844d696e74940202020202020202020202020202020202020202880de0b6b3a7640000c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xad94c3b885026bb549873363c0ffe5d12ddafa7b539eb6692282d0e2562d32d0",
+      "transaction_hash": "0xc82d8f3d799298883d9b8d6c290f223956fe93aa271b27d380b88db03bab006c",
+      "unsigned_transaction_rlp": "0xf8699c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763211c180b847f845f83f83127ec5019401010101010101010101010101010101010101012ae3844d696e74940202020202020202020202020202020202020202880de0b6b3a7640000c3808080"
+    },
+    {
+      "authorization_kind": 0,
+      "authorization_proof": {
+        "signature": {
+          "r": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "s": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "v": 1
+        },
+        "type": "single_secp256k1"
+      },
+      "multisig_account": null,
+      "name": "lane_clawback_memo_empty",
+      "operation_type": 18,
+      "payload_rlp": "0xf854f84e83127ec5940101010101010101010101010101010101010101940202020202020202020202020202020202020202072a940303030303030303030303030303030303030303880de0b6b3a7640000c3808080",
+      "signed_transaction_rlp": "0xf8bd9c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763212c180b856f854f84e83127ec5940101010101010101010101010101010101010101940202020202020202020202020202020202020202072a940303030303030303030303030303030303030303880de0b6b3a7640000c3808080f843a0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb01",
+      "signing_hash": "0xf673b3ed0bbfd87e210621c41c94cca39f58f9e2e4ee81ee780000a1d5945f4f",
+      "transaction_hash": "0xfb59aa627259af0f7c06be2584770e68992d3342f817d19525e4a72a20314a3d",
+      "unsigned_transaction_rlp": "0xf8789c316d6f6e65792e6e61746976652e7472616e73616374696f6e2e763212c180b856f854f84e83127ec5940101010101010101010101010101010101010101940202020202020202020202020202020202020202072a940303030303030303030303030303030303030303880de0b6b3a7640000c3808080"
     }
   ]
 }
