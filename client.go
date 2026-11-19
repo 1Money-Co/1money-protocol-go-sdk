@@ -371,8 +371,7 @@ func (client *Client) handleAPIResponse(ctx context.Context, method string, url 
 	}
 	client.debugf("<-- %s %s status=%d body=%s", method, url, resp.StatusCode, bodyBytes)
 
-	// If status code is OK, decode the response into the result
-	if resp.StatusCode == http.StatusOK {
+	if isSuccessStatus(resp.StatusCode) {
 		if result != nil {
 			if err := json.Unmarshal(bodyBytes, result); err != nil {
 				if client.logger != nil {
@@ -381,32 +380,12 @@ func (client *Client) handleAPIResponse(ctx context.Context, method string, url 
 				processingErr = fmt.Errorf("failed to decode response: %w. Body: %s", err, string(bodyBytes))
 			}
 		}
-		// processingErr remains nil if decode is successful
 	} else {
-		// For non-200 responses, try to parse the error response
-		var errorResp ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &errorResp); err != nil {
-			if client.logger != nil {
-				client.logger.Errorf("Failed to unmarshal error response from %s %s (status %d): %v. Body: %s", method, url, resp.StatusCode, err, string(bodyBytes))
-			}
-			processingErr = &APIError{
-				StatusCode: resp.StatusCode,
-				Message:    fmt.Sprintf("unexpected status code: %d, body: %s", resp.StatusCode, string(bodyBytes)),
-				Problem:    ParseProblem(bodyBytes),
-				Body:       bodyBytes,
-			}
-		} else {
-			if client.logger != nil {
-				client.logger.Errorf("API Error from %s %s: status=%d, code=%s, message=%s", method, url, resp.StatusCode, errorResp.ErrorCode, errorResp.Message)
-			}
-			processingErr = &APIError{
-				StatusCode: resp.StatusCode,
-				ErrorCode:  errorResp.ErrorCode,
-				Message:    errorResp.Message,
-				Problem:    errorResp.Problem,
-				Body:       bodyBytes,
-			}
+		apiErr := newAPIError(resp.StatusCode, bodyBytes)
+		if client.logger != nil {
+			client.logger.Errorf("API Error from %s %s: status=%d, code=%s, message=%s", method, url, resp.StatusCode, apiErr.ErrorCode, apiErr.Message)
 		}
+		processingErr = apiErr
 	}
 
 	// Call PostRequest hooks before returning

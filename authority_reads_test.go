@@ -123,17 +123,43 @@ func TestAuthorityRefusalOf(t *testing.T) {
 	for _, err := range []error{
 		nil,
 		fmt.Errorf("transport"),
-		&APIError{StatusCode: 422, Problem: Problem{Type: ProblemTypePrefix + "nonce_too_low"}},
-		&APIError{StatusCode: 500, Problem: Problem{Type: ProblemTypePrefix + "legacy_envelope_retired"}},
+		&APIError{StatusCode: 422, Problem: Problem{Type: ProblemTypePrefix + "nonce_too_low", Action: ActionFixRequest}},
+		&APIError{StatusCode: 422, Problem: Problem{Type: ProblemTypePrefix + "legacy_envelope_retired", Action: ActionFixRequest}},
 		&APIError{StatusCode: 422, Problem: Problem{Type: "about:blank"}},
 	} {
 		if refusal, ok := AuthorityRefusalOf(err); ok {
 			t.Errorf("%v read as the refusal %+v", err, refusal)
 		}
 	}
-	wrapped := fmt.Errorf("send: %w", &APIError{StatusCode: 422, Problem: Problem{Type: ProblemTypePrefix + "legacy_envelope_retired"}})
-	if refusal, ok := AuthorityRefusalOf(wrapped); !ok || refusal.Kind != RefusalLegacyEnvelopeRetired {
-		t.Errorf("a wrapped refusal: %+v %t", refusal, ok)
+
+	// Only a rejection of a submit counts: the action, not the status, proves
+	// that the request had no effect.
+	for _, tc := range []struct {
+		status int
+		action string
+		want   bool
+	}{
+		{http.StatusUnprocessableEntity, "fix_request", true},
+		{http.StatusServiceUnavailable, "retry_later", true},
+		{http.StatusUnprocessableEntity, "check_status", false},
+		{http.StatusUnprocessableEntity, "", false},
+	} {
+		node := newMockNode(t)
+		node.queuePost("/v2/tokens/authority_operation", problemReply(tc.status, "legacy_envelope_retired", tc.action, nil))
+		_, err := node.client().Submit(context.Background(), mustAuthorize(t, settledVectorPayload(SettledPause{})))
+		if _, ok := AuthorityRefusalOf(err); ok != tc.want {
+			t.Errorf("%d %q: refusal %t, want %t (%v)", tc.status, tc.action, ok, tc.want, err)
+		}
+		if refusal, ok := AuthorityRefusalOf(fmt.Errorf("send: %w", err)); ok != tc.want || (ok && refusal.Kind != RefusalLegacyEnvelopeRetired) {
+			t.Errorf("a wrapped refusal: %+v %t", refusal, ok)
+		}
+	}
+	foreign := mockReply{status: http.StatusUnprocessableEntity, body: `{"type":"https://example.com/problem/legacy_envelope_retired","action":"fix_request"}`}
+	node := newMockNode(t)
+	node.queuePost("/v2/tokens/authority_operation", foreign)
+	_, err := node.client().Submit(context.Background(), mustAuthorize(t, settledVectorPayload(SettledPause{})))
+	if refusal, ok := AuthorityRefusalOf(err); ok {
+		t.Errorf("a type outside the node's namespace: %+v", refusal)
 	}
 }
 

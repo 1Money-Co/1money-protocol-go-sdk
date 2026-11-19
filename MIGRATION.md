@@ -261,6 +261,25 @@ submission, err := client.Tokens().AuthorityOperationByMode(
 The [README](./README.md#token-authority-model-settled-envelope-and-lane-clawback)
 gives the client rules.
 
+## Submit errors and settle (issue #28)
+
+A `/v2` submit error is now a `*SubmitError`. Read it with `errors.As`:
+
+```go
+var submitErr *onemoney.SubmitError
+if errors.As(err, &submitErr) && !submitErr.RequestHadNoEffect() {
+	// Locked or unknown: resend these same bytes, never sign the intent again.
+	_, err = client.Settle(ctx, submitErr.Transaction, onemoney.DefaultSettleOptions())
+}
+```
+
+- Replace a type assertion `err.(*onemoney.APIError)` with `errors.As`: the
+  `*APIError` is wrapped.
+- Replace a check of the HTTP status, of `ErrorCode` or of `IsKnownType` on a
+  submit with `SubmitError.Kind`. A missing or unknown action is
+  `SubmitOutcomeUnknown`, never rejected.
+- `Problem.Action` is empty for a body whose `type` is not the node's.
+
 ## Staying on legacy v1
 
 To keep submitting on the `/v1` path during the migration window, opt in

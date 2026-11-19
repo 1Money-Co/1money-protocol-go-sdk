@@ -4,6 +4,55 @@ All notable changes to the 1Money Protocol Go SDK are documented here. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+The Go SDK now follows the Rust SDK (`onemoney-protocol`, l1client
+`crates/om-sdk` at
+[`dc5cffa0b`](https://github.com/1Money-Co/l1client/tree/dc5cffa0b7f07373802193f41033aa008d78d9ad))
+for submit outcomes and problem details
+([#28](https://github.com/1Money-Co/1money-protocol-go-sdk/issues/28)). A
+difference between the two SDKs is a defect of the Go SDK.
+
+### Added
+
+- **Submit outcomes**: every `/v2` submit that does not admit the transaction
+  under its local hash returns a `*SubmitError` with a `Kind`
+  (`SubmitRejected`, `SubmitLocked`, `SubmitOutcomeUnknown`,
+  `SubmitHashMismatch`), `RequestHadNoEffect`, `NonceUsed`, `Refusal`, the
+  signed `Transaction` to settle, and the `Answer`. Only the node's no-effect
+  action rejects, and only its `in_progress` for this hash locks; every other
+  answer is unknown.
+- **Settle**: `Client.SubmitAndSettle` and `Client.Settle` resend the same
+  signed bytes on the node's schedule until the receipt appears, with
+  `SettleOptions` (`DefaultSettleOptions`), `SettledTransaction`,
+  `SettleObservation` and `SettleEndReason`.
+
+### Changed (behavior)
+
+- A `/v2` submit error is a `*SubmitError` that wraps the `*APIError` of the
+  answer. `errors.As(err, &apiErr)` still works; a type assertion
+  `err.(*APIError)` no longer matches.
+- A transaction hash mismatch is a `*SubmitError` of kind `SubmitHashMismatch`,
+  not a plain error.
+- A 2xx accepted body that does not decode is `SubmitOutcomeUnknown`, not a
+  decode error. A submit answer that came after an HTTP redirect is
+  `SubmitOutcomeUnknown`.
+- Any 2xx answer is a success, for a submit and for every other GET and POST.
+  Before, only 200 was.
+- `Problem.Action` is empty unless the `type` is in the node's namespace or is
+  `about:blank`; `RawAction` keeps the member as sent.
+- `AuthorityRefusalOf` reads only a rejected submit (a no-effect action of the
+  node), at any HTTP status. A `*APIError` alone, for example of a legacy v1
+  send, is no longer a refusal, so `WithLegacyV1` no longer signs a retired
+  legacy envelope again as settled.
+- `AuthorityOperationState` and `LaneClawbackFate`: a 404 with the node's
+  `retry_later` is a read error, not an absent record.
+
+### Deprecated
+
+- `Problem.IsKnownType` is true for any type in the node's namespace, also one
+  newer than the SDK. The pinned copy of the node's catalog is removed.
+
 ## [1.5.0] - 2026-11-16
 
 Support for the l1client token authority model

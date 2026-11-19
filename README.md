@@ -204,7 +204,9 @@ had no effect, at the same nonce:
   one more signature with a fresh reference after a short wait.
 
 Pass `WithOnSigned` to store each signed transaction before its send.
-`AuthorityRefusalOf` reads the five refusals of the model, with their members.
+`AuthorityRefusalOf` reads the five refusals of the model, with their members,
+from a rejected `/v2` submit (a `*SubmitError` whose `RequestHadNoEffect`). A
+legacy v1 send is not classified, so its refusal is returned as it is.
 
 If a gateway hides `GET /api/status`, the by-mode call sends the legacy
 envelope and a node of the release refuses it as retired. Name the envelope:
@@ -276,18 +278,44 @@ members. A body from an older node has no problem members, so the fields stay
 empty. The [client guide](https://github.com/1Money-Co/l1client/blob/main/docs/api/error-handling.md)
 lists every type, its action and its members.
 
-Rules:
+The SDK follows the Rust SDK (`onemoney-protocol`, l1client `crates/om-sdk`):
 
-- Decide on `Type` and `Action`. Do not decide on `Message` or `Title`.
-- On a transaction submission, decide on `Action` only when `IsKnownType()` is
-  true. Treat an unknown `Type`, or an empty or unknown `Action`, as
-  `ActionCheckStatus`: look up the transaction before you sign anything new for
-  the same intent.
-- To resend a transaction, send the **same signed transaction** again. This is
-  always safe: the node treats the same hash as the same transaction, so it
-  cannot execute twice. A new signature for the same intent can execute twice.
+- Only the node's statement decides. `Problem.Action` is set only when `Type` is
+  in the node's namespace (`ProblemTypePrefix`) or is `about:blank`. A proxy, a
+  firewall or a load balancer in front of the node can send problem details too;
+  their `action` stays in `RawAction` for diagnostics and decides nothing. A type
+  of the node that is newer than the SDK follows its action.
+- Decide on `Type` and `Action`. Do not decide on `Message`, `Title`, the legacy
+  `ErrorCode` or the HTTP status.
+- Any 2xx answer is a success.
 
-See [`ExampleProblem_IsKnownType`](./example_problem_test.go).
+## Submit outcomes and settle
+
+Every `/v2` submit (`Client.Submit` and the `TokensAPI` and `TransactionsAPI`
+methods) that does not end with the transaction admitted under its local hash
+returns a [`*SubmitError`](./submit_error.go). `errors.As(err, &apiErr)` still
+finds the `*APIError` of the answer. Its `Kind` tells the caller's duty:
+
+| Kind | Proof | Next step |
+|---|---|---|
+| `SubmitRejected` | The node's action `fix_request`, `retry_later` or `use_other_node`. | This request had no effect. Fix the cause. Sign again only if no other transaction for the intent is locked, executed or unknown. |
+| `SubmitLocked` | The node's action `in_progress` for this hash. | Resend the same signed transaction (`Client.Settle`). |
+| `SubmitOutcomeUnknown` | Any other answer: `check_status`, no action, a timeout, a 5xx, a firewall page, a redirect. | Find the state first (`Client.Settle`). Do not sign the intent again. |
+| `SubmitHashMismatch` | A 2xx with another hash. | The node admitted other bytes: send nothing more. |
+
+`NonceUsed` is set only by the node's `nonce_too_low` type: never sign again at
+that nonce. `Refusal` tells whether a rejection refused the signed bytes
+themselves (`SubmitRefusalBytes`) or only this request.
+
+`Client.SubmitAndSettle` and `Client.Settle` resend the **same signed bytes** on
+the node's schedule (every 70 s, with probes after a lookup that answers 404)
+and poll the receipt until it appears; they never sign. Start from
+`DefaultSettleOptions()`. A run that ends without a receipt returns a
+`*SubmitError` with its `Observations` and its `EndReason`; settle the same
+`AuthorizedTransaction` again later. A legacy v1 send (`WithLegacyV1`) is not
+classified and returns an `*APIError`, as in the Rust SDK.
+
+See [`ExampleSubmitError`](./example_submit_test.go).
 
 ## Example
 
