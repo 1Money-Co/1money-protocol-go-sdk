@@ -111,6 +111,8 @@ func TestAuthorityOperationStateErrorsOnAReadItCannotUse(t *testing.T) {
 		{"receipt does not decode", okJSON(`{"success":"maybe"}`), notFound},
 		{"status read fails", notFound, mockReply{status: http.StatusServiceUnavailable, body: `{}`}},
 		{"unknown status", notFound, statusReply("evicted")},
+		{"receipt read throttled with a 404", problemReply(http.StatusNotFound, "future_kind", "retry_later", nil), notFound},
+		{"status read throttled with a 404", notFound, problemReply(http.StatusNotFound, "future_kind", "retry_later", nil)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

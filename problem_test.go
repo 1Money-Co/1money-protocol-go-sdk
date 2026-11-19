@@ -41,11 +41,11 @@ func TestProblemIsKnownType(t *testing.T) {
 	}{
 		{ProblemTypePrefix + "submission_already_in_flight", true},
 		{ProblemTypePrefix + "nonce_too_low", true},
-		{ProblemTypePrefix + "route_not_found", true},
-		{ProblemTypePrefix + "from_the_future", false},
-		{ProblemTypePrefix + "Nonce_Too_Low", false},
-		{ProblemTypePrefix + "nonce_too_low/", false},
-		{ProblemTypePrefix, false},
+		{ProblemTypePrefix + "from_the_future", true},
+		{ProblemTypePrefix + "Nonce_Too_Low", true},
+		{ProblemTypePrefix, true},
+		{"https://developer.1moneynetwork.com/problems/nonce_too_low", false},
+		{"HTTPS://DEVELOPER.1MONEYNETWORK.COM/problem/nonce_too_low", false},
 		{"https://example.com/problem/nonce_too_low", false},
 		{"nonce_too_low", false},
 		{"about:blank", false},
@@ -56,20 +56,33 @@ func TestProblemIsKnownType(t *testing.T) {
 	}
 }
 
-func TestKnownProblemTypesMatchPinnedCatalog(t *testing.T) {
-	assert.Len(t, knownProblemTypes, 130, "the pinned l1client catalog (4e8acd8b6) has 130 types")
-	for id := range knownProblemTypes {
-		assert.Regexp(t, `^[a-z][a-z0-9_]*$`, id)
-	}
-}
-
-// Regression: a known action on a type that this SDK does not know must not
-// read as "rejected" on a submission.
-func TestUnknownTypeWithKnownActionIsNotKnownType(t *testing.T) {
+// A type of the node that is newer than this SDK follows its action: the node
+// computed it, and on a submit it already applied the submission rule.
+func TestANewerNodeTypeFollowsItsAction(t *testing.T) {
 	p := ParseProblem([]byte(`{"type":"https://developer.1moneynetwork.com/problem/from_the_future","action":"retry_later"}`))
 
-	assert.True(t, p.Action.IsKnown())
-	assert.False(t, p.IsKnownType())
+	assert.Equal(t, ActionRetryLater, p.Action)
+	assert.True(t, p.IsKnownType())
+}
+
+// Only the node's statement selects more than the HTTP status: a proxy, a
+// firewall or a load balancer can send problem details too.
+func TestAnActionOutsideTheNodesTypesIsKeptButNeverDecides(t *testing.T) {
+	for _, body := range []string{
+		`{"type":"https://httpproblems.com/http-status/429","action":"retry_later"}`,
+		`{"type":"https://developer.1moneynetwork.com/problems/nonce_too_low","action":"fix_request"}`,
+		`{"type":"about:blank#x","action":"in_progress"}`,
+		`{"type":7,"action":"retry_later"}`,
+		`{"action":"retry_later"}`,
+	} {
+		p := ParseProblem([]byte(body))
+		assert.Empty(t, p.Action, body)
+		assert.True(t, p.HasAction(), body)
+		assert.JSONEq(t, body[strings.Index(body, `"action":`)+len(`"action":`):len(body)-1], string(p.RawAction), body)
+		assert.False(t, p.IsKnownType(), body)
+	}
+	blank := ParseProblem([]byte(`{"type":"about:blank","action":"check_status"}`))
+	assert.Equal(t, ActionCheckStatus, blank.Action, "the node adds its action to about:blank")
 }
 
 func TestParseProblem_ProblemBody(t *testing.T) {
@@ -305,7 +318,7 @@ func TestAPIError_FormerEmptyBody404And405(t *testing.T) {
 // A wrong type in a legacy member still gives the "unexpected status code"
 // message, but the problem details are kept.
 func TestAPIError_WrongTypeLegacyMemberKeepsProblem(t *testing.T) {
-	apiErr := getAPIError(t, http.StatusUnprocessableEntity, `{"message":5,"action":"in_progress","tx_hash":"0x1"}`)
+	apiErr := getAPIError(t, http.StatusUnprocessableEntity, `{"message":5,"type":"about:blank","action":"in_progress","tx_hash":"0x1"}`)
 
 	assert.True(t, strings.HasPrefix(apiErr.Message, "unexpected status code: 422"))
 	assert.Equal(t, ActionInProgress, apiErr.Action)
@@ -346,8 +359,10 @@ func FuzzParseProblem(f *testing.F) {
 		if p.HasTxHash() != (isObject && hasTxHash) {
 			t.Fatalf("HasTxHash = %v, want %v", p.HasTxHash(), isObject && hasTxHash)
 		}
-		var wantAction string
-		if isJSONString(rawAction) {
+		var wantAction, typeURI string
+		_ = json.Unmarshal(top["type"], &typeURI)
+		nodeType := isJSONString(top["type"]) && (strings.HasPrefix(typeURI, ProblemTypePrefix) || typeURI == "about:blank")
+		if isJSONString(rawAction) && nodeType {
 			_ = json.Unmarshal(rawAction, &wantAction)
 		}
 		if p.Action != ProblemAction(wantAction) {
@@ -362,9 +377,9 @@ func FuzzParseProblem(f *testing.F) {
 			}
 		}
 
-		// Through the client: any non-200 status gives an *APIError that keeps
-		// the status and the raw body.
-		if status < 100 || status > 599 || status == http.StatusOK {
+		// Through the client: any status but a 2xx gives an *APIError that
+		// keeps the status and the raw body.
+		if status < 100 || status > 599 || (status >= 200 && status < 300) {
 			return
 		}
 		apiErr := getAPIError(t, status, string(body))

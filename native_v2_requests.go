@@ -2,8 +2,8 @@ package onemoney
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -53,20 +53,41 @@ type TransactionResponse struct {
 // TxHash reports the submitted transaction hash.
 func (r *TransactionResponse) TxHash() string { return r.Hash }
 
-// submitAuthorized POSTs an authorized transaction and verifies the
-// server-returned hash against the locally computed one (fail-closed). It is the
-// single submission implementation shared by the namespace API and the public
-// Submit.
+// submitAuthorized sends an authorized transaction once and classifies the
+// answer: every answer that does not admit it under its local hash is a
+// *SubmitError. It is the single submission implementation shared by the
+// namespace API and the public Submit.
 func (c *Client) submitAuthorized(ctx context.Context, authorized *AuthorizedTransaction, out txHasher) error {
 	if authorized == nil {
 		return fmt.Errorf("nil authorized transaction")
 	}
-	if err := c.PostMethod(ctx, authorized.path, authorized.body, out); err != nil {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("the transaction was not sent: %w", err)
+	}
+	local := common.BytesToHash(authorized.txHash)
+	got, err := c.postAnswer(ctx, authorized.path, authorized.body)
+	if err != nil {
 		return err
 	}
-	local := hexLower(authorized.txHash)
-	if !strings.EqualFold(out.TxHash(), local) {
-		return fmt.Errorf("transaction hash mismatch: server returned %s, locally computed %s", out.TxHash(), local)
+	outcome := classifySubmit(got, local)
+	switch outcome.kind {
+	case outcomeRejected:
+		return rejectedError(outcome.detail, outcome.refusal)
+	case outcomeLocked:
+		return stateError(SubmitLocked, authorized, outcome.detail)
+	case outcomeUnknown:
+		unknown := stateError(SubmitOutcomeUnknown, authorized, outcome.detail)
+		unknown.NonceUsed = outcome.nonceUsed
+		return unknown
+	}
+	if err := checkServerHash(local, outcome.serverHash); err != nil {
+		return err
+	}
+	// Admitted under our hash: a body that does not decode must not look like
+	// a failure, and it does not prove a lock.
+	if err := json.Unmarshal(outcome.body, out); err != nil {
+		detail := answerDetail{summary: AnswerSummary{Status: outcome.status, Message: fmt.Sprintf("the accepted response did not decode: %v", err)}}
+		return stateError(SubmitOutcomeUnknown, authorized, detail)
 	}
 	return nil
 }
@@ -75,6 +96,11 @@ func (c *Client) submitAuthorized(ctx context.Context, authorized *AuthorizedTra
 // PrepareTransaction + Authorize — and verifies the returned hash. It returns
 // the transaction hash; operation-specific response fields (e.g. an issued
 // token address) are available through the namespace methods instead.
+//
+// It sends once, with no retry. Every answer that does not admit the
+// transaction under its local hash is a *SubmitError; check
+// RequestHadNoEffect before you sign anything new for the same intent. To
+// resend, send the same AuthorizedTransaction again.
 func (c *Client) Submit(ctx context.Context, authorized *AuthorizedTransaction) (*TransactionResponse, error) {
 	out := new(TransactionResponse)
 	if err := c.submitAuthorized(ctx, authorized, out); err != nil {

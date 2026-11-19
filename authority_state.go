@@ -137,13 +137,14 @@ func (c *Client) readEvidence(ctx context.Context, account common.Address, nonce
 }
 
 // foundOrNone returns the read, or nil for a 404; every other failure is an
-// error that names the read.
+// error that names the read. A 404 with the node's retry_later is a throttled
+// read, not an absent record.
 func foundOrNone[T any](result *T, err error, what string, txHash common.Hash) (*T, error) {
 	var apiErr *APIError
 	switch {
 	case err == nil:
 		return result, nil
-	case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound:
+	case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && apiErr.Action != ActionRetryLater:
 		return nil, nil
 	}
 	return nil, fmt.Errorf("the %s of %s did not answer: %w", what, txHash.Hex(), err)
