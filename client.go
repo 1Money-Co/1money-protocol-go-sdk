@@ -65,6 +65,9 @@ func newClientInternal(baseHost string, options ...ClientOption) *Client {
 		baseHost: baseHost,
 		httpclient: &http.Client{
 			Timeout: 4 * time.Second,
+			// The node never redirects. A followed redirect turns a POST into
+			// a GET whose answer says nothing about the submit.
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},
 		// logger is nil by default
 	}

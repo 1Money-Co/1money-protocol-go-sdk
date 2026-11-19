@@ -124,3 +124,66 @@ func TestAGeneralRequestTakesAny2xx(t *testing.T) {
 		t.Fatalf("%+v %v", got, err)
 	}
 }
+
+// redirectingNode answers the payment POST with a 303 to target and counts
+// every GET. A GET answers a node problem with fix_request: if it were read
+// as the answer to the POST, it would falsely prove that the POST had no
+// effect.
+func redirectingNode(t *testing.T, target string) (*httptest.Server, *int) {
+	t.Helper()
+	gets := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			gets++
+			if r.URL.Path == "/elsewhere" {
+				http.Redirect(w, r, "/v2/transactions/payment", http.StatusSeeOther)
+				return
+			}
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = w.Write([]byte(`{"type":"` + ProblemTypePrefix + `compliance_blocked","action":"fix_request"}`))
+			return
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
+	}))
+	t.Cleanup(server.Close)
+	return server, &gets
+}
+
+func TestARedirectedSubmitNeverProvesNoEffect(t *testing.T) {
+	authorized := authorizedPayment(t)
+	for _, target := range []string{"/v2/transactions/payment", "/elsewhere"} {
+		server, gets := redirectingNode(t, target)
+		_, err := NewClientWithCustomUrl(server.URL).Submit(context.Background(), authorized)
+		submitErr := submitError(t, err)
+		if submitErr.Kind != SubmitOutcomeUnknown || submitErr.RequestHadNoEffect() || submitErr.Answer.Status != http.StatusSeeOther || *gets != 0 {
+			t.Fatalf("default client, redirect to %s: %+v, %d GETs", target, submitErr, *gets)
+		}
+
+		server, gets = redirectingNode(t, target)
+		following := NewClientWithCustomUrl(server.URL, WithHTTPClient(&http.Client{}))
+		_, err = following.Submit(context.Background(), authorized)
+		submitErr = submitError(t, err)
+		if submitErr.Kind != SubmitOutcomeUnknown || submitErr.RequestHadNoEffect() || submitErr.Transaction != authorized || *gets == 0 {
+			t.Fatalf("following client, redirect to %s: %+v, %d GETs", target, submitErr, *gets)
+		}
+	}
+}
+
+func TestReadsDoNotFollowRedirects(t *testing.T) {
+	followed := false
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/chains/chain_id", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/moved", http.StatusFound)
+	})
+	mux.HandleFunc("/moved", func(w http.ResponseWriter, _ *http.Request) {
+		followed = true
+		_, _ = w.Write([]byte(`{"chain_id":1}`))
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	_, err := NewClientWithCustomUrl(server.URL).GetChainId(context.Background())
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusFound || followed {
+		t.Fatalf("%v followed=%t", err, followed)
+	}
+}

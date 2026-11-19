@@ -308,7 +308,9 @@ that nonce. `Refusal` tells whether a rejection refused the signed bytes
 themselves (`SubmitRefusalBytes`) or only this request. To resend, pass the same
 `AuthorizedTransaction` to `Client.Submit`: the same hash cannot execute twice.
 A legacy v1 send (`WithLegacyV1`) is not classified and returns an
-`*APIError`, as in the Rust SDK.
+`*APIError`, as in the Rust SDK. The default HTTP client does not follow
+redirects; with your own client (`WithHTTPClient`) a submit answered after a
+redirect is always `SubmitOutcomeUnknown`.
 
 See [`ExampleSubmitError`](./example_submit_test.go).
 

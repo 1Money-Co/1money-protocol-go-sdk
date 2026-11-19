@@ -4,11 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/rand/v2"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -376,25 +373,6 @@ func TestASilentServerSaysRequestTimedOut(t *testing.T) {
 	}
 	if message := classifySubmit(got, ourHash).detail.summary.Message; !strings.HasPrefix(message, "request timed out: ") {
 		t.Errorf("%q", message)
-	}
-}
-
-func TestAPostThatARedirectTurnsIntoAGetIsRedirected(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/v2/transactions/payment", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/elsewhere", http.StatusSeeOther)
-	})
-	mux.HandleFunc("/elsewhere", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprintf(w, `{"hash":%q}`, hexOf(ourHash))
-	})
-	server := httptest.NewServer(mux)
-	defer server.Close()
-	got, err := NewClientWithCustomUrl(server.URL).postAnswer(context.Background(), "/v2/transactions/payment", map[string]any{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !got.redirected || classifySubmit(got, ourHash).kind != outcomeUnknown {
-		t.Fatalf("%+v", got)
 	}
 }
 

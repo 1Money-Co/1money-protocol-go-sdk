@@ -76,7 +76,10 @@ func (client *Client) roundTrip(req *http.Request) answer {
 		return answer{err: err}
 	}
 	defer func() { _ = resp.Body.Close() }()
-	got := answer{status: resp.StatusCode, redirected: resp.Request.URL.String() != req.URL.String()}
+	// Request.Response is set only on a request that a redirect created, so it
+	// also catches a redirect back to the same URL. A client from
+	// WithHTTPClient can follow redirects.
+	got := answer{status: resp.StatusCode, redirected: resp.Request != nil && resp.Request.Response != nil}
 	got.body, got.err = io.ReadAll(resp.Body)
 	return got
 }

@@ -31,8 +31,13 @@ difference between the two SDKs is a defect of the Go SDK.
 - A transaction hash mismatch is a `*SubmitError` of kind `SubmitHashMismatch`,
   not a plain error.
 - A 2xx accepted body that does not decode is `SubmitOutcomeUnknown`, not a
-  decode error. A submit answer that came after an HTTP redirect is
-  `SubmitOutcomeUnknown`.
+  decode error.
+- The default HTTP client no longer follows redirects, for every request, as
+  in the Rust SDK: the node never redirects, and a followed redirect turns a
+  POST into a GET. A redirect answer is returned as it is (a `*SubmitError`
+  of kind `SubmitOutcomeUnknown` on a submit, an `*APIError` on a read). With a
+  client from `WithHTTPClient` that follows redirects, a submit answered after
+  any redirect, also one back to the same URL, is `SubmitOutcomeUnknown`.
 - Any 2xx answer is a success, for a submit and for every other GET and POST.
   Before, only 200 was.
 - `Problem.Action` is empty unless the `type` is in the node's namespace or is
