@@ -261,7 +261,7 @@ submission, err := client.Tokens().AuthorityOperationByMode(
 The [README](./README.md#token-authority-model-settled-envelope-and-lane-clawback)
 gives the client rules.
 
-## Submit errors and settle (issue #28)
+## Submit errors (issue #28)
 
 A `/v2` submit error is now a `*SubmitError`. Read it with `errors.As`:
 
@@ -269,7 +269,7 @@ A `/v2` submit error is now a `*SubmitError`. Read it with `errors.As`:
 var submitErr *onemoney.SubmitError
 if errors.As(err, &submitErr) && !submitErr.RequestHadNoEffect() {
 	// Locked or unknown: resend these same bytes, never sign the intent again.
-	_, err = client.Settle(ctx, submitErr.Transaction, onemoney.DefaultSettleOptions())
+	_, err = client.Submit(ctx, submitErr.Transaction)
 }
 ```
 

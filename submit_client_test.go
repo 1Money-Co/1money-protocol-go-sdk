@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func serveOnce(t *testing.T, status int, body string) *Client {
@@ -18,6 +20,8 @@ func serveOnce(t *testing.T, status int, body string) *Client {
 	t.Cleanup(server.Close)
 	return NewClientWithCustomUrl(server.URL)
 }
+
+func hashOf(a *AuthorizedTransaction) common.Hash { return common.BytesToHash(a.txHash) }
 
 func submitError(t *testing.T, err error) *SubmitError {
 	t.Helper()
@@ -56,7 +60,7 @@ func TestSubmitClassifiesEveryAnswerThatDoesNotAdmitTheTransaction(t *testing.T)
 			}
 			if tc.kind == SubmitLocked || tc.kind == SubmitOutcomeUnknown {
 				if submitErr.Transaction != authorized || submitErr.TransactionHash != local {
-					t.Fatalf("the transaction to settle: %+v", submitErr)
+					t.Fatalf("the transaction to resend: %+v", submitErr)
 				}
 			}
 			var apiErr *APIError
@@ -111,25 +115,6 @@ func TestATransportFailureOfASubmitIsOutcomeUnknownAndUnwrapsTheCause(t *testing
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
 		t.Fatal("no HTTP answer, no *APIError")
-	}
-}
-
-func TestSettleOverHTTPFindsTheReceipt(t *testing.T) {
-	authorized := authorizedPayment(t)
-	local := hashOf(authorized).Hex()
-	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/transactions/receipt/by_hash", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("hash") != local {
-			http.NotFound(w, r)
-			return
-		}
-		_, _ = w.Write([]byte(receiptBody(hashOf(authorized))))
-	})
-	server := httptest.NewServer(mux)
-	defer server.Close()
-	settled, err := NewClientWithCustomUrl(server.URL).Settle(context.Background(), authorized, DefaultSettleOptions())
-	if err != nil || settled.Receipt.TransactionHash != local {
-		t.Fatalf("%+v %v", settled, err)
 	}
 }
 

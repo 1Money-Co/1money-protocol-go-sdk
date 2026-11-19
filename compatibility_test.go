@@ -149,11 +149,10 @@ func TestPublicAPICompatibility(t *testing.T) {
 	//   - The clawback router with a required onSigned, and the explicit lane
 	//     clawback re-issue (issue #31). Additive only.
 	//   - Submit outcomes as the Rust SDK classifies them: SubmitError and its
-	//     kinds, AnswerSummary, SubmitAndSettle and Settle with SettleOptions,
-	//     the observations and end reasons; IsKnownType is deprecated and no
-	//     longer reads a pinned catalog (issue #28). Additive only.
+	//     kinds, SubmitRefusal and AnswerSummary; IsKnownType is deprecated and
+	//     no longer reads a pinned catalog (issue #28). Additive only.
 	// It guards against unintentional drift, not intentional changes.
-	const publicAPIHash = "4dafc704dd5440f8b23751d0f8507b278e61dceca2d7cd7f6e4284b6b72493e3"
+	const publicAPIHash = "e4519cb408d0d22ce0f36c52098c2a57025deacc933ede2e89201b328b179d76"
 	if gotHash := fmt.Sprintf("%x", sha256.Sum256(got)); gotHash != publicAPIHash {
 		t.Fatalf("public API hash = %s, want %s; compare `go doc -all .` with the baseline", gotHash, publicAPIHash)
 	}

@@ -19,13 +19,9 @@ difference between the two SDKs is a defect of the Go SDK.
   under its local hash returns a `*SubmitError` with a `Kind`
   (`SubmitRejected`, `SubmitLocked`, `SubmitOutcomeUnknown`,
   `SubmitHashMismatch`), `RequestHadNoEffect`, `NonceUsed`, `Refusal`, the
-  signed `Transaction` to settle, and the `Answer`. Only the node's no-effect
+  signed `Transaction` to resend, and the `Answer`. Only the node's no-effect
   action rejects, and only its `in_progress` for this hash locks; every other
   answer is unknown.
-- **Settle**: `Client.SubmitAndSettle` and `Client.Settle` resend the same
-  signed bytes on the node's schedule until the receipt appears, with
-  `SettleOptions` (`DefaultSettleOptions`), `SettledTransaction`,
-  `SettleObservation` and `SettleEndReason`.
 
 ### Changed (behavior)
 

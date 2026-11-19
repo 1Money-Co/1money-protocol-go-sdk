@@ -289,7 +289,7 @@ The SDK follows the Rust SDK (`onemoney-protocol`, l1client `crates/om-sdk`):
   `ErrorCode` or the HTTP status.
 - Any 2xx answer is a success.
 
-## Submit outcomes and settle
+## Submit outcomes
 
 Every `/v2` submit (`Client.Submit` and the `TokensAPI` and `TransactionsAPI`
 methods) that does not end with the transaction admitted under its local hash
@@ -299,21 +299,16 @@ finds the `*APIError` of the answer. Its `Kind` tells the caller's duty:
 | Kind | Proof | Next step |
 |---|---|---|
 | `SubmitRejected` | The node's action `fix_request`, `retry_later` or `use_other_node`. | This request had no effect. Fix the cause. Sign again only if no other transaction for the intent is locked, executed or unknown. |
-| `SubmitLocked` | The node's action `in_progress` for this hash. | Resend the same signed transaction (`Client.Settle`). |
-| `SubmitOutcomeUnknown` | Any other answer: `check_status`, no action, a timeout, a 5xx, a firewall page, a redirect. | Find the state first (`Client.Settle`). Do not sign the intent again. |
+| `SubmitLocked` | The node's action `in_progress` for this hash. | Resend the same signed transaction (`Transaction`) until it executes. |
+| `SubmitOutcomeUnknown` | Any other answer: `check_status`, no action, a timeout, a 5xx, a firewall page, a redirect. | Find the state first: look up the hash and resend the same signed transaction. Do not sign the intent again. |
 | `SubmitHashMismatch` | A 2xx with another hash. | The node admitted other bytes: send nothing more. |
 
 `NonceUsed` is set only by the node's `nonce_too_low` type: never sign again at
 that nonce. `Refusal` tells whether a rejection refused the signed bytes
-themselves (`SubmitRefusalBytes`) or only this request.
-
-`Client.SubmitAndSettle` and `Client.Settle` resend the **same signed bytes** on
-the node's schedule (every 70 s, with probes after a lookup that answers 404)
-and poll the receipt until it appears; they never sign. Start from
-`DefaultSettleOptions()`. A run that ends without a receipt returns a
-`*SubmitError` with its `Observations` and its `EndReason`; settle the same
-`AuthorizedTransaction` again later. A legacy v1 send (`WithLegacyV1`) is not
-classified and returns an `*APIError`, as in the Rust SDK.
+themselves (`SubmitRefusalBytes`) or only this request. To resend, pass the same
+`AuthorizedTransaction` to `Client.Submit`: the same hash cannot execute twice.
+A legacy v1 send (`WithLegacyV1`) is not classified and returns an
+`*APIError`, as in the Rust SDK.
 
 See [`ExampleSubmitError`](./example_submit_test.go).
 

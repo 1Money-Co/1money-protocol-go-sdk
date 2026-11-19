@@ -141,8 +141,8 @@ func TestRule4AnyOtherActionIsUnknownAndKeepsTheRawAction(t *testing.T) {
 		if outcome.kind != outcomeUnknown || outcome.detail.apiErr == nil {
 			t.Fatalf("%s: %+v", action, outcome)
 		}
-		if string(outcome.detail.apiErr.RawAction) != action || string(outcome.detail.action) != action {
-			t.Errorf("%s: raw %s, node action %s", action, outcome.detail.apiErr.RawAction, outcome.detail.action)
+		if string(outcome.detail.apiErr.RawAction) != action {
+			t.Errorf("%s: raw %s", action, outcome.detail.apiErr.RawAction)
 		}
 	}
 }
@@ -420,80 +420,6 @@ func TestARejectionKeepsTheProblem(t *testing.T) {
 	}
 }
 
-func receiptBody(hash common.Hash) string {
-	return `{"success":true,"transaction_hash":"` + hexOf(hash) + `","transaction_index":null,"checkpoint_hash":null,"checkpoint_number":null,"from":"0x0000000000000000000000000000000000000000","fee_used":"0","recipient":null,"token_address":null}`
-}
-
-func unreadableReceiptBody(hash common.Hash) string {
-	return strings.Replace(receiptBody(hash), `"fee_used":"0"`, `"fee_used":{"shape":"of a newer node"}`, 1)
-}
-
-func TestReadReceiptFindsOnlyA2xxReceiptForTheHash(t *testing.T) {
-	if got := readReceipt(httpAnswer(200, receiptBody(ourHash)), ourHash); got.kind != readFound || got.value.TransactionHash != hexOf(ourHash) {
-		t.Fatalf("%+v", got)
-	}
-	for _, a := range []answer{httpAnswer(200, receiptBody(anotherHash)), httpAnswer(200, "<html>proxy</html>"), httpAnswer(500, receiptBody(ourHash))} {
-		if got := readReceipt(a, ourHash); got.kind != readFailed {
-			t.Errorf("%d %s: %v", a.status, a.body, got.kind)
-		}
-	}
-}
-
-func TestA2xxReceiptForTheHashThatDoesNotDecodeIsUnreadable(t *testing.T) {
-	if got := readReceipt(httpAnswer(200, unreadableReceiptBody(ourHash)), ourHash).kind; got != readUnreadable {
-		t.Errorf("for the hash: %v", got)
-	}
-	if got := readReceipt(httpAnswer(200, unreadableReceiptBody(anotherHash)), ourHash).kind; got != readFailed {
-		t.Errorf("for another hash: %v", got)
-	}
-	if got := readReceipt(httpAnswer(500, unreadableReceiptBody(ourHash)), ourHash).kind; got != readFailed {
-		t.Errorf("500: %v", got)
-	}
-}
-
-func TestReadReceiptMapsNotFoundThrottledAndFailed(t *testing.T) {
-	notFound := `{"error_code":"resource_transaction_not_found","message":"m"}`
-	if got := readReceipt(httpAnswer(404, notFound), ourHash); got.kind != readNotFound || got.detail.summary.ErrorCode != "resource_transaction_not_found" {
-		t.Errorf("404: %+v", got)
-	}
-	if got := readReceipt(httpAnswer(429, ""), ourHash); got.kind != readThrottled || got.detail.summary.Status != 429 {
-		t.Errorf("429: %+v", got)
-	}
-	retryLater := `{"type":"` + newerNodeType + `","action":"retry_later"}`
-	for _, a := range []answer{httpAnswer(503, retryLater), httpAnswer(404, retryLater)} {
-		if got := readReceipt(a, ourHash).kind; got != readThrottled {
-			t.Errorf("%d retry_later: %v", a.status, got)
-		}
-	}
-	for _, a := range []answer{httpAnswer(502, "bad gateway"), httpAnswer(400, notFound), {err: errors.New("down")}} {
-		if got := readReceipt(a, ourHash).kind; got != readFailed {
-			t.Errorf("%d: %v", a.status, got)
-		}
-	}
-}
-
-func TestReadTransactionNeedsOnlyTheHash(t *testing.T) {
-	if got := readTransaction(httpAnswer(200, `{"hash":"`+hexOf(ourHash)+`","a_member_this_sdk_does_not_know":1}`), ourHash).kind; got != readFound {
-		t.Errorf("found: %v", got)
-	}
-	if got := readTransaction(httpAnswer(200, `{"hash":"`+hexOf(anotherHash)+`"}`), ourHash).kind; got != readFailed {
-		t.Errorf("other: %v", got)
-	}
-	if got := readTransaction(httpAnswer(404, `{}`), ourHash).kind; got != readNotFound {
-		t.Errorf("404: %v", got)
-	}
-	if got := readTransaction(httpAnswer(429, `{}`), ourHash).kind; got != readThrottled {
-		t.Errorf("429: %v", got)
-	}
-}
-
-func TestAFailedReadKeepsTheAnswerSummary(t *testing.T) {
-	got := readReceipt(httpAnswer(500, `{"error_code":"system_x","message":"db down"}`), ourHash)
-	if got.kind != readFailed || got.detail.summary != (AnswerSummary{Status: 500, ErrorCode: "system_x", Message: "db down"}) {
-		t.Errorf("%+v", got)
-	}
-}
-
 // --- Properties ---
 
 type propertyBody struct {
@@ -734,9 +660,6 @@ func TestAnswersWithoutTheNodesStatementClassifyAsAnEmptyBody(t *testing.T) {
 		empty := classifySubmit(httpAnswer(status, ""), ourHash)
 		if withBody.kind != empty.kind || withBody.nonceUsed != empty.nonceUsed {
 			t.Fatalf("%d %v: %+v vs %+v", status, object, withBody, empty)
-		}
-		if a, b := readTransaction(httpAnswer(status, jsonBody(t, object)), ourHash).kind, readTransaction(httpAnswer(status, ""), ourHash).kind; a != b {
-			t.Fatalf("read %d %v: %v vs %v", status, object, a, b)
 		}
 	}
 }

@@ -52,7 +52,7 @@ func ExampleSubmitError() {
 		case submitErr.Kind == onemoney.SubmitHashMismatch:
 			fmt.Println("the node admitted other bytes: send nothing more")
 		default:
-			// Locked or unknown: Client.Settle resends these same bytes.
+			// Locked or unknown: resend these same bytes, never sign the intent again.
 			fmt.Println(submitErr.Kind, submitErr.Transaction == authorized)
 		}
 	}

@@ -64,40 +64,32 @@ func (c *Client) submitAuthorized(ctx context.Context, authorized *AuthorizedTra
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("the transaction was not sent: %w", err)
 	}
-	outcome, err := c.sendAuthorized(ctx, authorized)
+	local := common.BytesToHash(authorized.txHash)
+	got, err := c.postAnswer(ctx, authorized.path, authorized.body)
 	if err != nil {
 		return err
 	}
+	outcome := classifySubmit(got, local)
 	switch outcome.kind {
 	case outcomeRejected:
 		return rejectedError(outcome.detail, outcome.refusal)
 	case outcomeLocked:
-		return stateError(SubmitLocked, authorized, &outcome.detail)
+		return stateError(SubmitLocked, authorized, outcome.detail)
 	case outcomeUnknown:
-		unknown := stateError(SubmitOutcomeUnknown, authorized, &outcome.detail)
+		unknown := stateError(SubmitOutcomeUnknown, authorized, outcome.detail)
 		unknown.NonceUsed = outcome.nonceUsed
 		return unknown
 	}
-	if err := checkServerHash(common.BytesToHash(authorized.txHash), outcome.serverHash); err != nil {
+	if err := checkServerHash(local, outcome.serverHash); err != nil {
 		return err
 	}
 	// Admitted under our hash: a body that does not decode must not look like
 	// a failure, and it does not prove a lock.
 	if err := json.Unmarshal(outcome.body, out); err != nil {
 		detail := answerDetail{summary: AnswerSummary{Status: outcome.status, Message: fmt.Sprintf("the accepted response did not decode: %v", err)}}
-		return stateError(SubmitOutcomeUnknown, authorized, &detail)
+		return stateError(SubmitOutcomeUnknown, authorized, detail)
 	}
 	return nil
-}
-
-// sendAuthorized sends the signed bytes once. The error is a local failure
-// before the send.
-func (c *Client) sendAuthorized(ctx context.Context, authorized *AuthorizedTransaction) (submitOutcome, error) {
-	got, err := c.postAnswer(ctx, authorized.path, authorized.body)
-	if err != nil {
-		return submitOutcome{}, err
-	}
-	return classifySubmit(got, common.BytesToHash(authorized.txHash)), nil
 }
 
 // Submit sends an AuthorizedTransaction — typically produced offline via
@@ -107,8 +99,8 @@ func (c *Client) sendAuthorized(ctx context.Context, authorized *AuthorizedTrans
 //
 // It sends once, with no retry. Every answer that does not admit the
 // transaction under its local hash is a *SubmitError; check
-// RequestHadNoEffect before you sign anything new for the same intent, and
-// use Settle to resend the same bytes.
+// RequestHadNoEffect before you sign anything new for the same intent. To
+// resend, send the same AuthorizedTransaction again.
 func (c *Client) Submit(ctx context.Context, authorized *AuthorizedTransaction) (*TransactionResponse, error) {
 	out := new(TransactionResponse)
 	if err := c.submitAuthorized(ctx, authorized, out); err != nil {

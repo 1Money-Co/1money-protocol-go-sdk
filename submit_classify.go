@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -98,9 +97,6 @@ type answerDetail struct {
 	summary AnswerSummary
 	// apiErr is nil when no HTTP answer arrived.
 	apiErr *APIError
-	// action is the action member as sent, only in a body whose type is the
-	// node's or about:blank.
-	action json.RawMessage
 	// cause is the transport failure, when no HTTP answer arrived.
 	cause error
 }
@@ -228,121 +224,6 @@ func checkServerHash(local common.Hash, server string) error {
 	return &SubmitError{Kind: SubmitHashMismatch, TransactionHash: local, ServerHash: server}
 }
 
-type readKind int
-
-const (
-	// readFound: a 2xx body for the requested hash.
-	readFound readKind = iota
-	readNotFound
-	// readThrottled: 429, or the node's action retry_later. Back off.
-	readThrottled
-	// readFailed: any other answer, a body that does not decode, another hash,
-	// or no answer.
-	readFailed
-	// readUnreadable: a 2xx receipt for the requested hash that this SDK
-	// cannot decode, for example from a newer node: the receipt exists.
-	readUnreadable
-)
-
-func (k readKind) String() string {
-	return [...]string{"found", "not_found", "throttled", "failed", "unreadable"}[k]
-}
-
-type readResult[T any] struct {
-	kind   readKind
-	value  T
-	detail answerDetail
-}
-
-// readReceipt reads the answer to GET receipt by hash.
-func readReceipt(a answer, hash common.Hash) readResult[*TransactionReceiptResponse] {
-	result := read(a, func(body []byte) (*TransactionReceiptResponse, bool) {
-		receipt := new(TransactionReceiptResponse)
-		if json.Unmarshal(body, receipt) != nil {
-			return nil, false
-		}
-		parsed, ok := parseHash(receipt.TransactionHash)
-		return receipt, ok && parsed == hash
-	})
-	if result.kind == readFailed && namesReceiptOf(a, hash) {
-		result.kind = readUnreadable
-	}
-	return result
-}
-
-// namesReceiptOf: a 2xx answer whose body names the receipt of hash, whatever
-// its other members hold.
-func namesReceiptOf(a answer, hash common.Hash) bool {
-	var receipt struct {
-		TransactionHash string `json:"transaction_hash"`
-	}
-	if a.err != nil || !isSuccessStatus(a.status) || json.Unmarshal(a.body, &receipt) != nil {
-		return false
-	}
-	parsed, ok := parseHash(receipt.TransactionHash)
-	return ok && parsed == hash
-}
-
-// readTransaction reads the answer to GET transaction by hash. Only the hash
-// is decoded, so a transaction that this SDK cannot fully decode is found.
-func readTransaction(a answer, hash common.Hash) readResult[struct{}] {
-	return read(a, func(body []byte) (struct{}, bool) {
-		var transaction struct {
-			Hash string `json:"hash"`
-		}
-		if json.Unmarshal(body, &transaction) != nil {
-			return struct{}{}, false
-		}
-		parsed, ok := parseHash(transaction.Hash)
-		return struct{}{}, ok && parsed == hash
-	})
-}
-
-// readStatus reads the answer to GET status by hash. A status that this SDK
-// does not know is a failed read.
-func readStatus(a answer, hash common.Hash) readResult[TransactionStatus] {
-	return read(a, func(body []byte) (TransactionStatus, bool) {
-		var status TransactionStatusResponse
-		if json.Unmarshal(body, &status) != nil || !status.Status.IsKnown() {
-			return "", false
-		}
-		parsed, ok := parseHash(status.Hash)
-		return status.Status, ok && parsed == hash
-	})
-}
-
-func read[T any](a answer, found func([]byte) (T, bool)) readResult[T] {
-	if a.err != nil {
-		return readResult[T]{kind: readFailed, detail: transportDetail(a)}
-	}
-	if isSuccessStatus(a.status) {
-		if value, ok := found(a.body); ok {
-			return readResult[T]{kind: readFound, value: value}
-		}
-	}
-	detail := httpDetail(a, readBodyFields(a.body))
-	switch {
-	case isThrottled(detail):
-		return readResult[T]{kind: readThrottled, detail: detail}
-	case a.status == http.StatusNotFound:
-		return readResult[T]{kind: readNotFound, detail: detail}
-	}
-	return readResult[T]{kind: readFailed, detail: detail}
-}
-
-// isThrottled: 429, or the node's action retry_later. The node or the firewall
-// turned the request away for now.
-func isThrottled(detail answerDetail) bool {
-	var action string
-	return isRateLimited(detail) || (detail.action != nil && json.Unmarshal(detail.action, &action) == nil && action == string(ActionRetryLater))
-}
-
-// isRateLimited: a 429 of the node or the firewall, which holds for every
-// client of that node.
-func isRateLimited(detail answerDetail) bool {
-	return detail.summary.Status == http.StatusTooManyRequests
-}
-
 func httpDetail(a answer, fields bodyFields) answerDetail {
 	message := ""
 	switch {
@@ -356,7 +237,6 @@ func httpDetail(a answer, fields bodyFields) answerDetail {
 	return answerDetail{
 		summary: AnswerSummary{Status: a.status, ErrorCode: fields.errorCode, Message: message},
 		apiErr:  newAPIError(a.status, a.body),
-		action:  fields.action,
 	}
 }
 

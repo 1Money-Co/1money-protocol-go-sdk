@@ -35,12 +35,6 @@ func (client *Client) postAnswer(ctx context.Context, path string, body any) (an
 	return client.exchange(ctx, http.MethodPost, path, data)
 }
 
-// getAnswer sends a GET and keeps whatever came back. The error is a local
-// failure before the send.
-func (client *Client) getAnswer(ctx context.Context, path string) (answer, error) {
-	return client.exchange(ctx, http.MethodGet, path, nil)
-}
-
 func (client *Client) exchange(ctx context.Context, method, path string, data []byte) (answer, error) {
 	fullURL := client.baseHost + path
 	var body io.Reader
