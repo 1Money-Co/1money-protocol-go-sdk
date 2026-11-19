@@ -54,6 +54,24 @@ difference between the two SDKs is a defect of the Go SDK.
 - `Problem.IsKnownType` is true for any type in the node's namespace, also one
   newer than the SDK. The pinned copy of the node's catalog is removed.
 
+### Upgrade notes
+
+The exported API only gains names, so your code compiles as before. Check
+these three behavior changes before you upgrade:
+
+1. **Submit errors are `*SubmitError`.** Find every type assertion
+   `err.(*onemoney.APIError)` (or a type switch case `*onemoney.APIError`) on
+   the error of a `/v2` submit. It still compiles, but it no longer matches at
+   run time, so that branch stops running. Use `errors.As(err, &apiErr)`, or
+   better, decide on `SubmitError.Kind` and `RequestHadNoEffect()`.
+2. **Any 2xx is a success.** A 201, 202 or 204 is no longer an `*APIError`. A
+   submit answered 2xx with the local hash succeeds.
+3. **No redirects.** The default HTTP client does not follow redirects. If your
+   base URL redirects (for example `http://` to `https://`), every request
+   returns the redirect status as an error. Configure the final `https://` URL.
+   If you pass your own client with `WithHTTPClient`, a submit answered after a
+   redirect is `SubmitOutcomeUnknown`.
+
 ## [1.5.0] - 2026-11-16
 
 Support for the l1client token authority model
