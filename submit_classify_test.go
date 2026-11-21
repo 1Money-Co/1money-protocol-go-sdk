@@ -2,10 +2,12 @@ package onemoney
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math/rand/v2"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -268,33 +270,72 @@ func TestATxHashWithout0xStillNamesTheLocalHash(t *testing.T) {
 	}
 }
 
-// One rule for every hash taken from a node answer: 32 bytes of hex, any
-// case, with "0x", "0X" or no prefix (TS sameHash, Rust B256).
-func TestParseHashTakesAnyPrefixAndCase(t *testing.T) {
-	digits := hexOf(ourHash)[2:]
-	for _, s := range []string{"0x" + digits, "0X" + digits, digits, "0x" + strings.ToUpper(digits), "0X" + strings.ToUpper(digits)} {
-		if got, ok := parseHash(s); !ok || got != ourHash {
-			t.Errorf("%q: %x %t", s, got, ok)
-		}
+type b256OracleRow struct{ name, input, fromStr, json string }
+
+// b256Oracle is the table that the pinned Rust build printed for each input
+// (testdata/b256-oracle): whether B256::from_str and serde decode it, and the
+// hash. It is an external oracle; never regenerate it from this SDK.
+func b256Oracle(t *testing.T) []b256OracleRow {
+	t.Helper()
+	data, err := os.ReadFile("testdata/b256-oracle/b256_oracle.tsv")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, s := range []string{"", "0x", "0x" + digits[2:], "0x" + digits + "11", "0x0x" + digits, "0x" + digits[:63] + "g", " 0x" + digits, "x" + digits} {
-		if got, ok := parseHash(s); ok {
-			t.Errorf("%q parsed as %x", s, got)
+	var rows []b256OracleRow
+	for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		f := strings.Split(line, "\t")
+		if len(f) != 4 {
+			t.Fatalf("oracle line %q", line)
+		}
+		rows = append(rows, b256OracleRow{f[0], f[1], f[2], f[3]})
+	}
+	if len(rows) < 15 {
+		t.Fatalf("oracle has %d rows", len(rows))
+	}
+	return rows
+}
+
+// Every hash in a node answer follows the pinned Rust build: B256::from_str
+// with const-hex 1.18.1 takes a lowercase "0x" or no prefix, hex digits in any
+// case, and exactly 32 bytes.
+func TestParseHashMatchesThePinnedRustBuild(t *testing.T) {
+	for _, row := range b256Oracle(t) {
+		if row.fromStr != row.json {
+			t.Fatalf("%s: the oracle's FromStr and JSON disagree", row.name)
+		}
+		got, ok := parseHash(row.input)
+		switch {
+		case row.fromStr == "refused" && ok:
+			t.Errorf("%s (%q): parsed as %x, Rust refuses it", row.name, row.input, got)
+		case row.fromStr != "refused" && (!ok || hex.EncodeToString(got[:]) != row.fromStr):
+			t.Errorf("%s (%q): got %x %t, Rust decodes %s", row.name, row.input, got, ok, row.fromStr)
 		}
 	}
 }
 
-func TestAnUpperCasePrefixNamesTheLocalHash(t *testing.T) {
-	upperPrefix := "0X" + hexOf(ourHash)[2:]
-	if got := classifyJSON(t, 422, map[string]any{"type": inFlightType, "action": "in_progress", "tx_hash": upperPrefix}); got != outcomeLocked {
-		t.Errorf("tx_hash: %v", got)
-	}
-	if err := checkServerHash(ourHash, upperPrefix); err != nil {
-		t.Errorf("server hash: %v", err)
-	}
-	for _, bad := range []string{"0X" + hexOf(ourHash)[4:], hexOf(anotherHash)} {
-		if err := checkServerHash(ourHash, bad); err == nil {
-			t.Errorf("%q matched", bad)
+// The submit and lock outcomes follow from the same rule: an answer that names
+// the local hash in a form Rust refuses is a mismatch or unknown, never
+// accepted or locked.
+func TestSubmitOutcomesFollowThePinnedRustHashRule(t *testing.T) {
+	for _, row := range b256Oracle(t) {
+		if row.fromStr == "refused" {
+			if err := checkServerHash(ourHash, row.input); err == nil {
+				t.Errorf("%s: a refused server hash matched", row.name)
+			}
+			if got := classifyJSON(t, 422, map[string]any{"type": inFlightType, "action": "in_progress", "tx_hash": row.input}); got != outcomeUnknown {
+				t.Errorf("%s: in_progress with a refused tx_hash is %v", row.name, got)
+			}
+			continue
+		}
+		local := common.HexToHash(row.fromStr)
+		if err := checkServerHash(local, row.input); err != nil {
+			t.Errorf("%s: %v", row.name, err)
+		}
+		if got := classifySubmit(httpAnswer(422, jsonBody(t, map[string]any{"type": inFlightType, "action": "in_progress", "tx_hash": row.input})), local).kind; got != outcomeLocked {
+			t.Errorf("%s: in_progress is %v", row.name, got)
 		}
 	}
 }

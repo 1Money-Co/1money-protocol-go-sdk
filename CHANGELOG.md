@@ -32,9 +32,10 @@ difference between the two SDKs is a defect of the Go SDK.
   not a plain error.
 - Every hash in a node answer (the submit `hash`, the `tx_hash` of
   `in_progress`, and the hash in a receipt or a status that
-  `AuthorityOperationState` and `LaneClawbackFate` read) follows one rule, as in
-  the Rust and TypeScript SDKs: 32 bytes of hex, in any case, with `0x`, `0X` or
-  no prefix. Before, the reads needed `0x`.
+  `AuthorityOperationState` and `LaneClawbackFate` read) follows one rule, the
+  Rust SDK's (`B256` with const-hex 1.18.1): 32 bytes of hex, digits in any
+  case, with a lowercase `0x` or no prefix. `0X` is refused. Before, the reads
+  needed `0x`.
 - A 2xx accepted body that does not decode is `SubmitOutcomeUnknown`, not a
   decode error.
 - The default HTTP client no longer follows redirects, for every request, as

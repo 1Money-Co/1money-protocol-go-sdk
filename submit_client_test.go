@@ -187,3 +187,18 @@ func TestReadsDoNotFollowRedirects(t *testing.T) {
 		t.Fatalf("%v followed=%t", err, followed)
 	}
 }
+
+// A 2xx that names the local hash with "0X" is a mismatch, as in the pinned
+// Rust build, which refuses that prefix.
+func TestASubmitAnsweredWithAnUpperCasePrefixIsAHashMismatch(t *testing.T) {
+	authorized := authorizedPayment(t)
+	upperPrefix := "0X" + hashOf(authorized).Hex()[2:]
+	_, err := serveOnce(t, 200, `{"hash":"`+upperPrefix+`"}`).Submit(context.Background(), authorized)
+	if submitErr := submitError(t, err); submitErr.Kind != SubmitHashMismatch || submitErr.ServerHash != upperPrefix {
+		t.Fatalf("%+v", submitErr)
+	}
+	bare := hashOf(authorized).Hex()[2:]
+	if _, err := serveOnce(t, 200, `{"hash":"`+strings.ToUpper(bare)+`"}`).Submit(context.Background(), authorized); err != nil {
+		t.Fatalf("bare upper-case digits: %v", err)
+	}
+}

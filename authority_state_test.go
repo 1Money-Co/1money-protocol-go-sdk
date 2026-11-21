@@ -231,33 +231,34 @@ func TestLaneClawbackPayloadUsesTheHoldersNextNonce(t *testing.T) {
 	}
 }
 
-// A node answer names the transaction with the same hash rule as a submit:
-// any case, with "0x", "0X" or no prefix.
+// A node answer names the transaction with the same hash rule as a submit,
+// the pinned Rust build's: a lowercase "0x" or no prefix, digits in any case.
 func TestAReadNamesTheTransactionInAnyHashForm(t *testing.T) {
-	digits := someHash[2:]
-	for _, form := range []string{digits, "0X" + digits, "0x" + strings.ToUpper(digits)} {
+	digits := "ab" + someHash[4:]
+	hash := common.HexToHash("0x" + digits)
+	for _, form := range []string{digits, strings.ToUpper(digits), "0x" + strings.ToUpper(digits)} {
 		node := newMockNode(t)
 		node.setNonces(signerAccount, 9)
-		node.setReceipt(someHash, okJSON(`{"success":true,"transaction_hash":"`+form+`"}`))
-		state, err := node.client().AuthorityOperationState(context.Background(), signerAccount, 5, stateHash)
+		node.setReceipt(hash.Hex(), okJSON(`{"success":true,"transaction_hash":"`+form+`"}`))
+		state, err := node.client().AuthorityOperationState(context.Background(), signerAccount, 5, hash)
 		if err != nil || state.Kind != AuthorityDecided {
 			t.Fatalf("receipt %s: state = %+v, err = %v", form, state, err)
 		}
 
 		node = newMockNode(t)
 		node.setNonces(signerAccount, 9)
-		node.setReceipt(someHash, notFound)
-		node.setTxStatus(someHash, statusReplyFor(form, TransactionStatusCheckpointed))
-		state, err = node.client().AuthorityOperationState(context.Background(), signerAccount, 5, stateHash)
+		node.setReceipt(hash.Hex(), notFound)
+		node.setTxStatus(hash.Hex(), statusReplyFor(form, TransactionStatusCheckpointed))
+		state, err = node.client().AuthorityOperationState(context.Background(), signerAccount, 5, hash)
 		if err != nil || state.Kind != AuthoritySettling {
 			t.Fatalf("status %s: state = %+v, err = %v", form, state, err)
 		}
 	}
-	for _, bad := range []string{someHash[:65], "0x" + strings.Repeat("g", 64)} {
+	for _, bad := range []string{"0X" + digits, "0x" + digits[:63], "0x" + strings.Repeat("g", 64)} {
 		node := newMockNode(t)
 		node.setNonces(signerAccount, 9)
-		node.setReceipt(someHash, okJSON(`{"success":true,"transaction_hash":"`+bad+`"}`))
-		if _, err := node.client().AuthorityOperationState(context.Background(), signerAccount, 5, stateHash); err == nil || !strings.Contains(err.Error(), "not for this transaction") {
+		node.setReceipt(hash.Hex(), okJSON(`{"success":true,"transaction_hash":"`+bad+`"}`))
+		if _, err := node.client().AuthorityOperationState(context.Background(), signerAccount, 5, hash); err == nil || !strings.Contains(err.Error(), "not for this transaction") {
 			t.Fatalf("receipt %s: err = %v", bad, err)
 		}
 	}
