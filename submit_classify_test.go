@@ -268,6 +268,37 @@ func TestATxHashWithout0xStillNamesTheLocalHash(t *testing.T) {
 	}
 }
 
+// One rule for every hash taken from a node answer: 32 bytes of hex, any
+// case, with "0x", "0X" or no prefix (TS sameHash, Rust B256).
+func TestParseHashTakesAnyPrefixAndCase(t *testing.T) {
+	digits := hexOf(ourHash)[2:]
+	for _, s := range []string{"0x" + digits, "0X" + digits, digits, "0x" + strings.ToUpper(digits), "0X" + strings.ToUpper(digits)} {
+		if got, ok := parseHash(s); !ok || got != ourHash {
+			t.Errorf("%q: %x %t", s, got, ok)
+		}
+	}
+	for _, s := range []string{"", "0x", "0x" + digits[2:], "0x" + digits + "11", "0x0x" + digits, "0x" + digits[:63] + "g", " 0x" + digits, "x" + digits} {
+		if got, ok := parseHash(s); ok {
+			t.Errorf("%q parsed as %x", s, got)
+		}
+	}
+}
+
+func TestAnUpperCasePrefixNamesTheLocalHash(t *testing.T) {
+	upperPrefix := "0X" + hexOf(ourHash)[2:]
+	if got := classifyJSON(t, 422, map[string]any{"type": inFlightType, "action": "in_progress", "tx_hash": upperPrefix}); got != outcomeLocked {
+		t.Errorf("tx_hash: %v", got)
+	}
+	if err := checkServerHash(ourHash, upperPrefix); err != nil {
+		t.Errorf("server hash: %v", err)
+	}
+	for _, bad := range []string{"0X" + hexOf(ourHash)[4:], hexOf(anotherHash)} {
+		if err := checkServerHash(ourHash, bad); err == nil {
+			t.Errorf("%q matched", bad)
+		}
+	}
+}
+
 func TestA4xxBodyThatLooksLikeAnObjectButDoesNotParseIsUnknown(t *testing.T) {
 	deep := `{"action":"in_progress","x":` + strings.Repeat("[", 200) + strings.Repeat("]", 200) + `}`
 	for _, body := range []string{deep, `{"action":"in_progress","tx_hash":"0x11`, `{"n":1e400}`, `{"m":"\ud800"}`, `  {`} {

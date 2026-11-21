@@ -179,9 +179,13 @@ func (f bodyFields) isInProgressFor(local common.Hash) bool {
 	return ok && parsed == local
 }
 
-// parseHash reads 32 bytes of hex, with or without 0x, in any case.
+// parseHash is the one rule for a hash in a node answer: 32 bytes of hex, in
+// any case, with "0x", "0X" or no prefix, as the Rust SDK decodes a B256.
 func parseHash(s string) (common.Hash, bool) {
-	decoded, err := hex.DecodeString(strings.TrimPrefix(s, "0x"))
+	if len(s) >= 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X') {
+		s = s[2:]
+	}
+	decoded, err := hex.DecodeString(s)
 	if err != nil || len(decoded) != common.HashLength {
 		return common.Hash{}, false
 	}

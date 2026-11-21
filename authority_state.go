@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -153,7 +152,7 @@ func foundOrNone[T any](result *T, err error, what string, txHash common.Hash) (
 // namesHash refuses a read that answered 200 for another transaction, or with
 // a body that names none (such as {} or null): it is no evidence about txHash.
 func namesHash(answered, what string, txHash common.Hash) error {
-	if !strings.EqualFold(answered, txHash.Hex()) {
+	if parsed, ok := parseHash(answered); !ok || parsed != txHash {
 		return fmt.Errorf("the %s of %s answered for %q, not for this transaction", what, txHash.Hex(), answered)
 	}
 	return nil
