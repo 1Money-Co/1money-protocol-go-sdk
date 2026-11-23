@@ -7,3 +7,7 @@ edition = "2021"
 alloy-primitives = { version = "=1.5.7", default-features = false, features = ["std", "serde"] }
 const-hex = "=1.18.1"
 serde_json = "1"
+
+[[bin]]
+name = "hash-oracle"
+path = "main.rs"
