@@ -61,11 +61,15 @@ type Problem struct {
 	// Instance is the server request ID, "urn:uuid:<id>". Quote it when you
 	// report a problem to a node operator. Empty when missing or not a string.
 	Instance string `json:"-"`
-	// Action is the action member as sent when it is a string, known or not.
-	// Empty when the member is missing or is not a string.
+	// Action is the action member as sent when it is a string, known or not,
+	// and Type is the node's: in its namespace (ProblemTypePrefix) or
+	// "about:blank". Empty when the member is missing or is not a string, and
+	// for any other Type: a proxy or a firewall in front of the node can send
+	// problem details too, and only the node's statement decides.
 	Action ProblemAction `json:"-"`
 	// RawAction is the action member as sent, of any JSON type (for example
-	// null or 42). Nil when the body has no action member. For diagnostics.
+	// null or 42), whatever the Type. Nil when the body has no action member.
+	// For diagnostics only.
 	RawAction json.RawMessage `json:"-"`
 	// Members holds the typed members of the problem type, such as tx_hash,
 	// nonce or retry_after_secs, as sent. It does not hold the members above,
@@ -85,8 +89,10 @@ func ParseProblem(body []byte) Problem {
 		Type:     stringMember(members, "type"),
 		Title:    stringMember(members, "title"),
 		Instance: stringMember(members, "instance"),
-		Action:   ProblemAction(stringMember(members, "action")),
 		Members:  make(map[string]json.RawMessage),
+	}
+	if isNodeStatement(members) {
+		p.Action = ProblemAction(stringMember(members, "action"))
 	}
 	if raw, ok := members["action"]; ok {
 		p.RawAction = raw
@@ -114,8 +120,9 @@ func isJSONNull(raw json.RawMessage) bool {
 }
 
 // HasAction reports whether the body has an action member of any value. When
-// it is true and Action is not known, the node sent an action that this SDK
-// cannot read. On a transaction submission, treat that as ActionCheckStatus.
+// it is true and Action is not known, the action is not the node's or this
+// SDK cannot read it. On a transaction submission, treat that as
+// ActionCheckStatus.
 func (p Problem) HasAction() bool {
 	return p.RawAction != nil
 }

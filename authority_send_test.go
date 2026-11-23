@@ -193,6 +193,19 @@ func TestARetiredLegacyEnvelopeIsReturnedUnlessTheNodeReportsSettled(t *testing.
 	}
 }
 
+// As in the Rust SDK, only a rejected /v2 submit is a refusal of the model: a
+// legacy v1 send is not classified, so its refusal is returned as it is.
+func TestALegacyV1RefusalIsNotSignedAgainAsSettled(t *testing.T) {
+	node := newMockNode(t)
+	node.setStatus(okJSON(`{"envelope_mode":"settled"}`))
+	node.queuePost(endpointTokensPause, retired())
+	_, err := node.client(WithLegacyV1()).Tokens().SendAuthorityOperation(context.Background(), AuthorityEnvelopeLegacy, legacyPause(11), testSigner(t))
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || isRefusal(err, RefusalLegacyEnvelopeRetired) || len(node.postedRequests()) != 1 {
+		t.Fatalf("err %v, posted %d", err, len(node.postedRequests()))
+	}
+}
+
 func TestTheSettledEnvelopeIsRetriedOnceWithAFreshReference(t *testing.T) {
 	referenceRetryDelayForTest(t)
 	notCommitted := problemReply(http.StatusUnprocessableEntity, "reference_checkpoint_not_committed", "retry_later", map[string]any{"checkpoint_id": 1200, "checkpoint_id_latest": 1199})

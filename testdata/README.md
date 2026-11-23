@@ -9,6 +9,7 @@ there is no regeneration step at release time.
 | `native-v2-signing-vectors.json` | The canonical native-v2 envelope for operations 1 to 18: `payload_rlp`, `unsigned_transaction_rlp`, `signing_hash`, `signed_transaction_rlp`, `transaction_hash`. 36 base vectors + 14 supplemental, copied from l1client `4e8acd8b6` `docs/specs/fixtures/native-v2-signing-vectors.json`. |
 | `prepare-authorize-hash-vectors.json` | Extended per-operation coverage for canonical encoding and the public `PrepareTransaction` -> `Authorize` pipeline: structured payloads, submit options, authorization proofs, and expected `signing_hash` / `transaction_hash`. 213 vectors, 43 of them BatchPayment, which additionally carry `expected.operations_hash`. |
 | `multisig-address-vectors.json` | Multisig account address derivation. |
+| `b256-oracle/b256_oracle.tsv` | How the Rust SDK decodes a hash in a node answer: for each input, whether `B256::from_str` and serde decode it, and the hash, as printed by [`b256-oracle/main.rs`](b256-oracle/main.rs) built with alloy-primitives 1.5.7 and const-hex 1.18.1, the versions in l1client `dc5cffa0b` `Cargo.lock`. To regenerate, copy that `Cargo.lock` next to [`b256-oracle/Cargo.toml`](b256-oracle/Cargo.toml), run `cargo run --offline`, and check that the lockfile still names those two versions. |
 
 ## The one rule
 

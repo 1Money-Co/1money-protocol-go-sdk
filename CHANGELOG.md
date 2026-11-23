@@ -4,6 +4,80 @@ All notable changes to the 1Money Protocol Go SDK are documented here. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+The Go SDK now follows the Rust SDK (`onemoney-protocol`, l1client
+`crates/om-sdk` at
+[`dc5cffa0b`](https://github.com/1Money-Co/l1client/tree/dc5cffa0b7f07373802193f41033aa008d78d9ad))
+for submit outcomes and problem details
+([#28](https://github.com/1Money-Co/1money-protocol-go-sdk/issues/28)). A
+difference between the two SDKs is a defect of the Go SDK.
+
+### Added
+
+- **Submit outcomes**: every `/v2` submit that does not admit the transaction
+  under its local hash returns a `*SubmitError` with a `Kind`
+  (`SubmitRejected`, `SubmitLocked`, `SubmitOutcomeUnknown`,
+  `SubmitHashMismatch`), `RequestHadNoEffect`, `NonceUsed`, `Refusal`, the
+  signed `Transaction` to resend, and the `Answer`. Only the node's no-effect
+  action rejects, and only its `in_progress` for this hash locks; every other
+  answer is unknown.
+
+### Changed (behavior)
+
+- A `/v2` submit error is a `*SubmitError` that wraps the `*APIError` of the
+  answer. `errors.As(err, &apiErr)` still works; a type assertion
+  `err.(*APIError)` no longer matches.
+- A transaction hash mismatch is a `*SubmitError` of kind `SubmitHashMismatch`,
+  not a plain error.
+- Every hash in a node answer (the submit `hash`, the `tx_hash` of
+  `in_progress`, and the hash in a receipt or a status that
+  `AuthorityOperationState` and `LaneClawbackFate` read) follows one rule, the
+  Rust SDK's (`B256` with const-hex 1.18.1): 32 bytes of hex, digits in any
+  case, with a lowercase `0x` or no prefix. `0X` is refused. Before, the reads
+  needed `0x`.
+- A 2xx accepted body that does not decode is `SubmitOutcomeUnknown`, not a
+  decode error.
+- The default HTTP client no longer follows redirects, for every request, as
+  in the Rust SDK: the node never redirects, and a followed redirect turns a
+  POST into a GET. A redirect answer is returned as it is (a `*SubmitError`
+  of kind `SubmitOutcomeUnknown` on a submit, an `*APIError` on a read). With a
+  client from `WithHTTPClient` that follows redirects, a submit answered after
+  any redirect, also one back to the same URL, is `SubmitOutcomeUnknown`.
+- Any 2xx answer is a success, for a submit and for every other GET and POST.
+  Before, only 200 was.
+- `Problem.Action` is empty unless the `type` is in the node's namespace or is
+  `about:blank`; `RawAction` keeps the member as sent.
+- `AuthorityRefusalOf` reads only a rejected submit (a no-effect action of the
+  node), at any HTTP status. A `*APIError` alone, for example of a legacy v1
+  send, is no longer a refusal, so `WithLegacyV1` no longer signs a retired
+  legacy envelope again as settled.
+- `AuthorityOperationState` and `LaneClawbackFate`: a 404 with the node's
+  `retry_later` is a read error, not an absent record.
+
+### Deprecated
+
+- `Problem.IsKnownType` is true for any type in the node's namespace, also one
+  newer than the SDK. The pinned copy of the node's catalog is removed.
+
+### Upgrade notes
+
+The exported API only gains names, so your code compiles as before. Check
+these three behavior changes before you upgrade:
+
+1. **Submit errors are `*SubmitError`.** Find every type assertion
+   `err.(*onemoney.APIError)` (or a type switch case `*onemoney.APIError`) on
+   the error of a `/v2` submit. It still compiles, but it no longer matches at
+   run time, so that branch stops running. Use `errors.As(err, &apiErr)`, or
+   better, decide on `SubmitError.Kind` and `RequestHadNoEffect()`.
+2. **Any 2xx is a success.** A 201, 202 or 204 is no longer an `*APIError`. A
+   submit answered 2xx with the local hash succeeds.
+3. **No redirects.** The default HTTP client does not follow redirects. If your
+   base URL redirects (for example `http://` to `https://`), every request
+   returns the redirect status as an error. Configure the final `https://` URL.
+   If you pass your own client with `WithHTTPClient`, a submit answered after a
+   redirect is `SubmitOutcomeUnknown`.
+
 ## [1.5.0] - 2026-11-16
 
 Support for the l1client token authority model

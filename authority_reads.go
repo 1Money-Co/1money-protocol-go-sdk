@@ -217,15 +217,19 @@ type AuthorityRefusal struct {
 }
 
 // AuthorityRefusalOf reads err as one of the five refusals of the token
-// authority model. Only a 4xx *APIError of a type in this SDK's catalog
-// counts; anything else, such as a transport error, returns false.
+// authority model. Only a rejected submit counts (a *SubmitError whose
+// RequestHadNoEffect, so the node's action proved that the request had no
+// effect) with a type of the node's namespace; anything else, such as an
+// *APIError of a legacy v1 send, returns false.
 func AuthorityRefusalOf(err error) (*AuthorityRefusal, bool) {
-	var apiErr *APIError
-	if !errors.As(err, &apiErr) || apiErr.StatusCode < 400 || apiErr.StatusCode >= 500 || !apiErr.IsKnownType() {
+	var submitErr *SubmitError
+	if !errors.As(err, &submitErr) || !submitErr.RequestHadNoEffect() || submitErr.apiErr == nil {
 		return nil, false
 	}
-	kind := AuthorityRefusalKind(strings.TrimPrefix(apiErr.Type, ProblemTypePrefix))
-	if !authorityRefusalKinds[kind] {
+	apiErr := submitErr.apiErr
+	id, inNamespace := strings.CutPrefix(apiErr.Type, ProblemTypePrefix)
+	kind := AuthorityRefusalKind(id)
+	if !inNamespace || !authorityRefusalKinds[kind] {
 		return nil, false
 	}
 	refusal := &AuthorityRefusal{Kind: kind, Err: apiErr}

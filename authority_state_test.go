@@ -111,6 +111,8 @@ func TestAuthorityOperationStateErrorsOnAReadItCannotUse(t *testing.T) {
 		{"receipt does not decode", okJSON(`{"success":"maybe"}`), notFound},
 		{"status read fails", notFound, mockReply{status: http.StatusServiceUnavailable, body: `{}`}},
 		{"unknown status", notFound, statusReply("evicted")},
+		{"receipt read throttled with a 404", problemReply(http.StatusNotFound, "future_kind", "retry_later", nil), notFound},
+		{"status read throttled with a 404", notFound, problemReply(http.StatusNotFound, "future_kind", "retry_later", nil)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -226,6 +228,39 @@ func TestLaneClawbackPayloadUsesTheHoldersNextNonce(t *testing.T) {
 	node.setNonces(newcomer, 0)
 	if _, err := node.client().LaneClawbackPayload(context.Background(), 1212101, repeatAddr(1), newcomer, repeatAddr(3), big.NewInt(1)); err == nil || !strings.Contains(err.Error(), "no lane yet") {
 		t.Fatalf("holder without a lane: %v", err)
+	}
+}
+
+// A node answer names the transaction with the same hash rule as a submit,
+// the pinned Rust build's: a lowercase "0x" or no prefix, digits in any case.
+func TestAReadNamesTheTransactionInAnyHashForm(t *testing.T) {
+	digits := "ab" + someHash[4:]
+	hash := common.HexToHash("0x" + digits)
+	for _, form := range []string{digits, strings.ToUpper(digits), "0x" + strings.ToUpper(digits)} {
+		node := newMockNode(t)
+		node.setNonces(signerAccount, 9)
+		node.setReceipt(hash.Hex(), okJSON(`{"success":true,"transaction_hash":"`+form+`"}`))
+		state, err := node.client().AuthorityOperationState(context.Background(), signerAccount, 5, hash)
+		if err != nil || state.Kind != AuthorityDecided {
+			t.Fatalf("receipt %s: state = %+v, err = %v", form, state, err)
+		}
+
+		node = newMockNode(t)
+		node.setNonces(signerAccount, 9)
+		node.setReceipt(hash.Hex(), notFound)
+		node.setTxStatus(hash.Hex(), statusReplyFor(form, TransactionStatusCheckpointed))
+		state, err = node.client().AuthorityOperationState(context.Background(), signerAccount, 5, hash)
+		if err != nil || state.Kind != AuthoritySettling {
+			t.Fatalf("status %s: state = %+v, err = %v", form, state, err)
+		}
+	}
+	for _, bad := range []string{"0X" + digits, "0x" + digits[:63], "0x" + strings.Repeat("g", 64)} {
+		node := newMockNode(t)
+		node.setNonces(signerAccount, 9)
+		node.setReceipt(hash.Hex(), okJSON(`{"success":true,"transaction_hash":"`+bad+`"}`))
+		if _, err := node.client().AuthorityOperationState(context.Background(), signerAccount, 5, hash); err == nil || !strings.Contains(err.Error(), "not for this transaction") {
+			t.Fatalf("receipt %s: err = %v", bad, err)
+		}
 	}
 }
 
