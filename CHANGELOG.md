@@ -4,7 +4,7 @@ All notable changes to the 1Money Protocol Go SDK are documented here. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.6.0] - 2026-11-23
 
 The Go SDK now follows the Rust SDK (`onemoney-protocol`, l1client
 `crates/om-sdk` at
